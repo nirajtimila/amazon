@@ -6,12 +6,16 @@ const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DATA_DIR = path.join(__dirname, 'data');
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const DB_FILE = path.join(DATA_DIR, 'database.json');
 
-// Ensure persistent data directory exists
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Ensure persistent data directory exists safely
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+} catch (err) {
+  console.warn('[DB] Notice on data directory:', err.message);
 }
 
 // Default Database Structure
@@ -71,9 +75,11 @@ function loadDb() {
       return JSON.parse(raw);
     }
   } catch (err) {
-    console.error('[DB] Error reading database.json, initializing default:', err.message);
+    console.warn('[DB] Notice reading database.json:', err.message);
   }
-  saveDb(DEFAULT_DB);
+  try {
+    saveDb(DEFAULT_DB);
+  } catch (err) {}
   return DEFAULT_DB;
 }
 

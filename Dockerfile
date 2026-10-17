@@ -7,6 +7,9 @@ RUN apk add --no-cache chromium nss freetype harfbuzz ttf-freefont
 ENV CHROME_BIN=/usr/bin/chromium-browser
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 
+# Set working directory to /app
+WORKDIR /app
+
 # Install dependencies
 COPY package*.json ./
 RUN npm install --omit=dev
@@ -16,14 +19,12 @@ COPY public/ ./public/
 COPY server.js ./
 
 # Create data directory for persistent database
-RUN mkdir -p /app/data && chown -R node:node /app
-
-# Run as non-root node user for container security
-USER node
+RUN mkdir -p /app/data && chmod -R 777 /app/data
 
 # Environment defaults
 ENV PORT=3000
 ENV NODE_ENV=production
+ENV DATA_DIR=/app/data
 
 # Expose web server port
 EXPOSE 3000

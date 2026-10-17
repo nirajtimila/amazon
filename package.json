@@ -8,7 +8,6 @@
     "dev": "node --watch server.js"
   },
   "dependencies": {
-    "amazon-warehouse-hunter": "file:",
     "cheerio": "^1.0.0-rc.12",
     "express": "^4.19.2"
   },
