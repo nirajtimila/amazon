@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Amazon Warehouse Deal Hunter</title>
+  <link rel="stylesheet" href="app.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Top Navigation Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <div class="logo-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+            <line x1="12" y1="22.08" x2="12" y2="12"></line>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-title">Warehouse<span class="highlight">Hunter</span></div>
+          <div class="brand-tagline">Amazon Resale & Deep Discount Scanner</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="status-indicator online" id="serverStatus">
+          <span class="status-dot"></span>
+          <span id="serverStatusText">Backend Online</span>
+        </div>
+        <button class="btn btn-primary" id="watchlistModalBtn" style="display: flex; align-items: center; gap: 6px;">
+          <span>🎯 Watchlist Sniper</span>
+          <span class="badge-pill" id="watchlistCountBadge" style="background: rgba(0,0,0,0.3); padding: 2px 7px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">3</span>
+        </button>
+        <button class="btn btn-secondary" id="savedDrawerBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+          </svg>
+          Saved Deals (<span id="savedCount">0</span>)
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-content">
+      <!-- Control / Filter Card -->
+      <section class="control-panel card">
+        <div class="panel-header">
+          <h2>Hunt Deep Amazon & Warehouse Discounts</h2>
+          <p>Scan 60%–90% off deals on Amazon Warehouse (open-box) & Normal Amazon (brand new)</p>
+        </div>
+
+        <!-- Store Selection Segmented Control -->
+        <div class="store-selector-group">
+          <label class="section-label">1. Choose Store Source:</label>
+          <div class="segmented-store-pills" id="storeSelector">
+            <div class="store-pill active" data-store="warehouse">
+              <span class="pill-icon">📦</span>
+              <div class="pill-text">
+                <strong>Amazon Warehouse</strong>
+                <small>Open-Box & Pre-owned Deals</small>
+              </div>
+            </div>
+            <div class="store-pill" data-store="normal">
+              <span class="pill-icon">🛒</span>
+              <div class="pill-text">
+                <strong>Normal Amazon</strong>
+                <small>Brand New Deep Discounts</small>
+              </div>
+            </div>
+            <div class="store-pill" data-store="both">
+              <span class="pill-icon">⚡</span>
+              <div class="pill-text">
+                <strong>Both (All Deals)</strong>
+                <small>Warehouse & Normal Combined</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <!-- Keyword input -->
+          <div class="form-group">
+            <label for="keywordInput">Keyword / Product (Optional)</label>
+            <div class="input-with-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" id="keywordInput" placeholder="e.g. Headphones, Monitor, Apple...">
+            </div>
+          </div>
+
+          <!-- Category -->
+          <div class="form-group">
+            <label for="categorySelect">Department / Category</label>
+            <select id="categorySelect">
+              <option value="sweep_all">⚡ Deep Sweep (All Categories Combined - 1,500+ Deals)</option>
+              <option value="all" selected>All Categories (Fast Scan - ~300 Deals)</option>
+              <option value="electronics">Electronics (TV, Audio, Camera)</option>
+              <option value="pc">Computers & Tablets</option>
+              <option value="kitchen">Home & Kitchen</option>
+              <option value="hi">Tools & Home Improvement</option>
+              <option value="videogames">Video Games & Consoles</option>
+              <option value="sporting">Sports & Outdoors</option>
+              <option value="toys-and-games">Toys & Games</option>
+              <option value="beauty">Beauty & Personal Care</option>
+              <option value="stripbooks">Books</option>
+              <option value="automotive">Automotive</option>
+              <option value="pets">Pet Supplies</option>
+              <option value="office-products">Office Products</option>
+            </select>
+          </div>
+
+          <!-- Amazon Region / Domain -->
+          <div class="form-group">
+            <label for="domainSelect">Amazon Marketplace</label>
+            <select id="domainSelect">
+              <option value="amazon.com.au" selected>🇦🇺 Amazon Australia (AUD $)</option>
+              <option value="amazon.co.jp">🇯🇵 Amazon Japan (JPY ¥)</option>
+              <option value="amazon.com">🇺🇸 Amazon US (USD $)</option>
+              <option value="amazon.co.uk">🇬🇧 Amazon UK (GBP £)</option>
+              <option value="amazon.ca">🇨🇦 Amazon Canada (CAD $)</option>
+              <option value="amazon.de">🇩🇪 Amazon Germany (EUR €)</option>
+            </select>
+          </div>
+
+          <!-- Display Currency -->
+          <div class="form-group">
+            <label for="currencySelect">Display Currency</label>
+            <select id="currencySelect">
+              <option value="AUD" selected>🇦🇺 AUD ($) - Australian Dollar</option>
+              <option value="USD">🇺🇸 USD ($) - US Dollar</option>
+              <option value="JPY">🇯🇵 JPY (¥) - Japanese Yen</option>
+              <option value="GBP">🇬🇧 GBP (£) - British Pound</option>
+              <option value="EUR">🇪🇺 EUR (€) - Euro</option>
+              <option value="CAD">🇨🇦 CAD ($) - Canadian Dollar</option>
+              <option value="ORIGINAL">🌐 Store Default Currency</option>
+            </select>
+          </div>
+
+          <!-- Discount Range Presets & Sliders -->
+          <div class="form-group span-2">
+            <div class="label-row">
+              <label>Discount Range: <span class="range-display" id="discountDisplay">60% – 90%</span></label>
+              <div class="presets-row">
+                <button type="button" class="preset-pill active" data-min="60" data-max="90">60%–90%</button>
+                <button type="button" class="preset-pill" data-min="70" data-max="95">70%–95%</button>
+                <button type="button" class="preset-pill" data-min="80" data-max="99">80%+</button>
+                <button type="button" class="preset-pill" data-min="50" data-max="80">50%–80%</button>
+              </div>
+            </div>
+
+            <div class="dual-range-container">
+              <input type="range" id="minDiscountSlider" min="10" max="99" value="60" step="5">
+              <input type="range" id="maxDiscountSlider" min="10" max="99" value="90" step="5">
+            </div>
+          </div>
+
+          <!-- Price Range Filter -->
+          <div class="form-group span-2">
+            <div class="label-row">
+              <label>Price Range (<span id="priceCurrencySymbol">AUD $</span>)</label>
+              <div class="presets-row">
+                <button type="button" class="price-preset-pill active" data-min="0" data-max="0">Any</button>
+                <button type="button" class="price-preset-pill" data-min="0" data-max="50">&lt; $50</button>
+                <button type="button" class="price-preset-pill" data-min="50" data-max="200">$50–$200</button>
+                <button type="button" class="price-preset-pill" data-min="200" data-max="800">$200–$800</button>
+              </div>
+            </div>
+            <div class="price-input-group">
+              <div class="price-field">
+                <span class="currency-tag" id="minCurrencyTag">$</span>
+                <input type="number" id="minPriceInput" placeholder="Min" min="0" step="1">
+                <span class="field-sublabel">MIN</span>
+              </div>
+              <div class="price-separator">
+                <span>to</span>
+              </div>
+              <div class="price-field">
+                <span class="currency-tag" id="maxCurrencyTag">$</span>
+                <input type="number" id="maxPriceInput" placeholder="Max" min="0" step="1">
+                <span class="field-sublabel">MAX</span>
+              </div>
+              <button type="button" class="price-clear-btn" id="priceClearBtn" title="Reset price filter">✕</button>
+            </div>
+          </div>
+
+          <!-- Warehouse Condition -->
+          <div class="form-group">
+            <label for="conditionSelect">Warehouse Condition</label>
+            <select id="conditionSelect">
+              <option value="all" selected>All Conditions</option>
+              <option value="like-new">✨ Like New (Open Box / Mint)</option>
+              <option value="very-good">👍 Very Good</option>
+              <option value="good">👌 Good</option>
+              <option value="acceptable">📦 Acceptable</option>
+            </select>
+          </div>
+
+          <!-- Negative Keywords (Spam / Accessory Filter) -->
+          <div class="form-group span-2">
+            <div class="label-row">
+              <label for="negKeywordsInput">🚫 Exclude Keywords (Spam Filter)</label>
+              <button type="button" class="action-pill" id="junkBlockerToggleBtn">+ Auto-Block Junk Accessories</button>
+            </div>
+            <div class="input-with-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
+              </svg>
+              <input type="text" id="negKeywordsInput" placeholder="e.g. case, cover, strap, cable, protector, replacement, holder...">
+            </div>
+          </div>
+
+          <!-- Sort -->
+          <div class="form-group">
+            <label for="sortSelect">Sort Results</label>
+            <select id="sortSelect">
+              <option value="date-desc-rank" selected>✨ Newest Arrivals (Just Listed First)</option>
+              <option value="">Featured / Best Deals</option>
+              <option value="price-asc-rank">Price: Low to High</option>
+              <option value="price-desc-rank">Price: High to Low</option>
+              <option value="review-rank">Customer Rating</option>
+            </select>
+          </div>
+
+          <!-- Scan Depth (Pages) -->
+          <div class="form-group">
+            <label for="pagesSelect">Pages to Scan</label>
+            <select id="pagesSelect">
+              <option value="all" selected>♾️ Scan All Pages (Scan Until End)</option>
+              <option value="1">1 Page (~24 deals)</option>
+              <option value="2">2 Pages (~50 deals)</option>
+              <option value="5">5 Pages (~120 deals)</option>
+              <option value="10">10 Pages (~250 deals)</option>
+              <option value="20">20 Pages (~500 deals)</option>
+              <option value="50">50 Pages (~1,200 deals)</option>
+            </select>
+          </div>
+
+          <!-- Inventory & Auto-Check Controls -->
+          <div class="form-group">
+            <label>Inventory & Refresh</label>
+            <div class="inventory-controls-box">
+              <label for="inStockOnly" class="checkbox-label" title="Only show products currently in stock">
+                <input type="checkbox" id="inStockOnly" checked>
+                <span>In Stock Only</span>
+              </label>
+              <div class="auto-refresh-inline" title="Periodic automatic check">
+                <span>🔔</span>
+                <select id="autoRefreshSelect">
+                  <option value="0" selected>Off</option>
+                  <option value="2">2 min</option>
+                  <option value="5">5 min</option>
+                  <option value="10">10 min</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Action Buttons Group -->
+          <div class="form-group span-2 action-buttons-group">
+            <div class="btn-row" style="margin-top: auto;">
+              <button class="btn btn-primary" id="searchBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                </svg>
+                Hunt Deep Deals
+              </button>
+              <a href="https://www.amazon.com.au/s?i=warehouse-deals&pct-off=60-90&rh=p_n_availability%3A4910513051" target="_blank" rel="noopener noreferrer" class="btn btn-outline" id="openDirectBtn" style="text-decoration: none;" title="Directly opens the filtered Amazon search page in a new tab">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+                Open in Amazon ↗
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generated URL preview pill -->
+        <div class="url-preview-bar">
+          <span class="preview-label">Live Filter Target:</span>
+          <span class="preview-url" id="targetUrlText">https://www.amazon.com.au/s?i=warehouse-deals&pct-off=60-90&rh=p_n_availability%3A4910513051</span>
+          <button class="btn-icon" id="copyUrlBtn" title="Copy URL">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- Results Stats & Filter Bar -->
+      <section class="results-meta card" id="resultsMeta" style="display: none;">
+        <div class="meta-left">
+          <span class="results-count" id="resultsCount">Found 0 items</span>
+          <span class="meta-badge" id="filterSummaryBadge">Warehouse Deals (60-90% off)</span>
+          <span class="meta-badge" id="inventoryNoteBadge" style="display: none; background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3);"></span>
+          <div class="filter-tabs-row" id="filterTabsRow">
+            <button type="button" class="filter-tab-pill active" id="tabAllDeals">All Deals (<span id="countAllDeals">0</span>)</button>
+            <button type="button" class="filter-tab-pill" id="tabJustListed">✨ Just Listed (<span id="countJustListed">0</span>)</button>
+            <button type="button" class="filter-tab-pill" id="tabSnipedDeals">🎯 Sniped Matches (<span id="countSnipedDeals">0</span>)</button>
+          </div>
+        </div>
+        <div class="meta-right">
+          <button class="btn btn-sm btn-ghost" id="exportCsvBtn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Export CSV
+          </button>
+        </div>
+      </section>
+
+      <!-- Progressive Scan Progress Banner -->
+      <div class="scan-progress-banner" id="scanBanner" style="display: none;">
+        <span id="scanBannerText">🔄 Scanning Page 1... (Found 0 deals)</span>
+        <button type="button" class="stop-scan-btn" id="stopScanBtn">⏹️ Stop Scanning</button>
+      </div>
+
+      <!-- Deals Grid Container -->
+      <section class="deals-grid" id="dealsGrid">
+        <!-- Default State: Quick Picks -->
+        <div class="empty-state card">
+          <div class="empty-icon">🏷️</div>
+          <h3>Ready to Hunt Extreme 60%–90% Deals</h3>
+          <p>Select <strong>Amazon Warehouse</strong> or <strong>Normal Amazon</strong>, pick a category, and click <strong>"Hunt Deep Deals"</strong>. Or click <strong>"Open in Amazon"</strong> to jump directly into the live Amazon store.</p>
+          <div class="quick-keywords">
+            <span>Popular searches:</span>
+            <button class="keyword-chip" data-q="Headphones">🎧 Headphones</button>
+            <button class="keyword-chip" data-q="Monitor">🖥️ Monitors</button>
+            <button class="keyword-chip" data-q="Laptop">💻 Laptops</button>
+            <button class="keyword-chip" data-q="Vacuum">🧹 Vacuums</button>
+            <button class="keyword-chip" data-q="Tools">🔨 Power Tools</button>
+            <button class="keyword-chip" data-q="Apple">🍎 Apple</button>
+            <button class="keyword-chip" data-q="Coffee">☕ Coffee Makers</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Load More Container -->
+      <div id="loadMoreContainer" style="display: none; text-align: center; margin-top: 1.5rem;">
+        <button class="btn btn-secondary" id="loadMoreBtn" style="min-width: 240px; padding: 12px 24px; font-weight: 700;">
+          ⬇️ Load Next Page (+24 Deals)
+        </button>
+      </div>
+    </main>
+
+    <!-- Watchlist / Sniping Modal Dialog -->
+    <div class="modal-overlay" id="watchlistModal" style="display: none;">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>🎯 Persistent Watchlist & Sniping List</h3>
+          <button class="btn-icon" id="closeWatchlistModalBtn">✕</button>
+        </div>
+        <div class="modal-body">
+          <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
+            Save high-value target items you want to hunt across Amazon. Run the <strong>Sniper</strong> to scan all targets and alert you when an item drops under your price!
+          </p>
+
+          <!-- Add New Target Form -->
+          <div class="watchlist-add-form">
+            <h4>➕ Add Target Keyword to Watchlist</h4>
+            <div class="watchlist-grid-inputs">
+              <div>
+                <label style="font-size: 0.78rem;">Target Keyword</label>
+                <input type="text" id="watchKeywordInput" placeholder="e.g. Sony WH-1000XM5, RTX 4080...">
+              </div>
+              <div>
+                <label style="font-size: 0.78rem;">Category</label>
+                <select id="watchCategorySelect" style="font-size: 0.85rem;">
+                  <option value="all">All Categories</option>
+                  <option value="electronics">Electronics</option>
+                  <option value="pc">Computers & Tablets</option>
+                  <option value="kitchen">Home & Kitchen</option>
+                  <option value="hi">Tools</option>
+                  <option value="videogames">Video Games</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 0.78rem;">Max Price ($)</label>
+                <input type="number" id="watchMaxPriceInput" placeholder="e.g. 280" min="0">
+              </div>
+              <div>
+                <label style="font-size: 0.78rem;">Min Off (%)</label>
+                <input type="number" id="watchMinDiscountInput" placeholder="30" min="10" max="95" value="30">
+              </div>
+              <button class="btn btn-primary" id="addWatchTargetBtn" style="padding: 9px 16px;">Add Target</button>
+            </div>
+          </div>
+
+          <!-- Watchlist Items List -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 8px;">
+            <h4 style="font-size: 1rem;">Active Watchlist Targets (<span id="watchTargetCount">0</span>)</h4>
+            <button class="btn btn-primary" id="runSniperScanBtn" style="display: flex; align-items: center; gap: 6px;">
+              <span>🎯 Run Watchlist Sniper Scan</span>
+            </button>
+          </div>
+          <div id="watchlistItemsContainer">
+            <!-- Dynamic targets rendered here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Saved Deals Drawer Modal -->
+    <div class="drawer-backdrop" id="savedBackdrop">
+      <div class="drawer" id="savedDrawer">
+        <div class="drawer-header">
+          <h3>Saved Deals</h3>
+          <button class="btn-icon" id="closeDrawerBtn">✕</button>
+        </div>
+        <div class="drawer-content" id="savedList">
+          <div class="drawer-empty">No saved deals yet. Click the heart icon on any product to save it here!</div>
+        </div>
+        <div class="drawer-footer">
+          <button class="btn btn-danger btn-sm" id="clearSavedBtn">Clear All Saved</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

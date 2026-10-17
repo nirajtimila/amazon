@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Local Environment & Secrets
+.env
+.env.local
+
+# Database & Runtime Data (persisted via Docker volumes)
+data/*.db
+data/*.sqlite
+data/*.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS Files
+.DS_Store
+Thumbs.db

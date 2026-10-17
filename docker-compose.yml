@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # 🎯 Amazon Warehouse Hunter Application
+  warehouse-hunter:
+    # Pull pre-built image from GitHub Container Registry (built automatically by GitHub Actions)
+    image: ghcr.io/nirajtimila/amazon:latest
+    # Or build directly from source on TrueNAS:
+    build: .
+    container_name: warehouse-hunter
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Persistent database volume (survives all updates, redeploys, and reboots)
+      - ./data:/app/data
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      # Optional Notification Webhooks (uncomment and fill to receive phone alerts)
+      # - DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+      # - TELEGRAM_BOT_TOKEN=123456789:ABC...
+      # - TELEGRAM_CHAT_ID=-100123456789
+    labels:
+      # Tells Watchtower to auto-update this container whenever you push to GitHub
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  # 🔄 Watchtower: Autonomous Auto-Updater Daemon
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: warehouse-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # Automatically delete old images after updating to save NAS disk space
+      - WATCHTOWER_CLEANUP=true
+      # Check GitHub Container Registry for new updates every 5 minutes (300 seconds)
+      - WATCHTOWER_POLL_INTERVAL=300
+      # Only auto-update containers explicitly enabled with the label above
+      - WATCHTOWER_LABEL_ENABLE=true
