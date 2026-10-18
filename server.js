@@ -707,6 +707,7 @@ app.get('/api/health', (req, res) => {
 app.get('/api/db/deals', (req, res) => {
   const {
     timeWindow = 'all', // '1h', '2h', '6h', '12h', '24h', 'all'
+    storeType = 'both', // 'warehouse', 'normal', 'both'
     category = 'all',
     minDiscount = 0,
     maxDiscount = 100,
@@ -735,8 +736,16 @@ app.get('/api/db/deals', (req, res) => {
 
   // Compute live stats for quick pill counts
   let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0;
+  let totalWarehouse = 0, totalNormal = 0;
   for (const d of allDeals) {
     if (d.status === 'sold_out') continue;
+    if (d.store === 'Normal Amazon') totalNormal++;
+    else totalWarehouse++;
+
+    // If store filter is active, only count matches for that store
+    if (storeType === 'warehouse' && d.store === 'Normal Amazon') continue;
+    if (storeType === 'normal' && d.store !== 'Normal Amazon') continue;
+
     const age = now - (d.firstSeenAt || d.lastSeenAt || now);
     if (age <= 1 * 3600000) count1h++;
     if (age <= 2 * 3600000) count2h++;
@@ -750,6 +759,10 @@ app.get('/api/db/deals', (req, res) => {
 
   let filtered = allDeals.filter(d => {
     if (d.status === 'sold_out') return false;
+
+    // Store type filter (Warehouse vs Normal Amazon vs Both)
+    if (storeType === 'warehouse' && d.store === 'Normal Amazon') return false;
+    if (storeType === 'normal' && d.store !== 'Normal Amazon') return false;
 
     // Time window filter
     if (windowMs > 0) {
@@ -825,6 +838,8 @@ app.get('/api/db/deals', (req, res) => {
     products,
     stats: {
       totalInDb: allDeals.length,
+      warehouseDeals: totalWarehouse,
+      normalDeals: totalNormal,
       last1h: count1h,
       last2h: count2h,
       last6h: count6h,
@@ -840,8 +855,16 @@ app.get('/api/db/deals', (req, res) => {
 
 // Crawler Status Endpoint
 app.get('/api/db/status', (req, res) => {
+  const all = Object.values(db.crawledDeals || {});
+  let whCount = 0, normCount = 0;
+  for (const d of all) {
+    if (d.store === 'Normal Amazon') normCount++;
+    else whCount++;
+  }
   res.json({
-    totalDeals: Object.keys(db.crawledDeals || {}).length,
+    totalDeals: all.length,
+    warehouseDeals: whCount,
+    normalDeals: normCount,
     crawler: db.crawler || {}
   });
 });
@@ -1036,7 +1059,7 @@ async function checkWatchlistMatch(item) {
   }
 }
 
-async function runAutonomousCrawler(maxPagesPerDept = 6) {
+async function runAutonomousCrawler(maxPagesPerDept = 4) {
   if (crawlerRunning) {
     console.log('[CRAWLER] Crawler already running. Skipping.');
     return { skipped: true };
@@ -1048,70 +1071,79 @@ async function runAutonomousCrawler(maxPagesPerDept = 6) {
   saveDb(db);
 
   const startTime = Date.now();
-  console.log(`[CRAWLER] 🚀 Starting automated warehouse crawler sweep (depth: ${maxPagesPerDept} pages/dept across 9 departments)...`);
+  console.log(`[CRAWLER] 🚀 Starting dual crawler sweep (Warehouse + Normal Retail clearance) across 9 departments (depth: ${maxPagesPerDept} pages/dept)...`);
   let totalScanned = 0;
   let newAdded = 0;
   let priceDrops = 0;
   const domain = db.settings.defaultDomain || 'amazon.com.au';
 
+  const storesToCrawl = [
+    { type: 'warehouse', label: '📦 Warehouse' },
+    { type: 'normal', label: '🛒 Normal Amazon' }
+  ];
+
   try {
-    for (let i = 0; i < CRAWLER_DEPARTMENTS.length; i++) {
-      const dept = CRAWLER_DEPARTMENTS[i];
+    for (const store of storesToCrawl) {
+      for (let i = 0; i < CRAWLER_DEPARTMENTS.length; i++) {
+        const dept = CRAWLER_DEPARTMENTS[i];
 
-      for (let p = 1; p <= maxPagesPerDept; p++) {
-        db.crawler.currentStep = `${dept.name} (p.${p}/${maxPagesPerDept} • Dept ${i + 1}/9)`;
-        try {
-          const res = await scrapeAmazonStore({
-            storeType: 'warehouse',
-            category: dept.id,
-            minDiscount: 20,
-            maxDiscount: 99,
-            domain,
-            sort: 'date-desc-rank',
-            page: p,
-            availableOnly: true
-          });
+        for (let p = 1; p <= maxPagesPerDept; p++) {
+          db.crawler.currentStep = `${store.label}: ${dept.name} (p.${p}/${maxPagesPerDept} • Dept ${i + 1}/9)`;
+          try {
+            const res = await scrapeAmazonStore({
+              storeType: store.type,
+              category: dept.id,
+              minDiscount: 20,
+              maxDiscount: 99,
+              domain,
+              sort: 'date-desc-rank',
+              page: p,
+              availableOnly: true
+            });
 
-          const items = res.items || [];
-          totalScanned += items.length;
+            const items = res.items || [];
+            totalScanned += items.length;
 
-          for (const item of items) {
-            item.category = dept.id;
-            const numericPrice = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
-            item.numericPrice = numericPrice;
-            item.domain = domain;
+            for (const item of items) {
+              item.category = dept.id;
+              const numericPrice = parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+              item.numericPrice = numericPrice;
+              item.domain = domain;
+              item.store = store.type === 'warehouse' ? 'Amazon Warehouse' : 'Normal Amazon';
 
-            if (!db.crawledDeals[item.asin]) {
-              item.firstSeenAt = Date.now();
-              item.lastSeenAt = Date.now();
-              item.status = 'active';
-              db.crawledDeals[item.asin] = item;
-              newAdded++;
-              await checkWatchlistMatch(item);
-            } else {
-              const existing = db.crawledDeals[item.asin];
-              existing.lastSeenAt = Date.now();
-              existing.status = 'active';
+              if (!db.crawledDeals[item.asin]) {
+                item.firstSeenAt = Date.now();
+                item.lastSeenAt = Date.now();
+                item.status = 'active';
+                db.crawledDeals[item.asin] = item;
+                newAdded++;
+                await checkWatchlistMatch(item);
+              } else {
+                const existing = db.crawledDeals[item.asin];
+                existing.lastSeenAt = Date.now();
+                existing.status = 'active';
+                existing.store = item.store;
 
-              if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
-                existing.previousPrice = existing.price;
-                existing.price = item.price;
-                existing.numericPrice = numericPrice;
-                existing.discountPercent = item.discountPercent;
-                existing.priceDropAt = Date.now();
-                priceDrops++;
-                console.log(`[CRAWLER] 🔥 Price drop on ${item.asin}: ${existing.previousPrice} -> ${item.price}`);
+                if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
+                  existing.previousPrice = existing.price;
+                  existing.price = item.price;
+                  existing.numericPrice = numericPrice;
+                  existing.discountPercent = item.discountPercent;
+                  existing.priceDropAt = Date.now();
+                  priceDrops++;
+                  console.log(`[CRAWLER] 🔥 Price drop on ${item.asin}: ${existing.previousPrice} -> ${item.price}`);
+                }
               }
             }
-          }
 
-          if (!res.hasNextPage || items.length === 0) break;
-          await new Promise(r => setTimeout(r, 1500));
-        } catch (pageErr) {
-          console.warn(`[CRAWLER] Page error in ${dept.name} p.${p}:`, pageErr.message);
+            if (!res.hasNextPage || items.length === 0) break;
+            await new Promise(r => setTimeout(r, 1500));
+          } catch (pageErr) {
+            console.warn(`[CRAWLER] Page error in ${store.label} ${dept.name} p.${p}:`, pageErr.message);
+          }
         }
+        await new Promise(r => setTimeout(r, 1500));
       }
-      await new Promise(r => setTimeout(r, 2000));
     }
 
     // Prune deals older than 14 days

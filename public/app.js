@@ -749,7 +749,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
       currentPage = 1;
       deals = [];
-      executeSearch(false);
+      loadDatabaseDeals();
     });
   });
 
@@ -1648,7 +1648,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const crawler = data.crawler || {};
       const totalDeals = data.totalDeals || 0;
 
-      if (dbTotalDealsCount) dbTotalDealsCount.textContent = totalDeals.toLocaleString();
+      if (dbTotalDealsCount) {
+        const wh = data.warehouseDeals || 0;
+        const norm = data.normalDeals || 0;
+        dbTotalDealsCount.textContent = `${totalDeals.toLocaleString()} (${wh} Warehouse • ${norm} Normal Retail)`;
+      }
 
       if (crawler.isRunning) {
         if (dbPulseDot) {
@@ -1693,7 +1697,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadDatabaseDeals() {
     try {
-      const res = await fetch('/api/db/deals?timeWindow=all&limit=300');
+      const activeStore = storeType || 'both';
+      const res = await fetch(`/api/db/deals?timeWindow=all&limit=500&storeType=${encodeURIComponent(activeStore)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.products && data.products.length > 0) {
