@@ -330,11 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (tabAllDeals) {
     tabAllDeals.addEventListener('click', () => {
       resetToAllDealsTab();
-      if (!deals || deals.length === 0) {
-        loadDatabaseDeals(false);
-      } else {
-        renderDeals(deals);
-      }
+      loadDatabaseDeals(false);
     });
   }
 
@@ -345,11 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabAllDeals) tabAllDeals.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'flex';
-      if (!deals || deals.length === 0) {
-        loadDatabaseDeals(true);
-      } else {
-        renderDeals(deals);
-      }
+      loadDatabaseDeals(true);
     });
   }
 
@@ -383,7 +375,7 @@ document.addEventListener('DOMContentLoaded', () => {
       timePills.forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
       activeTimeWindow = pill.getAttribute('data-time') || '1h';
-      renderDeals(deals);
+      loadDatabaseDeals(true);
     });
   });
 
@@ -718,7 +710,8 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
       currentPage = 1;
       deals = [];
-      executeSearch(false);
+      resetToAllDealsTab();
+      loadDatabaseDeals();
     });
   }
 
@@ -783,6 +776,9 @@ document.addEventListener('DOMContentLoaded', () => {
       syncPricePresetsFromInputs();
       updateTargetUrl();
     });
+    minPriceInput.addEventListener('change', () => {
+      currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals();
+    });
     minPriceInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals(); }
     });
@@ -791,6 +787,9 @@ document.addEventListener('DOMContentLoaded', () => {
     maxPriceInput.addEventListener('input', () => {
       syncPricePresetsFromInputs();
       updateTargetUrl();
+    });
+    maxPriceInput.addEventListener('change', () => {
+      currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals();
     });
     maxPriceInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals(); }
@@ -817,6 +816,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       updateTargetUrl();
+    });
+    negKeywordsInput.addEventListener('change', () => {
+      currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals();
     });
     negKeywordsInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals(); }
@@ -1082,16 +1084,20 @@ document.addEventListener('DOMContentLoaded', () => {
   searchBtn.addEventListener('click', () => {
     currentPage = 1;
     deals = [];
-    resetToAllDealsTab();
-    loadDatabaseDeals(false);
+    loadDatabaseDeals(true);
+  });
+
+  keywordInput.addEventListener('change', () => {
+    currentPage = 1;
+    deals = [];
+    loadDatabaseDeals(true);
   });
 
   keywordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       currentPage = 1;
       deals = [];
-      resetToAllDealsTab();
-      loadDatabaseDeals(false);
+      loadDatabaseDeals(true);
     }
   });
 
@@ -1927,8 +1933,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const queryLimit = isLoadAll ? '10000' : DB_PAGE_SIZE.toString();
       const queryPage = isLoadAll ? '1' : dbCurrentPage.toString();
 
+      const inStock = inStockOnly ? inStockOnly.checked : true;
+      const timeWin = (activeFilterTab === 'just_listed') ? (activeTimeWindow || '1h') : 'all';
+
       const queryParams = new URLSearchParams({
-        timeWindow: 'all',
+        timeWindow: timeWin,
         page: queryPage,
         limit: queryLimit,
         storeType: activeStore,
@@ -1940,7 +1949,8 @@ document.addEventListener('DOMContentLoaded', () => {
         maxPrice: maxP,
         condition: cond,
         negKeywords: negKw,
-        sort: sort
+        sort: sort,
+        availableOnly: inStock.toString()
       });
 
       const res = await fetch(`/api/db/deals?${queryParams.toString()}`);

@@ -747,6 +747,7 @@ app.get('/api/db/deals', (req, res) => {
     minPrice = 0,
     maxPrice = 0,
     condition = 'all',
+    availableOnly = 'false',
     keyword = '',
     negKeywords = '',
     sort = 'date-desc-rank',
@@ -793,6 +794,11 @@ app.get('/api/db/deals', (req, res) => {
   let filtered = allDeals.filter(d => {
     if (d.status === 'sold_out') return false;
 
+    // Available / In-stock filter
+    if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) {
+      return false;
+    }
+
     // Store type filter (Warehouse vs Normal Amazon vs Both)
     if (storeType === 'warehouse' && d.store === 'Normal Amazon') return false;
     if (storeType === 'normal' && d.store !== 'Normal Amazon') return false;
@@ -821,10 +827,11 @@ app.get('/api/db/deals', (req, res) => {
     if (minP > 0 && np < minP) return false;
     if (maxP > 0 && np > maxP) return false;
 
-    // Condition filter
+    // Condition filter (normalized comparison)
     if (condition && condition !== 'all') {
-      const c = (d.condition || '').toLowerCase();
-      if (!c.includes(condition.toLowerCase())) return false;
+      const c = (d.condition || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const targetCond = condition.toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (!c.includes(targetCond)) return false;
     }
 
     // Excluded keywords
@@ -853,6 +860,8 @@ app.get('/api/db/deals', (req, res) => {
         return (b.numericPrice || 0) - (a.numericPrice || 0);
       case 'discount-desc-rank':
         return (parseInt(b.discountPercent, 10) || 0) - (parseInt(a.discountPercent, 10) || 0);
+      case 'review-rank':
+        return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
       default:
         return (b.firstSeenAt || 0) - (a.firstSeenAt || 0);
     }
