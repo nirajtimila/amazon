@@ -768,7 +768,7 @@ app.get('/api/db/deals', (req, res) => {
   };
   const windowMs = timeWindows[timeWindow] || 0;
 
-  // Compute live stats for quick pill counts
+  // Compute live stats for quick pill counts matching active store, category, and discount filters
   let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0;
   let totalWarehouse = 0, totalNormal = 0;
   for (const d of allDeals) {
@@ -780,7 +780,18 @@ app.get('/api/db/deals', (req, res) => {
     if (storeType === 'warehouse' && d.store === 'Normal Amazon') continue;
     if (storeType === 'normal' && d.store !== 'Normal Amazon') continue;
 
-    const age = now - (d.firstSeenAt || d.lastSeenAt || now);
+    // Category filter for stats (when not all or sweep_all)
+    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category) continue;
+
+    // Discount filter for stats
+    const disc = parseInt(d.discountPercent, 10) || 0;
+    if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) continue;
+
+    // In-stock filter for stats
+    if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) continue;
+
+    const dealTs = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || now;
+    const age = now - dealTs;
     if (age <= 1 * 3600000) count1h++;
     if (age <= 2 * 3600000) count2h++;
     if (age <= 6 * 3600000) count6h++;
@@ -803,14 +814,15 @@ app.get('/api/db/deals', (req, res) => {
     if (storeType === 'warehouse' && d.store === 'Normal Amazon') return false;
     if (storeType === 'normal' && d.store !== 'Normal Amazon') return false;
 
-    // Time window filter
+    // Time window filter (evaluates freshest discovery / indexed timestamp)
     if (windowMs > 0) {
-      const age = now - (d.firstSeenAt || now);
+      const dealTs = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || now;
+      const age = now - dealTs;
       if (age > windowMs) return false;
     }
 
-    // Category filter
-    if (category !== 'all' && category !== 'sweep_all' && d.category !== category) {
+    // Category filter (allows all categories for 'all' and 'sweep_all')
+    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category) {
       return false;
     }
 
@@ -853,7 +865,7 @@ app.get('/api/db/deals', (req, res) => {
   filtered.sort((a, b) => {
     switch (sort) {
       case 'date-desc-rank':
-        return (b.firstSeenAt || 0) - (a.firstSeenAt || 0);
+        return (Math.max(b.firstSeenAt || 0, b.lastSeenAt || 0)) - (Math.max(a.firstSeenAt || 0, a.lastSeenAt || 0));
       case 'price-asc-rank':
         return (a.numericPrice || 0) - (b.numericPrice || 0);
       case 'price-desc-rank':
@@ -863,7 +875,7 @@ app.get('/api/db/deals', (req, res) => {
       case 'review-rank':
         return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
       default:
-        return (b.firstSeenAt || 0) - (a.firstSeenAt || 0);
+        return (Math.max(b.firstSeenAt || 0, b.lastSeenAt || 0)) - (Math.max(a.firstSeenAt || 0, a.lastSeenAt || 0));
     }
   });
 
@@ -920,7 +932,7 @@ app.post('/api/db/scan', async (req, res) => {
     const isDeep = req.query.deep === 'true' || (req.body && req.body.deep);
     const pages = isDeep ? 8 : (req.body && req.body.pages ? parseInt(req.body.pages, 10) : 6);
     runAutonomousCrawler(pages).catch(e => console.error('[CRAWLER] Background error:', e));
-    res.json({ success: true, message: `Background ${isDeep ? 'Deep Sweep (150+ Pages across all 12 Categories)' : 'Scan'} started (${pages} pages per department)` });
+    res.json({ success: true, message: `Background ${isDeep ? `Deep Sweep (150+ Pages across all ${CRAWLER_DEPARTMENTS.length} Categories)` : 'Scan'} started (${pages} pages per department)` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1274,6 +1286,8 @@ async function runAutonomousCrawler(maxPagesPerDept = 20) {
         }
         await new Promise(r => setTimeout(r, 1500));
       }
+      // Save database periodically after each department completes
+      saveDb(db);
     }
 
     // Prune deals older than 14 days

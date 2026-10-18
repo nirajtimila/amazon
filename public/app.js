@@ -341,6 +341,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabAllDeals) tabAllDeals.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'flex';
+
+      // Smart selection: if 1h has 0 deals, auto-select a wider window that has deals (e.g. 6h, 24h, all)
+      const c1 = parseInt(count1h?.textContent || '0', 10);
+      const c2 = parseInt(count2h?.textContent || '0', 10);
+      const c6 = parseInt(count6h?.textContent || '0', 10);
+      const c24 = parseInt(count24h?.textContent || '0', 10);
+
+      if (activeTimeWindow === '1h' && c1 === 0) {
+        if (c6 > 0) activeTimeWindow = '6h';
+        else if (c2 > 0) activeTimeWindow = '2h';
+        else if (c24 > 0) activeTimeWindow = '24h';
+        else activeTimeWindow = 'all';
+
+        timePills.forEach(p => {
+          if (p.getAttribute('data-time') === activeTimeWindow) p.classList.add('active');
+          else p.classList.remove('active');
+        });
+      }
+
       loadDatabaseDeals(true);
     });
   }
@@ -1084,20 +1103,23 @@ document.addEventListener('DOMContentLoaded', () => {
   searchBtn.addEventListener('click', () => {
     currentPage = 1;
     deals = [];
-    loadDatabaseDeals(true);
+    resetToAllDealsTab();
+    loadDatabaseDeals(false);
   });
 
   keywordInput.addEventListener('change', () => {
     currentPage = 1;
     deals = [];
-    loadDatabaseDeals(true);
+    resetToAllDealsTab();
+    loadDatabaseDeals(false);
   });
 
   keywordInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       currentPage = 1;
       deals = [];
-      loadDatabaseDeals(true);
+      resetToAllDealsTab();
+      loadDatabaseDeals(false);
     }
   });
 
@@ -1361,7 +1383,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Render Deals
-  function renderDeals(items, totalMatches = 0) {
+  function renderDeals(items, totalMatches = 0, stats = null) {
     if (!items || items.length === 0) {
       dealsGrid.innerHTML = `
         <div class="empty-state card">
@@ -1381,33 +1403,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageCountText = currentPage > 1 ? ` (${currentPage} pgs)` : '';
     const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
     let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
-    if (categorySelect.value === 'sweep_all') catClean = 'All Categories';
-    else if (categorySelect.value === 'all') catClean = 'All Categories';
+    if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') catClean = 'All Categories';
     else catClean = catClean.replace(/\s*\(.*?\)/, '');
 
     const now = Date.now();
-    let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0;
-    for (const d of items) {
-      const ts = d.firstSeenAt || dealHistory[d.asin] || 0;
-      if (!ts) {
-        if (d.isJustListed) { c24h++; }
-        continue;
+    if (stats) {
+      if (count1h) count1h.textContent = stats.last1h || 0;
+      if (count2h) count2h.textContent = stats.last2h || 0;
+      if (count6h) count6h.textContent = stats.last6h || 0;
+      if (count12h) count12h.textContent = stats.last12h || 0;
+      if (count24h) count24h.textContent = stats.last24h || 0;
+      if (countJustListed) countJustListed.textContent = stats.last24h || stats.last6h || 0;
+      if (countAllDeals) countAllDeals.textContent = (activeFilterTab === 'all' && totalMatches ? totalMatches : items.length);
+    } else {
+      let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0;
+      for (const d of items) {
+        const ts = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || dealHistory[d.asin] || 0;
+        if (!ts) {
+          if (d.isJustListed) { c24h++; }
+          continue;
+        }
+        const age = now - ts;
+        if (age <= 1 * 3600000) c1h++;
+        if (age <= 2 * 3600000) c2h++;
+        if (age <= 6 * 3600000) c6h++;
+        if (age <= 12 * 3600000) c12h++;
+        if (age <= 24 * 3600000) c24h++;
       }
-      const age = now - ts;
-      if (age <= 1 * 3600000) c1h++;
-      if (age <= 2 * 3600000) c2h++;
-      if (age <= 6 * 3600000) c6h++;
-      if (age <= 12 * 3600000) c12h++;
-      if (age <= 24 * 3600000) c24h++;
+      if (count1h) count1h.textContent = c1h;
+      if (count2h) count2h.textContent = c2h;
+      if (count6h) count6h.textContent = c6h;
+      if (count12h) count12h.textContent = c12h;
+      if (count24h) count24h.textContent = c24h;
+      if (countJustListed) countJustListed.textContent = c24h;
+      if (countAllDeals) countAllDeals.textContent = items.length;
     }
-    if (count1h) count1h.textContent = c1h;
-    if (count2h) count2h.textContent = c2h;
-    if (count6h) count6h.textContent = c6h;
-    if (count12h) count12h.textContent = c12h;
-    if (count24h) count24h.textContent = c24h;
+    if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
 
     const justListedItems = items.filter(d => {
-      const ts = d.firstSeenAt || dealHistory[d.asin] || 0;
+      const ts = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || dealHistory[d.asin] || 0;
       if (!ts) return d.isJustListed;
       const age = now - ts;
       if (activeTimeWindow === '1h') return age <= 1 * 3600000;
@@ -1417,10 +1451,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (activeTimeWindow === '24h') return age <= 24 * 3600000;
       return true;
     });
-
-    if (countAllDeals) countAllDeals.textContent = items.length;
-    if (countJustListed) countJustListed.textContent = c24h || justListedItems.length;
-    if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
 
     let displayedItems = items;
     if (activeFilterTab === 'just_listed') {
@@ -1913,7 +1943,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const activeStore = storeType || 'both';
       const rawCategory = categorySelect ? categorySelect.value : 'all';
-      const categoryParam = (rawCategory === 'sweep_all') ? 'all' : rawCategory;
+      const categoryParam = (rawCategory === 'sweep_all') ? 'sweep_all' : rawCategory;
       const kw = keywordInput ? keywordInput.value.trim() : '';
       const minDisc = minDiscountSlider ? minDiscountSlider.value : 0;
       const maxDisc = maxDiscountSlider ? maxDiscountSlider.value : 100;
@@ -1977,7 +2007,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem(HISTORY_KEY, JSON.stringify(dealHistory));
 
         if (deals.length > 0) {
-          renderDeals(deals, dbTotalMatches);
+          renderDeals(deals, dbTotalMatches, data.stats);
           if (loadMoreContainer) {
             const hasMore = deals.length < dbTotalMatches && !isLoadAll;
             loadMoreContainer.style.display = hasMore ? 'flex' : 'none';
@@ -1992,7 +2022,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
         } else {
-          renderDatabaseEmptyState(kw, data.stats?.totalInDb || 0);
+          // Update live stat numbers across all pills from backend database stats
+          if (data.stats) {
+            if (count1h) count1h.textContent = data.stats.last1h || 0;
+            if (count2h) count2h.textContent = data.stats.last2h || 0;
+            if (count6h) count6h.textContent = data.stats.last6h || 0;
+            if (count12h) count12h.textContent = data.stats.last12h || 0;
+            if (count24h) count24h.textContent = data.stats.last24h || 0;
+            if (countJustListed) countJustListed.textContent = data.stats.last24h || data.stats.last6h || 0;
+            if (countAllDeals) countAllDeals.textContent = (storeType === 'warehouse' ? data.stats.warehouseDeals : (storeType === 'normal' ? data.stats.normalDeals : data.stats.totalInDb)) || 0;
+          }
+          if (activeFilterTab === 'just_listed') {
+            renderJustListedEmptyState(timeWin, data.stats?.totalInDb || 0);
+          } else {
+            renderDatabaseEmptyState(kw, data.stats?.totalInDb || 0);
+          }
           if (loadMoreContainer) loadMoreContainer.style.display = 'none';
         }
       } else {
@@ -2011,15 +2055,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function renderJustListedEmptyState(timeWindow, totalInDb) {
+    resultsMeta.style.display = 'flex';
+    const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
+    const winLabel = windowLabels[timeWindow] || timeWindow;
+    resultsCount.textContent = `0 Deals Discovered (${winLabel})`;
+    filterSummaryBadge.textContent = `✨ Just Listed (${winLabel})`;
+
+    dealsGrid.innerHTML = `
+      <div class="empty-state card" style="grid-column: 1 / -1;">
+        <div class="empty-icon">✨</div>
+        <h3>No Deals Discovered in ${winLabel}</h3>
+        <p>No new deals were discovered in this specific time window. The database currently contains <strong>${totalInDb.toLocaleString()} indexed deals</strong> across all categories.</p>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
+          <button class="btn btn-secondary" id="switchTo24hBtn">🕒 Show Last 24 Hours</button>
+          <button class="btn btn-primary" id="switchToAllDbDealsBtn">📦 View All ${totalInDb.toLocaleString()} Deals in Database</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('switchTo24hBtn')?.addEventListener('click', () => {
+      const p24 = document.querySelector('.time-pill[data-time="24h"]');
+      if (p24) p24.click();
+    });
+    document.getElementById('switchToAllDbDealsBtn')?.addEventListener('click', () => {
+      tabAllDeals?.click();
+    });
+  }
+
   function renderDatabaseEmptyState(keyword, totalInDb) {
+    resultsMeta.style.display = 'flex';
+    const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
+    let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
+    if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') catClean = 'All Categories';
+    else catClean = catClean.replace(/\s*\(.*?\)/, '');
+
+    resultsCount.textContent = `0 Deals Found in Database`;
+    filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
+
     dealsGrid.innerHTML = `
       <div class="empty-state card" style="grid-column: 1 / -1;">
         <div class="empty-icon">🔎</div>
         <h3>No Deals Found in Database</h3>
-        <p>No indexed deals matched your current filters${keyword ? ` for "<strong>${escapeHtml(keyword)}</strong>"` : ''}. The database currently contains ${totalInDb.toLocaleString()} indexed deals across all categories.</p>
+        <p>No indexed deals matched your current filters${keyword ? ` for "<strong>${escapeHtml(keyword)}</strong>"` : ''}. The database currently contains <strong>${totalInDb.toLocaleString()} indexed deals</strong> across all categories.</p>
         <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
           <button class="btn btn-primary" id="runLiveScrapeFallbackBtn">🌐 Search Live Online (Amazon)</button>
-          <button class="btn btn-secondary" id="resetDbFiltersBtn">📦 Clear Search & View All (${totalInDb.toLocaleString()})</button>
+          <button class="btn btn-secondary" id="resetDbFiltersBtn">📦 Clear Filters & View All (${totalInDb.toLocaleString()})</button>
         </div>
       </div>
     `;
@@ -2028,6 +2108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     document.getElementById('resetDbFiltersBtn')?.addEventListener('click', () => {
       if (keywordInput) keywordInput.value = '';
+      resetToAllDealsTab();
       loadDatabaseDeals(false);
     });
   }
@@ -2038,7 +2119,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dbDeepScanBtn) {
     dbDeepScanBtn.addEventListener('click', async () => {
       resetToAllDealsTab();
-      showToast('⚡ Starting full DEEP SEARCH across all 12 departments (150+ pages directly into database)...');
+      showToast('⚡ Starting full DEEP SEARCH across all 18 departments (150+ pages directly into database)...');
       if (dbDeepScanBtn) dbDeepScanBtn.style.opacity = '0.6';
       if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Sweeping 150+ Pgs...';
       try {
