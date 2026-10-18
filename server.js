@@ -589,6 +589,12 @@ app.get('/api/search', async (req, res) => {
           const existing = db.crawledDeals[item.asin];
           existing.lastSeenAt = now;
           existing.status = 'active';
+          if (!existing.firstSeenAt) {
+            existing.firstSeenAt = existing.lastSeenAt || now;
+          }
+          // Preserve original listed hour: copy original firstSeenAt back onto item
+          item.firstSeenAt = existing.firstSeenAt;
+          item.lastSeenAt = now;
           if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
             existing.previousPrice = existing.price;
             existing.price = item.price;
@@ -1218,6 +1224,10 @@ async function runAutonomousCrawler(maxPagesPerDept = 4) {
                 existing.lastSeenAt = Date.now();
                 existing.status = 'active';
                 existing.store = item.store;
+                // Preserve original firstSeenAt: a deal seen 1 hour ago stays 1 hour ago
+                if (!existing.firstSeenAt) {
+                  existing.firstSeenAt = existing.lastSeenAt || Date.now();
+                }
 
                 if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
                   existing.previousPrice = existing.price;

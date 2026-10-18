@@ -257,13 +257,19 @@ document.addEventListener('DOMContentLoaded', () => {
   function tagNewDealStatus(item) {
     const now = Date.now();
     const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
-    if (!dealHistory[item.asin]) {
-      dealHistory[item.asin] = now;
-      item.isJustListed = true;
+
+    // Prioritize firstSeenAt from server database so original listed hour is preserved
+    if (item.firstSeenAt) {
+      dealHistory[item.asin] = item.firstSeenAt;
+    } else if (dealHistory[item.asin]) {
+      item.firstSeenAt = dealHistory[item.asin];
     } else {
-      const age = now - dealHistory[item.asin];
-      item.isJustListed = (age < TWENTY_FOUR_HOURS);
+      dealHistory[item.asin] = now;
+      item.firstSeenAt = now;
     }
+
+    const age = now - item.firstSeenAt;
+    item.isJustListed = (age < TWENTY_FOUR_HOURS);
   }
 
   function cleanHistory() {
@@ -742,7 +748,8 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
       currentPage = 1;
       deals = [];
-      executeSearch(false);
+      resetToAllDealsTab();
+      loadDatabaseDeals();
     });
   });
 
@@ -755,7 +762,8 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
       currentPage = 1;
       deals = [];
-      executeSearch(false);
+      resetToAllDealsTab();
+      loadDatabaseDeals();
       showToast('Cleared price filter');
     });
   }
@@ -767,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
     });
     minPriceInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { currentPage = 1; deals = []; executeSearch(false); }
+      if (e.key === 'Enter') { currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals(); }
     });
   }
   if (maxPriceInput) {
@@ -776,7 +784,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
     });
     maxPriceInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { currentPage = 1; deals = []; executeSearch(false); }
+      if (e.key === 'Enter') { currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals(); }
     });
   }
   if (conditionSelect) {
@@ -784,7 +792,8 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
       currentPage = 1;
       deals = [];
-      executeSearch(false);
+      resetToAllDealsTab();
+      loadDatabaseDeals();
     });
   }
   if (negKeywordsInput) {
@@ -801,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
     });
     negKeywordsInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { currentPage = 1; deals = []; executeSearch(false); }
+      if (e.key === 'Enter') { currentPage = 1; deals = []; resetToAllDealsTab(); loadDatabaseDeals(); }
     });
   }
 
@@ -828,7 +837,7 @@ document.addEventListener('DOMContentLoaded', () => {
       keywordInput.value = q;
       updateTargetUrl();
       resetToAllDealsTab();
-      executeSearch();
+      loadDatabaseDeals();
     }
   });
 
@@ -847,14 +856,14 @@ document.addEventListener('DOMContentLoaded', () => {
     currentPage = 1;
     deals = [];
     resetToAllDealsTab();
-    executeSearch(false);
+    loadDatabaseDeals();
   });
   sortSelect.addEventListener('change', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
     resetToAllDealsTab();
-    executeSearch(false);
+    loadDatabaseDeals();
   });
   if (currencySelect) {
     currencySelect.addEventListener('change', () => {
@@ -869,14 +878,14 @@ document.addEventListener('DOMContentLoaded', () => {
     currentPage = 1;
     deals = [];
     resetToAllDealsTab();
-    executeSearch(false);
+    loadDatabaseDeals();
   });
   if (inStockOnly) inStockOnly.addEventListener('change', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
     resetToAllDealsTab();
-    executeSearch(false);
+    loadDatabaseDeals();
   });
 
   // Sliders
@@ -889,6 +898,12 @@ document.addEventListener('DOMContentLoaded', () => {
     syncDiscountUI();
     updateTargetUrl();
   });
+  minDiscountSlider.addEventListener('change', () => {
+    currentPage = 1;
+    deals = [];
+    resetToAllDealsTab();
+    loadDatabaseDeals();
+  });
 
   maxDiscountSlider.addEventListener('input', () => {
     let minVal = parseInt(minDiscountSlider.value);
@@ -898,6 +913,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     syncDiscountUI();
     updateTargetUrl();
+  });
+  maxDiscountSlider.addEventListener('change', () => {
+    currentPage = 1;
+    deals = [];
+    resetToAllDealsTab();
+    loadDatabaseDeals();
   });
 
   // Preset Pills
@@ -913,7 +934,8 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
       currentPage = 1;
       deals = [];
-      executeSearch(false);
+      resetToAllDealsTab();
+      loadDatabaseDeals();
     });
   });
 
@@ -1045,12 +1067,12 @@ document.addEventListener('DOMContentLoaded', () => {
     showToast('Opened Amazon Warehouse search in new tab!');
   });
 
-  // Search Action
+  // Search Action (Hunts from local database - instant & offline)
   searchBtn.addEventListener('click', () => {
     currentPage = 1;
     deals = [];
     resetToAllDealsTab();
-    executeSearch(false);
+    loadDatabaseDeals(false);
   });
 
   keywordInput.addEventListener('keydown', (e) => {
@@ -1058,7 +1080,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentPage = 1;
       deals = [];
       resetToAllDealsTab();
-      executeSearch(false);
+      loadDatabaseDeals(false);
     }
   });
 
@@ -1844,24 +1866,72 @@ document.addEventListener('DOMContentLoaded', () => {
       const activeStore = storeType || 'both';
       const rawCategory = categorySelect ? categorySelect.value : 'all';
       const categoryParam = (rawCategory === 'sweep_all') ? 'all' : rawCategory;
-      const res = await fetch(`/api/db/deals?timeWindow=all&limit=500&storeType=${encodeURIComponent(activeStore)}&category=${encodeURIComponent(categoryParam)}`);
+      const kw = keywordInput ? keywordInput.value.trim() : '';
+      const minDisc = minDiscountSlider ? minDiscountSlider.value : 0;
+      const maxDisc = maxDiscountSlider ? maxDiscountSlider.value : 100;
+      const minP = minPriceInput ? (parseFloat(minPriceInput.value) || 0) : 0;
+      const maxP = maxPriceInput ? (parseFloat(maxPriceInput.value) || 0) : 0;
+      const cond = conditionSelect ? conditionSelect.value : 'all';
+      const negKw = negKeywordsInput ? negKeywordsInput.value.trim() : '';
+      const sort = sortSelect ? sortSelect.value : 'date-desc-rank';
+
+      const queryParams = new URLSearchParams({
+        timeWindow: 'all',
+        limit: '500',
+        storeType: activeStore,
+        category: categoryParam,
+        keyword: kw,
+        minDiscount: minDisc,
+        maxDiscount: maxDisc,
+        minPrice: minP,
+        maxPrice: maxP,
+        condition: cond,
+        negKeywords: negKw,
+        sort: sort
+      });
+
+      const res = await fetch(`/api/db/deals?${queryParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.products && data.products.length > 0) {
-          deals = data.products;
-          for (const d of deals) {
-            tagNewDealStatus(d);
-          }
+        deals = data.products || [];
+        for (const d of deals) {
+          tagNewDealStatus(d);
+        }
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(dealHistory));
+
+        if (deals.length > 0) {
           renderDeals(deals);
+          if (loadMoreContainer) loadMoreContainer.style.display = 'none';
         } else {
-          // Fall back to live scrape if this category hasn't been crawled into DB yet
-          executeSearch(false);
+          renderDatabaseEmptyState(kw, data.stats?.totalInDb || 0);
+          if (loadMoreContainer) loadMoreContainer.style.display = 'none';
         }
       }
     } catch (e) {
-      executeSearch(false);
+      console.warn('Error loading database deals:', e);
     }
     updateDatabaseStatus();
+  }
+
+  function renderDatabaseEmptyState(keyword, totalInDb) {
+    dealsGrid.innerHTML = `
+      <div class="empty-state card" style="grid-column: 1 / -1;">
+        <div class="empty-icon">🔎</div>
+        <h3>No Deals Found in Database</h3>
+        <p>No indexed deals matched your current filters${keyword ? ` for "<strong>${escapeHtml(keyword)}</strong>"` : ''}. The database currently contains ${totalInDb.toLocaleString()} indexed deals across all categories.</p>
+        <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
+          <button class="btn btn-primary" id="runLiveScrapeFallbackBtn">🌐 Search Live Online (Amazon)</button>
+          <button class="btn btn-secondary" id="resetDbFiltersBtn">📦 Clear Search & View All (${totalInDb.toLocaleString()})</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('runLiveScrapeFallbackBtn')?.addEventListener('click', () => {
+      executeSearch(false);
+    });
+    document.getElementById('resetDbFiltersBtn')?.addEventListener('click', () => {
+      if (keywordInput) keywordInput.value = '';
+      loadDatabaseDeals(false);
+    });
   }
 
   // Deep Scan Button Handler (150+ Pages into database)
