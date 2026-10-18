@@ -296,13 +296,10 @@ async function scrapeAmazonStore(opts) {
     if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
     if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
   } else {
-    // Warehouse deals
-    if (dept) {
-      url = `https://www.${domain}/s?i=${encodeURIComponent(dept)}&pct-off=${minDiscount}-${maxDiscount}`;
-    } else {
-      url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${minDiscount}-${maxDiscount}`;
-    }
-    let combinedK = keyword || '';
+    // Warehouse deals: always search within i=warehouse-deals to stay in Amazon Warehouse
+    url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${minDiscount}-${maxDiscount}`;
+    const catKw = (category && category !== 'all' && category !== 'sweep_all') ? (WAREHOUSE_CATEGORY_KEYWORDS[category] || category) : '';
+    let combinedK = keyword || catKw || '';
     if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
     if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
     if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
@@ -1160,7 +1157,7 @@ async function checkWatchlistMatch(item) {
   }
 }
 
-async function runAutonomousCrawler(maxPagesPerDept = 4) {
+async function runAutonomousCrawler(maxPagesPerDept = 6) {
   if (crawlerRunning) {
     console.log('[CRAWLER] Crawler already running. Skipping.');
     return { skipped: true };
@@ -1172,8 +1169,10 @@ async function runAutonomousCrawler(maxPagesPerDept = 4) {
   saveDb(db);
 
   const startTime = Date.now();
-  console.log(`[CRAWLER] 🚀 Starting dual crawler sweep (Warehouse + Normal Retail clearance) across ${CRAWLER_DEPARTMENTS.length} departments (depth: ${maxPagesPerDept} pages/dept)...`);
+  const depth = (db.settings && db.settings.crawlerDepth) || maxPagesPerDept;
+  console.log(`[CRAWLER] 🚀 Starting dual crawler sweep (Warehouse + Normal Retail clearance) across ${CRAWLER_DEPARTMENTS.length} departments (depth: ${depth} pages/dept = up to ${depth * CRAWLER_DEPARTMENTS.length * 2} pages)...`);
   let totalScanned = 0;
+  let pagesScanned = 0;
   let newAdded = 0;
   let priceDrops = 0;
   const domain = db.settings.defaultDomain || 'amazon.com.au';
@@ -1188,9 +1187,10 @@ async function runAutonomousCrawler(maxPagesPerDept = 4) {
       for (let i = 0; i < CRAWLER_DEPARTMENTS.length; i++) {
         const dept = CRAWLER_DEPARTMENTS[i];
 
-        for (let p = 1; p <= maxPagesPerDept; p++) {
-          db.crawler.currentStep = `${store.label}: ${dept.name} (p.${p}/${maxPagesPerDept} • Dept ${i + 1}/${CRAWLER_DEPARTMENTS.length})`;
+        for (let p = 1; p <= depth; p++) {
+          db.crawler.currentStep = `${store.label}: ${dept.name} (p.${p}/${depth} • Dept ${i + 1}/${CRAWLER_DEPARTMENTS.length})`;
           try {
+            pagesScanned++;
             const res = await scrapeAmazonStore({
               storeType: store.type,
               category: dept.id,
@@ -1262,11 +1262,11 @@ async function runAutonomousCrawler(maxPagesPerDept = 4) {
     }
 
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
-    db.crawler.lastRunStats = { totalScanned, newAdded, priceDrops, durationSeconds };
+    db.crawler.lastRunStats = { totalScanned, pagesScanned, newAdded, priceDrops, durationSeconds };
     db.crawler.lastRunAt = Date.now();
     const intervalMs = (db.crawler.intervalMinutes || 60) * 60 * 1000;
     db.crawler.nextRunAt = Date.now() + intervalMs;
-    console.log(`[CRAWLER] ✅ Completed in ${durationSeconds}s. Scanned: ${totalScanned}, New: ${newAdded}, Price Drops: ${priceDrops}`);
+    console.log(`[CRAWLER] ✅ Completed in ${durationSeconds}s. Pages Scanned: ${pagesScanned}, Items Scanned: ${totalScanned}, New: ${newAdded}, Price Drops: ${priceDrops}`);
   } catch (err) {
     console.error('[CRAWLER] Global error during sweep:', err.message);
   } finally {

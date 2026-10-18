@@ -1016,13 +1016,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
       if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
     } else {
-      // Warehouse deals
-      if (dept) {
-        url = `https://www.${domain}/s?i=${encodeURIComponent(dept)}&pct-off=${min}-${max}`;
-      } else {
-        url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${min}-${max}`;
-      }
-      let combinedK = keyword || '';
+      // Warehouse deals: always search inside i=warehouse-deals so it stays in Amazon Warehouse
+      url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${min}-${max}`;
+      const catKw = (category && category !== 'all' && category !== 'sweep_all') ? (WAREHOUSE_CATEGORY_KEYWORDS[category] || category) : '';
+      let combinedK = keyword || catKw || '';
       if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
       if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
       if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
@@ -1834,8 +1831,14 @@ document.addEventListener('DOMContentLoaded', () => {
           dbPulseDot.style.boxShadow = '0 0 8px #10b981';
         }
         if (dbLastScanText) {
+          const stats = crawler.lastRunStats || {};
+          let scanDetails = '';
+          if (stats.pagesScanned || stats.totalScanned) {
+            const pCount = stats.pagesScanned || Math.round((stats.totalScanned || 0) / 28);
+            scanDetails = ` (${pCount} pages • ${(stats.totalScanned || 0).toLocaleString()} items scanned across 12 depts)`;
+          }
           dbLastScanText.textContent = crawler.lastRunAt
-            ? `Last Auto-Scan: ${formatRelativeTime(crawler.lastRunAt)}`
+            ? `Last Auto-Scan: ${formatRelativeTime(crawler.lastRunAt)}${scanDetails}`
             : 'Last Auto-Scan: initializing...';
         }
         if (dbNextScanText) {
