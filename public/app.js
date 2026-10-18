@@ -301,6 +301,9 @@ document.addEventListener('DOMContentLoaded', () => {
   let isBackendOnline = false;
   let currentPage = 1;
   let isLoading = false;
+  let dbCurrentPage = 1;
+  const DB_PAGE_SIZE = 250;
+  let dbTotalMatches = 0;
 
   // Initialize
   updateSavedCount();
@@ -1352,7 +1355,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Render Deals
-  function renderDeals(items) {
+  function renderDeals(items, totalMatches = 0) {
     if (!items || items.length === 0) {
       dealsGrid.innerHTML = `
         <div class="empty-state card">
@@ -1888,10 +1891,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e) {}
   }
-
-  let dbCurrentPage = 1;
-  const DB_PAGE_SIZE = 250;
-  let dbTotalMatches = 0;
 
   async function loadDatabaseDeals(keepCurrentTab = false, isLoadMore = false, isLoadAll = false) {
     try {
