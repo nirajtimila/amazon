@@ -769,7 +769,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
-    executeSearch(false);
+    loadDatabaseDeals();
   });
   domainSelect.addEventListener('change', () => {
     syncCurrencyUI();
@@ -1043,15 +1043,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (isDeepSweep) {
         const DEEP_SWEEP_CATEGORIES = [
-          { id: 'pc', name: 'Computers & Tablets' },
           { id: 'electronics', name: 'Electronics & Audio' },
-          { id: 'videogames', name: 'Video Games & Consoles' },
+          { id: 'pc', name: 'Computers & Tablets' },
           { id: 'kitchen', name: 'Home & Kitchen' },
           { id: 'hi', name: 'Tools & Home Improvement' },
+          { id: 'videogames', name: 'Video Games & Consoles' },
           { id: 'sporting', name: 'Sports & Outdoors' },
           { id: 'toys-and-games', name: 'Toys & Games' },
           { id: 'beauty', name: 'Beauty & Personal Care' },
-          { id: 'automotive', name: 'Automotive' }
+          { id: 'stripbooks', name: 'Books' },
+          { id: 'automotive', name: 'Automotive' },
+          { id: 'pets', name: 'Pet Supplies' },
+          { id: 'office-products', name: 'Office Products' }
         ];
 
         const pagesPerCat = isAllPages ? 10 : Math.min(parseInt(pagesSetting) || 2, 10);
@@ -1698,7 +1701,9 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadDatabaseDeals() {
     try {
       const activeStore = storeType || 'both';
-      const res = await fetch(`/api/db/deals?timeWindow=all&limit=500&storeType=${encodeURIComponent(activeStore)}`);
+      const rawCategory = categorySelect ? categorySelect.value : 'all';
+      const categoryParam = (rawCategory === 'sweep_all') ? 'all' : rawCategory;
+      const res = await fetch(`/api/db/deals?timeWindow=all&limit=500&storeType=${encodeURIComponent(activeStore)}&category=${encodeURIComponent(categoryParam)}`);
       if (res.ok) {
         const data = await res.json();
         if (data.products && data.products.length > 0) {
@@ -1707,20 +1712,25 @@ document.addEventListener('DOMContentLoaded', () => {
             tagNewDealStatus(d);
           }
           renderDeals(deals);
+        } else {
+          // Fall back to live scrape if this category hasn't been crawled into DB yet
+          executeSearch(false);
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      executeSearch(false);
+    }
     updateDatabaseStatus();
   }
 
-  // Deep Scan Button Handler (70+ Pages into database)
+  // Deep Scan Button Handler (150+ Pages into database)
   const dbDeepScanBtn = document.getElementById('dbDeepScanBtn');
   const dbDeepScanLabel = document.getElementById('dbDeepScanLabel');
   if (dbDeepScanBtn) {
     dbDeepScanBtn.addEventListener('click', async () => {
-      showToast('⚡ Starting full DEEP SEARCH across all 9 departments (70+ pages directly into database)...');
+      showToast('⚡ Starting full DEEP SEARCH across all 12 departments (150+ pages directly into database)...');
       if (dbDeepScanBtn) dbDeepScanBtn.style.opacity = '0.6';
-      if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Sweeping 70+ Pgs...';
+      if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Sweeping 150+ Pgs...';
       try {
         await fetch('/api/db/scan?deep=true', {
           method: 'POST',

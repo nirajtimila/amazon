@@ -878,7 +878,7 @@ app.post('/api/db/scan', async (req, res) => {
     const isDeep = req.query.deep === 'true' || (req.body && req.body.deep);
     const pages = isDeep ? 8 : (req.body && req.body.pages ? parseInt(req.body.pages, 10) : 6);
     runAutonomousCrawler(pages).catch(e => console.error('[CRAWLER] Background error:', e));
-    res.json({ success: true, message: `Background ${isDeep ? 'Deep Sweep (70+ Pages)' : 'Scan'} started (${pages} pages per department)` });
+    res.json({ success: true, message: `Background ${isDeep ? 'Deep Sweep (150+ Pages across all 12 Categories)' : 'Scan'} started (${pages} pages per department)` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1023,15 +1023,18 @@ setInterval(async () => {
 // AUTONOMOUS HOURLY DATABASE CRAWLER
 // -------------------------------------------------------------
 const CRAWLER_DEPARTMENTS = [
-  { id: 'pc', name: 'Computers & Tablets' },
   { id: 'electronics', name: 'Electronics & Audio' },
-  { id: 'videogames', name: 'Video Games & Consoles' },
+  { id: 'pc', name: 'Computers & Tablets' },
   { id: 'kitchen', name: 'Home & Kitchen' },
   { id: 'hi', name: 'Tools & Home Improvement' },
+  { id: 'videogames', name: 'Video Games & Consoles' },
   { id: 'sporting', name: 'Sports & Outdoors' },
   { id: 'toys-and-games', name: 'Toys & Games' },
   { id: 'beauty', name: 'Beauty & Personal Care' },
-  { id: 'automotive', name: 'Automotive' }
+  { id: 'stripbooks', name: 'Books' },
+  { id: 'automotive', name: 'Automotive' },
+  { id: 'pets', name: 'Pet Supplies' },
+  { id: 'office-products', name: 'Office Products' }
 ];
 
 let crawlerRunning = false;
@@ -1071,7 +1074,7 @@ async function runAutonomousCrawler(maxPagesPerDept = 4) {
   saveDb(db);
 
   const startTime = Date.now();
-  console.log(`[CRAWLER] 🚀 Starting dual crawler sweep (Warehouse + Normal Retail clearance) across 9 departments (depth: ${maxPagesPerDept} pages/dept)...`);
+  console.log(`[CRAWLER] 🚀 Starting dual crawler sweep (Warehouse + Normal Retail clearance) across ${CRAWLER_DEPARTMENTS.length} departments (depth: ${maxPagesPerDept} pages/dept)...`);
   let totalScanned = 0;
   let newAdded = 0;
   let priceDrops = 0;
@@ -1088,7 +1091,7 @@ async function runAutonomousCrawler(maxPagesPerDept = 4) {
         const dept = CRAWLER_DEPARTMENTS[i];
 
         for (let p = 1; p <= maxPagesPerDept; p++) {
-          db.crawler.currentStep = `${store.label}: ${dept.name} (p.${p}/${maxPagesPerDept} • Dept ${i + 1}/9)`;
+          db.crawler.currentStep = `${store.label}: ${dept.name} (p.${p}/${maxPagesPerDept} • Dept ${i + 1}/${CRAWLER_DEPARTMENTS.length})`;
           try {
             const res = await scrapeAmazonStore({
               storeType: store.type,
