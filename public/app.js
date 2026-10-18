@@ -1468,13 +1468,20 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (activeFilterTab === 'just_listed') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Deals Discovered (${winLabel})`;
       filterSummaryBadge.textContent = `✨ Just Listed (${winLabel})`;
-    } else {
       const matchTotal = totalMatches || dbTotalMatches || items.length;
-      if (matchTotal > items.length) {
-        resultsCount.textContent = `Showing ${items.length.toLocaleString()} of ${matchTotal.toLocaleString()} Deals in Database${pageCountText}`;
-      } else {
-        resultsCount.textContent = `${matchTotal.toLocaleString()} Deals Found in Database${pageCountText}`;
+      let countExtraHtml = '';
+      if (storeType === 'warehouse' && stats && stats.normalDeals > 0) {
+        countExtraHtml = ` <span style="font-weight: 500; font-size: 0.85em; opacity: 0.8; margin-left: 8px;">(${stats.normalDeals.toLocaleString()} Normal Deals also in DB • <a href="#" id="quickSwitchBothStores" style="color: #38bdf8; text-decoration: underline; font-weight: 700;">View Both</a>)</span>`;
       }
+      if (matchTotal > items.length) {
+        resultsCount.innerHTML = `Showing ${items.length.toLocaleString()} of ${matchTotal.toLocaleString()} Deals in Database${pageCountText}${countExtraHtml}`;
+      } else {
+        resultsCount.innerHTML = `${matchTotal.toLocaleString()} Deals Found in Database${pageCountText}${countExtraHtml}`;
+      }
+      document.getElementById('quickSwitchBothStores')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        document.querySelector('.store-pill[data-store="both"]')?.click();
+      });
       filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
     }
 
@@ -1557,12 +1564,16 @@ document.addEventListener('DOMContentLoaded', () => {
       if (ts) {
         const ageMs = now - ts;
         const relText = formatRelativeTime(ts);
+        const lastSeen = item.lastSeenAt;
+        const scannedText = (lastSeen && (now - lastSeen < ageMs - 300000)) ? ` • Scanned ${formatRelativeTime(lastSeen)}` : '';
         if (ageMs <= 3600000) {
-          timeBadgeHtml = `<span class="deal-time-badge fresh-1h">🟢 Listed ${relText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge fresh-1h" title="First listed: ${relText}${scannedText}">🟢 Listed ${relText}${scannedText}</span>`;
         } else if (ageMs <= 7200000) {
-          timeBadgeHtml = `<span class="deal-time-badge recent-2h">🟡 Listed ${relText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge recent-2h" title="First listed: ${relText}${scannedText}">🟡 Listed ${relText}${scannedText}</span>`;
         } else if (ageMs <= 86400000) {
-          timeBadgeHtml = `<span class="deal-time-badge older">🕒 Listed ${relText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge older" title="First listed: ${relText}${scannedText}">🕒 Listed ${relText}${scannedText}</span>`;
+        } else {
+          timeBadgeHtml = `<span class="deal-time-badge older" title="First listed: ${relText}${scannedText}">📦 Listed ${relText}${scannedText}</span>`;
         }
       }
 
@@ -1878,7 +1889,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dbTotalDealsCount) {
         const wh = data.warehouseDeals || 0;
         const norm = data.normalDeals || 0;
-        dbTotalDealsCount.textContent = `${totalDeals.toLocaleString()} (${wh} Warehouse • ${norm} Normal Retail)`;
+        dbTotalDealsCount.textContent = `${totalDeals.toLocaleString()} (${wh.toLocaleString()} Warehouse • ${norm.toLocaleString()} Normal Retail)`;
+        const cStoreWh = document.getElementById('countStoreWarehouse');
+        const cStoreNorm = document.getElementById('countStoreNormal');
+        const cStoreBoth = document.getElementById('countStoreBoth');
+        if (cStoreWh) cStoreWh.textContent = `(${wh.toLocaleString()})`;
+        if (cStoreNorm) cStoreNorm.textContent = `(${norm.toLocaleString()})`;
+        if (cStoreBoth) cStoreBoth.textContent = `(${totalDeals.toLocaleString()})`;
       }
 
       if (crawler.isRunning) {
