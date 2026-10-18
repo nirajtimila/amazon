@@ -157,7 +157,12 @@ const AMAZON_DEPARTMENTS = {
   'stripbooks': 'stripbooks',
   'automotive': 'automotive',
   'pets': 'pets',
-  'office-products': 'office-products'
+  'office-products': 'office-products',
+  'baby': 'baby-products',
+  'garden': 'lawngarden',
+  'hpc': 'hpc',
+  'mi': 'musical-instruments',
+  'luggage': 'luggage'
 };
 
 // Amazon Category Keyword Mappings for Warehouse Deals
@@ -173,7 +178,12 @@ const WAREHOUSE_CATEGORY_KEYWORDS = {
   'stripbooks': 'books',
   'automotive': 'automotive',
   'pets': 'pet supplies',
-  'office-products': 'office products'
+  'office-products': 'office products',
+  'baby': 'baby',
+  'garden': 'garden',
+  'hpc': 'health personal care',
+  'mi': 'musical instruments',
+  'luggage': 'luggage'
 };
 
 function getAvailabilityRefinement(domain) {
@@ -1125,6 +1135,7 @@ setTimeout(async () => {
 // AUTONOMOUS HOURLY DATABASE CRAWLER
 // -------------------------------------------------------------
 const CRAWLER_DEPARTMENTS = [
+  { id: 'all', name: '⚡ Broad All Deals' },
   { id: 'electronics', name: 'Electronics & Audio' },
   { id: 'pc', name: 'Computers & Tablets' },
   { id: 'kitchen', name: 'Home & Kitchen' },
@@ -1136,7 +1147,12 @@ const CRAWLER_DEPARTMENTS = [
   { id: 'stripbooks', name: 'Books' },
   { id: 'automotive', name: 'Automotive' },
   { id: 'pets', name: 'Pet Supplies' },
-  { id: 'office-products', name: 'Office Products' }
+  { id: 'office-products', name: 'Office Products' },
+  { id: 'baby', name: 'Baby Products' },
+  { id: 'garden', name: 'Garden & Outdoor' },
+  { id: 'hpc', name: 'Health & Household' },
+  { id: 'mi', name: 'Musical Instruments' },
+  { id: 'luggage', name: 'Luggage & Travel' }
 ];
 
 let crawlerRunning = false;
@@ -1157,7 +1173,7 @@ async function checkWatchlistMatch(item) {
   }
 }
 
-async function runAutonomousCrawler(maxPagesPerDept = 6) {
+async function runAutonomousCrawler(maxPagesPerDept = 20) {
   if (crawlerRunning) {
     console.log('[CRAWLER] Crawler already running. Skipping.');
     return { skipped: true };

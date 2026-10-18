@@ -244,7 +244,12 @@ document.addEventListener('DOMContentLoaded', () => {
     'stripbooks': 'books',
     'automotive': 'automotive',
     'pets': 'pet supplies',
-    'office-products': 'office products'
+    'office-products': 'office products',
+    'baby': 'baby',
+    'garden': 'garden',
+    'hpc': 'health personal care',
+    'mi': 'musical instruments',
+    'luggage': 'luggage'
   };
 
   // Deal History Registry & Just Listed Tracking
@@ -1004,7 +1009,12 @@ document.addEventListener('DOMContentLoaded', () => {
       'stripbooks': 'stripbooks',
       'automotive': 'automotive',
       'pets': 'pets',
-      'office-products': 'office-products'
+      'office-products': 'office-products',
+      'baby': 'baby-products',
+      'garden': 'lawngarden',
+      'hpc': 'hpc',
+      'mi': 'musical-instruments',
+      'luggage': 'luggage'
     };
     const dept = AMAZON_DEPARTMENTS[category];
 
@@ -1141,6 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (isDeepSweep) {
         const DEEP_SWEEP_CATEGORIES = [
+          { id: 'all', name: '⚡ Broad All Deals' },
           { id: 'electronics', name: 'Electronics & Audio' },
           { id: 'pc', name: 'Computers & Tablets' },
           { id: 'kitchen', name: 'Home & Kitchen' },
@@ -1152,10 +1163,15 @@ document.addEventListener('DOMContentLoaded', () => {
           { id: 'stripbooks', name: 'Books' },
           { id: 'automotive', name: 'Automotive' },
           { id: 'pets', name: 'Pet Supplies' },
-          { id: 'office-products', name: 'Office Products' }
+          { id: 'office-products', name: 'Office Products' },
+          { id: 'baby', name: 'Baby Products' },
+          { id: 'garden', name: 'Garden & Outdoor' },
+          { id: 'hpc', name: 'Health & Household' },
+          { id: 'mi', name: 'Musical Instruments' },
+          { id: 'luggage', name: 'Luggage & Travel' }
         ];
 
-        const pagesPerCat = isAllPages ? 10 : Math.min(parseInt(pagesSetting) || 2, 10);
+        const pagesPerCat = isAllPages ? 20 : Math.min(parseInt(pagesSetting) || 2, 20);
         let categoriesScanned = 0;
 
         for (let c = 0; c < DEEP_SWEEP_CATEGORIES.length; c++) {
