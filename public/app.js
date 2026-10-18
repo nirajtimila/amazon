@@ -1899,6 +1899,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!keepCurrentTab) {
           resetToAllDealsTab();
         }
+        renderSkeletons();
+        if (searchBtn) {
+          searchBtn.disabled = true;
+          searchBtn.style.opacity = '0.75';
+        }
       }
       const activeStore = storeType || 'both';
       const rawCategory = categorySelect ? categorySelect.value : 'all';
@@ -1980,11 +1985,20 @@ document.addEventListener('DOMContentLoaded', () => {
           renderDatabaseEmptyState(kw, data.stats?.totalInDb || 0);
           if (loadMoreContainer) loadMoreContainer.style.display = 'none';
         }
+      } else {
+        console.error('Database query returned non-200 status:', res.status);
+        showToast('⚠️ Could not load database deals');
       }
     } catch (e) {
       console.warn('Error loading database deals:', e);
+      showToast('⚠️ Could not load database deals');
+    } finally {
+      if (searchBtn) {
+        searchBtn.disabled = false;
+        searchBtn.style.opacity = '1';
+      }
+      updateDatabaseStatus();
     }
-    updateDatabaseStatus();
   }
 
   function renderDatabaseEmptyState(keyword, totalInDb) {
