@@ -302,15 +302,24 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   updateTargetUrl();
 
+  // Reset view back to All Deals
+  function resetToAllDealsTab() {
+    activeFilterTab = 'all';
+    if (tabAllDeals) tabAllDeals.classList.add('active');
+    if (tabJustListed) tabJustListed.classList.remove('active');
+    if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+    if (timeFilterRow) timeFilterRow.style.display = 'none';
+  }
+
   // Filter Tabs (All Deals vs Just Listed vs Sniped Deals)
   if (tabAllDeals) {
     tabAllDeals.addEventListener('click', () => {
-      activeFilterTab = 'all';
-      tabAllDeals.classList.add('active');
-      if (tabJustListed) tabJustListed.classList.remove('active');
-      if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
-      if (timeFilterRow) timeFilterRow.style.display = 'none';
-      renderDeals(deals);
+      resetToAllDealsTab();
+      if (!deals || deals.length === 0) {
+        loadDatabaseDeals(false);
+      } else {
+        renderDeals(deals);
+      }
     });
   }
 
@@ -321,17 +330,34 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabAllDeals) tabAllDeals.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'flex';
-      renderDeals(deals);
+      if (!deals || deals.length === 0) {
+        loadDatabaseDeals(true);
+      } else {
+        renderDeals(deals);
+      }
     });
   }
 
   if (tabSnipedDeals) {
-    tabSnipedDeals.addEventListener('click', () => {
+    tabSnipedDeals.addEventListener('click', async () => {
       activeFilterTab = 'sniped';
       tabSnipedDeals.classList.add('active');
       if (tabAllDeals) tabAllDeals.classList.remove('active');
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
+
+      // Always fetch fresh sniped matches from backend
+      try {
+        const res = await fetch('/api/sniped');
+        if (res.ok) {
+          const fresh = await res.json();
+          if (Array.isArray(fresh)) {
+            snipedDeals = fresh;
+            if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
+          }
+        }
+      } catch (err) {}
+
       renderDeals(snipedDeals);
     });
   }
@@ -790,6 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
       updateTargetUrl();
       currentPage = 1;
       deals = [];
+      resetToAllDealsTab();
       loadDatabaseDeals();
     });
   });
@@ -800,6 +827,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const q = e.target.getAttribute('data-q');
       keywordInput.value = q;
       updateTargetUrl();
+      resetToAllDealsTab();
       executeSearch();
     }
   });
@@ -810,6 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
+    resetToAllDealsTab();
     loadDatabaseDeals();
   });
   domainSelect.addEventListener('change', () => {
@@ -817,12 +846,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
+    resetToAllDealsTab();
     executeSearch(false);
   });
   sortSelect.addEventListener('change', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
+    resetToAllDealsTab();
     executeSearch(false);
   });
   if (currencySelect) {
@@ -837,12 +868,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
+    resetToAllDealsTab();
     executeSearch(false);
   });
   if (inStockOnly) inStockOnly.addEventListener('change', () => {
     updateTargetUrl();
     currentPage = 1;
     deals = [];
+    resetToAllDealsTab();
     executeSearch(false);
   });
 
@@ -1016,6 +1049,7 @@ document.addEventListener('DOMContentLoaded', () => {
   searchBtn.addEventListener('click', () => {
     currentPage = 1;
     deals = [];
+    resetToAllDealsTab();
     executeSearch(false);
   });
 
@@ -1023,6 +1057,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') {
       currentPage = 1;
       deals = [];
+      resetToAllDealsTab();
       executeSearch(false);
     }
   });
@@ -1039,6 +1074,9 @@ document.addEventListener('DOMContentLoaded', () => {
     isLoading = true;
     stopRequested = false;
     if (stopScanBtn) stopScanBtn.textContent = '⏹️ Stop Scanning';
+    if (!isLoadMore) {
+      resetToAllDealsTab();
+    }
 
     const keyword = keywordInput.value.trim();
     const rawCategory = categorySelect.value;
@@ -1290,13 +1328,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     resultsMeta.style.display = 'flex';
     const pageCountText = currentPage > 1 ? ` (${currentPage} pgs)` : '';
-    resultsCount.textContent = `${items.length.toLocaleString()} Deals Found${pageCountText}`;
     const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
     let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
     if (categorySelect.value === 'sweep_all') catClean = 'All Categories';
     else if (categorySelect.value === 'all') catClean = 'All Categories';
     else catClean = catClean.replace(/\s*\(.*?\)/, '');
-    filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
 
     const now = Date.now();
     let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0;
@@ -1342,28 +1378,46 @@ document.addEventListener('DOMContentLoaded', () => {
       displayedItems = snipedDeals;
     }
 
+    const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
+    const winLabel = windowLabels[activeTimeWindow] || 'Current Window';
+
+    if (activeFilterTab === 'sniped') {
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Watchlist Sniped Matches`;
+      filterSummaryBadge.textContent = '🎯 Watchlist Sniper Target Hits';
+    } else if (activeFilterTab === 'just_listed') {
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Deals Discovered (${winLabel})`;
+      filterSummaryBadge.textContent = `✨ Just Listed (${winLabel})`;
+    } else {
+      resultsCount.textContent = `${items.length.toLocaleString()} Deals Found${pageCountText}`;
+      filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
+    }
+
     if (displayedItems.length === 0 && activeFilterTab === 'sniped') {
       dealsGrid.innerHTML = `
-        <div class="empty-state card">
+        <div class="empty-state card" style="grid-column: 1 / -1;">
           <div class="empty-icon">🎯</div>
           <h3>No Watchlist Sniped Matches Yet</h3>
-          <p>The Watchlist Sniper scans all your active target keywords and collects matching deals here.</p>
-          <button class="btn btn-primary" id="openSniperEmptyBtn" style="margin-top: 1rem;">🎯 Open Watchlist & Run Sniper</button>
+          <p>The Watchlist Sniper scans all your active target keywords every 2 hours and collects matching deals here.</p>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="openSniperEmptyBtn">🎯 Open Watchlist & Run Sniper</button>
+            <button class="btn btn-secondary" id="exitSniperEmptyBtn">📦 View All Normal Deals (${items.length || deals.length})</button>
+          </div>
         </div>
       `;
       document.getElementById('openSniperEmptyBtn')?.addEventListener('click', openWatchlistModal);
+      document.getElementById('exitSniperEmptyBtn')?.addEventListener('click', () => {
+        tabAllDeals?.click();
+      });
       return;
     }
 
     if (displayedItems.length === 0 && activeFilterTab === 'just_listed') {
-      const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
-      const winLabel = windowLabels[activeTimeWindow] || 'Current Window';
       dealsGrid.innerHTML = `
-        <div class="empty-state card">
+        <div class="empty-state card" style="grid-column: 1 / -1;">
           <div class="empty-icon">✨</div>
           <h3>No Deals Discovered in ${winLabel}</h3>
           <p>No new warehouse deals were indexed within this specific time window. Select a wider window (e.g. 6h, 12h, 24h) or trigger a fresh background scan.</p>
-          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem;">
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
             <button class="btn btn-secondary" id="backTo24hBtn">Show Last 24 Hours</button>
             <button class="btn btn-primary" id="backToAllBtn">Show All Deals (${items.length})</button>
           </div>
@@ -1382,7 +1436,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const activeDomain = domainSelect ? domainSelect.value : 'amazon.com.au';
     const activeCurrency = currencySelect ? currencySelect.value : 'AUD';
 
-    dealsGrid.innerHTML = displayedItems.map(item => {
+    let contextBannerHtml = '';
+    if (activeFilterTab === 'sniped') {
+      contextBannerHtml = `
+        <div class="sniped-context-banner" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.4); padding: 12px 18px; border-radius: 8px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: #d8b4fe;">
+            <span style="font-size: 1.15rem;">🎯</span>
+            <span style="font-size: 0.92rem;">Currently viewing <strong>Watchlist Sniped Deals</strong> (${displayedItems.length} items).</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="exitSniperBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem;">
+            📦 View All Normal Deals (${items.length || deals.length})
+          </button>
+        </div>
+      `;
+    }
+
+    dealsGrid.innerHTML = contextBannerHtml + displayedItems.map(item => {
       const isSaved = savedDeals.some(s => s.asin === item.asin);
       const cleanImg = item.image || 'https://via.placeholder.com/300x200?text=No+Image';
       
@@ -1479,6 +1548,11 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
     }).join('');
+
+    // Attach exit sniper banner listener
+    document.getElementById('exitSniperBannerBtn')?.addEventListener('click', () => {
+      tabAllDeals?.click();
+    });
 
     // Attach card save event listeners
     document.querySelectorAll('.save-btn').forEach(btn => {
@@ -1762,8 +1836,11 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
   }
 
-  async function loadDatabaseDeals() {
+  async function loadDatabaseDeals(keepCurrentTab = false) {
     try {
+      if (!keepCurrentTab) {
+        resetToAllDealsTab();
+      }
       const activeStore = storeType || 'both';
       const rawCategory = categorySelect ? categorySelect.value : 'all';
       const categoryParam = (rawCategory === 'sweep_all') ? 'all' : rawCategory;
@@ -1792,6 +1869,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const dbDeepScanLabel = document.getElementById('dbDeepScanLabel');
   if (dbDeepScanBtn) {
     dbDeepScanBtn.addEventListener('click', async () => {
+      resetToAllDealsTab();
       showToast('⚡ Starting full DEEP SEARCH across all 12 departments (150+ pages directly into database)...');
       if (dbDeepScanBtn) dbDeepScanBtn.style.opacity = '0.6';
       if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Sweeping 150+ Pgs...';
@@ -1812,6 +1890,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Scan Now Button Handler
   if (dbScanNowBtn) {
     dbScanNowBtn.addEventListener('click', async () => {
+      resetToAllDealsTab();
       showToast('🚀 Triggered hourly warehouse sweep! Scanning departments in background...');
       if (dbScanNowBtn) dbScanNowBtn.classList.add('scanning');
       if (dbScanLabel) dbScanLabel.textContent = 'Starting...';
