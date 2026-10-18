@@ -550,11 +550,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!allTokensMatch) return false;
 
     // 3. Accessory, Case, Adapter & Manual filter: If target keyword does NOT ask for an accessory,
-    // reject items that are cases, covers, cables, straps, user guides, etc.
-    const targetWantsAccessory = /\b(case|cover|strap|cable|charger|adapter|converter|protector|holder|pouch|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
+    // reject items that are cases, covers, sleeves, pouches, cables, straps, user guides, etc.
+    const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
 
     if (!targetWantsAccessory) {
-      const isJunkOrAccessory = /\b(case\s+(for|compatible|cover)|cover\s+(for|compatible)|protective\s+case|silicone\s+case|clear\s+case|hard\s+case|leather\s+case|phone\s+case|charging\s+case\s+only|case\s+with\s+keychain|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
+      const isJunkOrAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+([0-9a-z.-]+\s+)*(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
       if (isJunkOrAccessory) return false;
     }
 

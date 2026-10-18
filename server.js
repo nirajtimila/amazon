@@ -59,7 +59,7 @@ const DEFAULT_DB = {
   snipedDeals: [],
   settings: {
     autoSniperEnabled: true,
-    scanIntervalMinutes: 10,
+    scanIntervalMinutes: 120, // 2 hours
     discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL || "",
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
     telegramChatId: process.env.TELEGRAM_CHAT_ID || "",
@@ -89,6 +89,17 @@ function loadDb() {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       const loaded = JSON.parse(raw);
       if (!loaded.crawledDeals) loaded.crawledDeals = {};
+      if (!loaded.settings) loaded.settings = { ...DEFAULT_DB.settings };
+      if (!loaded.settings.scanIntervalMinutes || loaded.settings.scanIntervalMinutes === 10) {
+        loaded.settings.scanIntervalMinutes = 120;
+      }
+      if (!loaded.sniperDaemon) {
+        loaded.sniperDaemon = {
+          lastRunAt: null,
+          nextRunAt: Date.now() + 120 * 60 * 1000,
+          isRunning: false
+        };
+      }
       if (!loaded.crawler) {
         loaded.crawler = {
           enabled: true,
@@ -692,7 +703,8 @@ app.get('/api/settings', (req, res) => {
     serverUptime: process.uptime(),
     activeTargetsCount: db.watchlist.filter(w => w.active).length,
     snipedDealsCount: db.snipedDeals.length,
-    savedDealsCount: db.savedDeals.length
+    savedDealsCount: db.savedDeals.length,
+    sniperDaemon: db.sniperDaemon || {}
   });
 });
 
@@ -985,11 +997,11 @@ function isWatchlistMatch(item, target) {
   if (!allTokensMatch) return false;
 
   // 3. Accessory, Case, Adapter & Manual filter: If target keyword does NOT ask for an accessory,
-  // reject items that are cases, covers, cables, straps, user guides, etc.
-  const targetWantsAccessory = /\b(case|cover|strap|cable|charger|adapter|converter|protector|holder|pouch|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
+  // reject items that are cases, covers, sleeves, pouches, cables, straps, user guides, etc.
+  const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
 
   if (!targetWantsAccessory) {
-    const isJunkOrAccessory = /\b(case\s+(for|compatible|cover)|cover\s+(for|compatible)|protective\s+case|silicone\s+case|clear\s+case|hard\s+case|leather\s+case|phone\s+case|charging\s+case\s+only|case\s+with\s+keychain|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
+    const isJunkOrAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+([0-9a-z.-]+\s+)*(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
     if (isJunkOrAccessory) return false;
   }
 
@@ -1024,63 +1036,87 @@ async function runAutonomousSniperScan() {
   const activeTargets = (db.watchlist || []).filter(w => w.active);
   if (activeTargets.length === 0) return [];
 
-  console.log(`[SNIPER DAEMON] Scanning ${activeTargets.length} active watchlist targets...`);
+  const intervalMinutes = (db.settings && db.settings.scanIntervalMinutes) || 120;
+  const intervalMs = intervalMinutes * 60 * 1000;
+  if (!db.sniperDaemon) db.sniperDaemon = {};
+  db.sniperDaemon.isRunning = true;
+  db.sniperDaemon.lastRunAt = Date.now();
+  db.sniperDaemon.nextRunAt = Date.now() + intervalMs;
+
+  console.log(`[SNIPER DAEMON] 🎯 Scanning ${activeTargets.length} active watchlist targets (every ${intervalMinutes}m / 2h)...`);
   const domain = db.settings.defaultDomain || 'amazon.com.au';
   const newHits = [];
 
-  for (const target of activeTargets) {
-    try {
-      const res = await scrapeAmazonStore({
-        storeType: 'both',
-        keyword: target.keyword,
-        category: target.category || 'all',
-        minDiscount: target.minDiscount || 25,
-        maxDiscount: 99,
-        domain,
-        sort: 'price-asc-rank',
-        maxPrice: target.maxPrice || 0,
-        page: 1,
-        availableOnly: true
-      });
+  try {
+    for (const target of activeTargets) {
+      try {
+        const res = await scrapeAmazonStore({
+          storeType: 'both',
+          keyword: target.keyword,
+          category: target.category || 'all',
+          minDiscount: target.minDiscount || 25,
+          maxDiscount: 99,
+          domain,
+          sort: 'price-asc-rank',
+          maxPrice: target.maxPrice || 0,
+          page: 1,
+          availableOnly: true
+        });
 
-      target.lastScannedAt = Date.now();
-      const items = res.items || [];
+        target.lastScannedAt = Date.now();
+        const items = res.items || [];
 
-      for (const item of items) {
-        if (!isWatchlistMatch(item, target)) continue;
+        for (const item of items) {
+          if (!isWatchlistMatch(item, target)) continue;
 
-        item.snipedFromTarget = target.keyword;
+          item.snipedFromTarget = target.keyword;
 
-        // Check if already in sniped deals
-        if (!db.snipedDeals.some(d => d.asin === item.asin)) {
-          item.snipedAt = Date.now();
-          db.snipedDeals.unshift(item);
-          newHits.push(item);
-          target.matchCount = (target.matchCount || 0) + 1;
-          console.log(`[SNIPER HIT] Found matching deal: ${item.title} at ${item.price}!`);
+          // Check if already in sniped deals
+          if (!db.snipedDeals.some(d => d.asin === item.asin)) {
+            item.snipedAt = Date.now();
+            db.snipedDeals.unshift(item);
+            newHits.push(item);
+            target.matchCount = (target.matchCount || 0) + 1;
+            console.log(`[SNIPER HIT] Found matching deal: ${item.title} at ${item.price}!`);
 
-          // Send push notifications
-          await dispatchDealNotification(item, target);
+            // Send push notifications
+            await dispatchDealNotification(item, target);
+          }
         }
+      } catch (err) {
+        console.error(`[SNIPER DAEMON] Error scanning target "${target.keyword}":`, err.message);
       }
-    } catch (err) {
-      console.error(`[SNIPER DAEMON] Error scanning target "${target.keyword}":`, err.message);
     }
-  }
-
-  if (newHits.length > 0) {
+  } finally {
+    db.sniperDaemon.isRunning = false;
     saveDb(db);
   }
+
   return newHits;
 }
 
-// Start Periodic Background Sniper Schedule
-const DEFAULT_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+// Start Periodic Background Sniper Schedule (Runs every 2 hours)
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 setInterval(async () => {
   if (db.settings && db.settings.autoSniperEnabled !== false) {
+    console.log(`[SNIPER DAEMON] ⏰ Starting scheduled 2-hour scan cycle...`);
     await runAutonomousSniperScan();
   }
-}, DEFAULT_INTERVAL_MS);
+}, TWO_HOURS_MS);
+
+// Initial Sniper kickstart: run 15s after startup if never run or > 2 hours since last scan
+setTimeout(async () => {
+  if (db.settings && db.settings.autoSniperEnabled !== false) {
+    const activeTargets = (db.watchlist || []).filter(w => w.active);
+    const lastRun = db.sniperDaemon && db.sniperDaemon.lastRunAt;
+    const intervalMs = ((db.settings && db.settings.scanIntervalMinutes) || 120) * 60 * 1000;
+    const needsRun = activeTargets.length > 0 && (!lastRun || (Date.now() - lastRun > intervalMs));
+    if (needsRun) {
+      console.log(`[SNIPER DAEMON] Initializing kickstart scan (${activeTargets.length} active watchlist targets)...`);
+      await runAutonomousSniperScan();
+    }
+  }
+}, 15000);
 
 // -------------------------------------------------------------
 // AUTONOMOUS HOURLY DATABASE CRAWLER
