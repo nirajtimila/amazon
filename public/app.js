@@ -861,32 +861,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let url = '';
 
-    if (activeStore === 'normal') {
-      const iParam = (category === 'all' || category === 'warehouse-deals') ? 'aps' : category;
+    const AMAZON_DEPARTMENTS = {
+      'pc': 'computers',
+      'electronics': 'electronics',
+      'videogames': 'videogames',
+      'kitchen': 'kitchen',
+      'hi': 'hi',
+      'sporting': 'sporting',
+      'toys-and-games': 'toys-and-games',
+      'beauty': 'beauty',
+      'stripbooks': 'stripbooks',
+      'automotive': 'automotive',
+      'pets': 'pets',
+      'office-products': 'office-products'
+    };
+    const dept = AMAZON_DEPARTMENTS[category];
+
+    if (activeStore === 'normal' || activeStore === 'both') {
+      const iParam = dept || (category === 'all' || category === 'warehouse-deals' ? 'aps' : category);
       url = `https://www.${domain}/s?i=${encodeURIComponent(iParam)}&pct-off=${min}-${max}`;
       let combinedK = keyword || '';
       if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
       if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
-      if (combinedK) {
-        url += `&k=${encodeURIComponent(combinedK)}`;
-      }
+      if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
     } else {
-      // 'warehouse' or 'both' (default direct view to warehouse deals)
-      url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${min}-${max}`;
-      const catKw = WAREHOUSE_CATEGORY_KEYWORDS[category] || '';
-      let combinedK = '';
-      if (catKw && keyword) {
-        combinedK = `${catKw} ${keyword}`;
-      } else if (catKw) {
-        combinedK = catKw;
-      } else if (keyword) {
-        combinedK = keyword;
+      // Warehouse deals
+      if (dept) {
+        url = `https://www.${domain}/s?i=${encodeURIComponent(dept)}&pct-off=${min}-${max}`;
+      } else {
+        url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${min}-${max}`;
       }
+      let combinedK = keyword || '';
       if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
       if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
-      if (combinedK) {
-        url += `&k=${encodeURIComponent(combinedK)}`;
-      }
+      if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
     }
 
     if (minP > 0) url += `&low-price=${minP}`;

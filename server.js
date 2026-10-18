@@ -98,7 +98,27 @@ let db = loadDb();
 
 // Express Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  next();
+});
+app.use(express.static(path.join(__dirname, 'public'), { etag: false, maxAge: 0 }));
+
+// Amazon Department Parameters
+const AMAZON_DEPARTMENTS = {
+  'pc': 'computers',
+  'electronics': 'electronics',
+  'videogames': 'videogames',
+  'kitchen': 'kitchen',
+  'hi': 'hi',
+  'sporting': 'sporting',
+  'toys-and-games': 'toys-and-games',
+  'beauty': 'beauty',
+  'stripbooks': 'stripbooks',
+  'automotive': 'automotive',
+  'pets': 'pets',
+  'office-products': 'office-products'
+};
 
 // Amazon Category Keyword Mappings for Warehouse Deals
 const WAREHOUSE_CATEGORY_KEYWORDS = {
@@ -226,22 +246,23 @@ async function scrapeAmazonStore(opts) {
   }
 
   let url = '';
-  if (storeType === 'normal') {
-    const iParam = (category === 'all' || category === 'warehouse-deals') ? 'aps' : category;
+  const dept = AMAZON_DEPARTMENTS[category];
+
+  if (storeType === 'normal' || storeType === 'both') {
+    const iParam = dept || (category === 'all' || category === 'warehouse-deals' ? 'aps' : category);
     url = `https://www.${domain}/s?i=${encodeURIComponent(iParam)}&pct-off=${minDiscount}-${maxDiscount}`;
     let combinedK = keyword || '';
     if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
     if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
     if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
   } else {
-    // warehouse deals
-    url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${minDiscount}-${maxDiscount}`;
-    const catKw = WAREHOUSE_CATEGORY_KEYWORDS[category] || '';
-    let combinedK = '';
-    if (catKw && keyword) combinedK = `${catKw} ${keyword}`;
-    else if (catKw) combinedK = catKw;
-    else if (keyword) combinedK = keyword;
-
+    // Warehouse deals
+    if (dept) {
+      url = `https://www.${domain}/s?i=${encodeURIComponent(dept)}&pct-off=${minDiscount}-${maxDiscount}`;
+    } else {
+      url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${minDiscount}-${maxDiscount}`;
+    }
+    let combinedK = keyword || '';
     if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
     if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
     if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
