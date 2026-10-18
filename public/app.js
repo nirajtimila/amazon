@@ -388,8 +388,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const snipedData = await snipedRes.value.json();
         if (Array.isArray(snipedData) && snipedData.length > 0) {
           snipedDeals = snipedData;
-          if (countSnipedDeals) countSnipedDeals.textContent = `(${snipedDeals.length})`;
-          if (tabSnipedDeals) tabSnipedDeals.style.display = 'flex';
+          if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
+          if (tabSnipedDeals) tabSnipedDeals.style.display = 'inline-flex';
         }
       }
     } catch (e) {}
@@ -1248,11 +1248,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     resultsMeta.style.display = 'flex';
-    const pageCountText = currentPage > 1 ? ` across ${currentPage} pages scanned` : '';
-    resultsCount.textContent = `Found ${items.length} deals${pageCountText}`;
-    const storeLabel = storeType === 'warehouse' ? 'Amazon Warehouse' : (storeType === 'normal' ? 'Normal Amazon' : 'All Stores');
-    const catText = categorySelect.options[categorySelect.selectedIndex].text;
-    filterSummaryBadge.textContent = `${storeLabel} • ${catText} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
+    const pageCountText = currentPage > 1 ? ` (${currentPage} pgs)` : '';
+    resultsCount.textContent = `${items.length.toLocaleString()} Deals Found${pageCountText}`;
+    const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
+    let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
+    if (categorySelect.value === 'sweep_all') catClean = 'All Categories';
+    else if (categorySelect.value === 'all') catClean = 'All Categories';
+    else catClean = catClean.replace(/\s*\(.*?\)/, '');
+    filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
 
     const now = Date.now();
     let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0;

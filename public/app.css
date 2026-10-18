@@ -590,32 +590,94 @@ input::placeholder {
   flex: 1;
 }
 
-/* Results Meta */
+/* Results Meta Bar */
 .results-meta {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.results-meta-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem 1.5rem;
-}
-
-.meta-left {
-  display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
+.results-headline-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .results-count {
-  font-weight: 700;
-  font-size: 1.1rem;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: #f8fafc;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.meta-badges-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .meta-badge {
-  background: var(--accent-emerald-glow);
-  color: var(--accent-emerald);
-  padding: 3px 10px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 4px 11px;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  letter-spacing: 0.01em;
+}
+
+.meta-badge.inventory-badge {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.results-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.export-csv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.export-csv-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #fff;
 }
 
 /* Deals Grid */
@@ -1142,35 +1204,90 @@ input::placeholder {
   transform: translateY(-1px);
 }
 
-/* Filter Tab Pills */
+/* Segmented Filter Tabs */
+.filter-tabs-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-tabs-wrapper::-webkit-scrollbar {
+  display: none;
+}
+
 .filter-tabs-row {
   display: inline-flex;
+  align-items: center;
   gap: 8px;
-  margin-left: 12px;
+  background: rgba(15, 23, 42, 0.65);
+  padding: 5px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .filter-tab-pill {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  color: var(--text-secondary);
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: #94a3b8;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  font-family: inherit;
+  user-select: none;
+}
+
+.filter-tab-pill .tab-icon {
+  font-size: 1rem;
+}
+
+.filter-tab-pill .tab-title {
+  font-weight: 600;
+}
+
+.filter-tab-pill .tab-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: #94a3b8;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 22px;
+  text-align: center;
   transition: all 0.2s ease;
 }
 
-.filter-tab-pill.active {
-  background: var(--accent-emerald);
-  color: #fff;
-  border-color: var(--accent-emerald);
-  box-shadow: 0 2px 8px var(--accent-emerald-glow);
+.filter-tab-pill:hover:not(.active) {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.06);
 }
 
-.filter-tab-pill:hover:not(.active) {
-  border-color: var(--border-focus);
-  color: var(--text-primary);
+.filter-tab-pill:hover:not(.active) .tab-badge {
+  color: #f1f5f9;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.filter-tab-pill.active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+}
+
+.filter-tab-pill.active .tab-title {
+  font-weight: 700;
+}
+
+.filter-tab-pill.active .tab-badge {
+  background: rgba(0, 0, 0, 0.25);
+  color: #ffffff;
 }
 
 /* Verification Badges (Camel3, Keepa, OzBargain) */
@@ -1407,22 +1524,145 @@ input::placeholder {
   gap: 8px;
 }
 
-/* Responsive */
+/* Responsive Styles for Tablets and Mobile Devices */
 @media (max-width: 900px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .form-group.span-2, .form-group.span-3, .form-group.span-4 {
-    grid-column: span 1;
+  .app-header {
+    padding: 0.85rem 1.25rem;
   }
   .main-content {
     padding: 1rem;
   }
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .form-group.span-2, .form-group.span-3, .form-group.span-4 {
+    grid-column: span 1;
+  }
   .segmented-store-pills {
     grid-template-columns: 1fr;
+    gap: 8px;
   }
   .watchlist-grid-inputs {
     grid-template-columns: 1fr;
+  }
+  .db-status-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .db-status-actions {
+    width: 100%;
+  }
+  .db-status-actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .deals-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 0.75rem 1rem;
+  }
+  .logo-area {
+    justify-content: flex-start;
+  }
+  .header-actions {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: 8px;
+  }
+  .header-actions .btn {
+    flex: 1;
+    padding: 8px 10px;
+    font-size: 0.8rem;
+    justify-content: center;
+  }
+  .status-indicator {
+    display: none;
+  }
+  .panel-header h2 {
+    font-size: 1.25rem;
+  }
+  .control-panel {
+    padding: 1.25rem 1rem;
+  }
+  .results-meta {
+    padding: 1rem 0.85rem;
+    gap: 12px;
+  }
+  .results-meta-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .results-headline-group {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .results-count {
+    font-size: 1.1rem;
+  }
+  .meta-badges-group {
+    width: 100%;
+  }
+  .export-csv-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 8px;
+  }
+  .filter-tabs-wrapper {
+    width: 100%;
+  }
+  .filter-tabs-row {
+    display: flex;
+    width: 100%;
+  }
+  .filter-tab-pill {
+    flex: 1;
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: 0.78rem;
+    gap: 5px;
+  }
+  .filter-tab-pill .tab-title {
+    font-size: 0.78rem;
+  }
+  .filter-tab-pill .tab-badge {
+    padding: 1px 6px;
+    font-size: 0.7rem;
+  }
+  .time-filter-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .time-pills-track {
+    width: 100%;
+  }
+  .deals-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  .card-img-wrap {
+    height: 180px;
+  }
+  .modal-container {
+    width: 95%;
+    max-height: 90vh;
+  }
+  .drawer-panel {
+    width: 100%;
   }
 }
 
@@ -1511,46 +1751,78 @@ input::placeholder {
 .time-filter-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 8px 14px;
   width: 100%;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.time-filter-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.time-filter-icon {
+  font-size: 0.95rem;
 }
 
 .time-filter-label {
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: #94a3b8;
-  margin-right: 4px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.time-pills-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding: 2px 0;
+  flex: 1;
+}
+
+.time-pills-track::-webkit-scrollbar {
+  display: none;
 }
 
 .time-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #94a3b8;
   font-size: 0.78rem;
   font-weight: 600;
-  padding: 4px 10px;
+  padding: 5px 12px;
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.2s ease;
   font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .time-pill:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.09);
   color: #fff;
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .time-pill.active {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.25));
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.2));
   border-color: #10b981;
   color: #34d399;
   font-weight: 700;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.25);
 }
 
 /* Deal Card Age & Price Drop Badges */
