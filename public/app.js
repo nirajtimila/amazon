@@ -529,6 +529,46 @@ document.addEventListener('DOMContentLoaded', () => {
     runSniperScanBtn.addEventListener('click', runWatchlistSniper);
   }
 
+  function isWatchlistMatch(item, target) {
+    if (!item || !item.title || !target || !target.keyword) return false;
+    const targetKw = target.keyword.trim().toLowerCase();
+    const title = (item.title || '').toLowerCase();
+
+    // 1. Tokenize significant words from target keyword (length >= 2)
+    const requiredTokens = targetKw
+      .replace(/[^a-z0-9\s]/gi, ' ')
+      .split(/\s+/)
+      .filter(t => t.length >= 2);
+
+    if (requiredTokens.length === 0) return false;
+
+    // 2. All required tokens must be present in the title as word boundaries
+    const allTokensMatch = requiredTokens.every(token => {
+      const re = new RegExp('\\b' + token + '\\b', 'i');
+      return re.test(title);
+    });
+    if (!allTokensMatch) return false;
+
+    // 3. Accessory, Case, Adapter & Manual filter: If target keyword does NOT ask for an accessory,
+    // reject items that are cases, covers, cables, straps, user guides, etc.
+    const targetWantsAccessory = /\b(case|cover|strap|cable|charger|adapter|converter|protector|holder|pouch|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
+
+    if (!targetWantsAccessory) {
+      const isJunkOrAccessory = /\b(case\s+(for|compatible|cover)|cover\s+(for|compatible)|protective\s+case|silicone\s+case|clear\s+case|hard\s+case|leather\s+case|phone\s+case|charging\s+case\s+only|case\s+with\s+keychain|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
+      if (isJunkOrAccessory) return false;
+    }
+
+    // 4. Price bounds check
+    const numPrice = item.numericPrice || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+    if (target.maxPrice > 0 && numPrice > target.maxPrice) return false;
+
+    // 5. Discount threshold check
+    const disc = parseInt(item.discountPercent, 10) || 0;
+    if (target.minDiscount > 0 && disc < target.minDiscount) return false;
+
+    return true;
+  }
+
   async function runWatchlistSniper() {
     const activeTargets = watchlist.filter(w => w.active);
     if (activeTargets.length === 0) {
@@ -561,6 +601,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const data = await res.json();
           const items = data.products || [];
           for (const item of items) {
+            if (!isWatchlistMatch(item, target)) continue;
             item.snipedFromTarget = target.keyword;
             tagNewDealStatus(item);
             if (!snipedDeals.some(d => d.asin === item.asin)) {
@@ -1382,7 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="discount-badge">${item.discountPercent || item.discount || (minDiscountSlider.value + '%+ OFF')}</span>
             <span class="store-badge ${storeBadgeClass}">${storeBadgeText}</span>
             ${item.isJustListed ? '<span class="just-listed-badge">✨ JUST LISTED</span>' : ''}
-            ${item.snipedFromTarget ? `<span class="just-listed-badge" style="top: 36px; background: #8b5cf6;">🎯 ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
+            ${item.snipedFromTarget ? `<span class="sniper-match-badge" title="Matched Watchlist: ${escapeHtml(item.snipedFromTarget)}">🎯 ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
             ${item.page ? `<span class="page-badge" style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #cbd5e1; font-size: 0.68rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">Pg ${item.page}</span>` : ''}
             <button class="save-btn ${isSaved ? 'active' : ''}" data-asin="${item.asin}" title="Save deal">
               ♥
@@ -1425,9 +1466,14 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <div class="card-actions">
-              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration: none; width: 100%;">
+              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration: none; flex: 1;">
                 View on Amazon ↗
               </a>
+              ${activeFilterTab === 'sniped' ? `
+                <button type="button" class="btn btn-sm btn-ghost remove-sniped-btn" data-asin="${item.asin}" title="Dismiss deal from sniped matches" style="color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 7px 12px;">
+                  ✕
+                </button>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -1440,6 +1486,21 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
         const asin = e.currentTarget.getAttribute('data-asin');
         toggleSaveDeal(asin);
+      });
+    });
+
+    // Attach dismiss sniped deal listeners
+    document.querySelectorAll('.remove-sniped-btn').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const asin = e.currentTarget.getAttribute('data-asin');
+        snipedDeals = snipedDeals.filter(d => d.asin !== asin);
+        if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
+        renderDeals(snipedDeals);
+        try {
+          await fetch(`/api/sniped/${asin}`, { method: 'DELETE' });
+        } catch (err) {}
+        showToast('Dismissed deal from sniped matches');
       });
     });
   }

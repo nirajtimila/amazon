@@ -1163,6 +1163,29 @@ input::placeholder {
   animation: pulse-glow 2.5s infinite;
 }
 
+/* Sniper Match Badge on Deal Card */
+.sniper-match-badge {
+  position: absolute;
+  top: 40px;
+  left: 12px;
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 0.68rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+  max-width: calc(100% - 60px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  line-height: 1.2;
+}
+
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
   50% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }

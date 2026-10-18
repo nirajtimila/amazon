@@ -123,6 +123,7 @@ function saveDb(data) {
 
 // In-Memory DB Handle
 let db = loadDb();
+pruneInvalidSnipedDeals();
 
 // Express Middleware
 app.use(express.json());
@@ -646,6 +647,13 @@ app.get('/api/sniped', (req, res) => {
   res.json(db.snipedDeals || []);
 });
 
+app.delete('/api/sniped', (req, res) => {
+  db.snipedDeals = [];
+  (db.watchlist || []).forEach(w => w.matchCount = 0);
+  saveDb(db);
+  res.json({ success: true, count: 0 });
+});
+
 app.delete('/api/sniped/:asin', (req, res) => {
   const asin = req.params.asin;
   db.snipedDeals = db.snipedDeals.filter(s => s.asin !== asin);
@@ -953,6 +961,63 @@ async function dispatchDealNotification(item, target) {
 }
 
 // -------------------------------------------------------------
+// WATCHLIST MATCH ENGINE (Precision Keyword & Anti-Accessory Verification)
+// -------------------------------------------------------------
+function isWatchlistMatch(item, target) {
+  if (!item || !item.title || !target || !target.keyword) return false;
+
+  const targetKw = target.keyword.trim().toLowerCase();
+  const title = (item.title || '').toLowerCase();
+
+  // 1. Tokenize significant words from target keyword (length >= 2)
+  const requiredTokens = targetKw
+    .replace(/[^a-z0-9\s]/gi, ' ')
+    .split(/\s+/)
+    .filter(t => t.length >= 2);
+
+  if (requiredTokens.length === 0) return false;
+
+  // 2. All required tokens must be present in the title as word boundaries
+  const allTokensMatch = requiredTokens.every(token => {
+    const re = new RegExp('\\b' + token + '\\b', 'i');
+    return re.test(title);
+  });
+  if (!allTokensMatch) return false;
+
+  // 3. Accessory, Case, Adapter & Manual filter: If target keyword does NOT ask for an accessory,
+  // reject items that are cases, covers, cables, straps, user guides, etc.
+  const targetWantsAccessory = /\b(case|cover|strap|cable|charger|adapter|converter|protector|holder|pouch|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
+
+  if (!targetWantsAccessory) {
+    const isJunkOrAccessory = /\b(case\s+(for|compatible|cover)|cover\s+(for|compatible)|protective\s+case|silicone\s+case|clear\s+case|hard\s+case|leather\s+case|phone\s+case|charging\s+case\s+only|case\s+with\s+keychain|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
+    if (isJunkOrAccessory) return false;
+  }
+
+  // 4. Price bounds check
+  const numPrice = item.numericPrice || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+  if (target.maxPrice > 0 && numPrice > target.maxPrice) return false;
+
+  // 5. Discount threshold check
+  const disc = parseInt(item.discountPercent, 10) || 0;
+  if (target.minDiscount > 0 && disc < target.minDiscount) return false;
+
+  return true;
+}
+
+function pruneInvalidSnipedDeals() {
+  if (!Array.isArray(db.snipedDeals) || db.snipedDeals.length === 0) return;
+  const activeTargets = (db.watchlist || []).filter(w => w.active);
+  const beforeCount = db.snipedDeals.length;
+  db.snipedDeals = db.snipedDeals.filter(deal => {
+    return activeTargets.some(target => isWatchlistMatch(deal, target));
+  });
+  if (db.snipedDeals.length !== beforeCount) {
+    console.log(`[SNIPER] 🧹 Cleaned up ${beforeCount - db.snipedDeals.length} false sniper matches from database.`);
+    saveDb(db);
+  }
+}
+
+// -------------------------------------------------------------
 // AUTONOMOUS 24/7 BACKGROUND SNIPER DAEMON
 // -------------------------------------------------------------
 async function runAutonomousSniperScan() {
@@ -982,9 +1047,7 @@ async function runAutonomousSniperScan() {
       const items = res.items || [];
 
       for (const item of items) {
-        // Price numeric check
-        const numPrice = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
-        if (target.maxPrice > 0 && numPrice > target.maxPrice) continue;
+        if (!isWatchlistMatch(item, target)) continue;
 
         item.snipedFromTarget = target.keyword;
 
@@ -1042,14 +1105,7 @@ let crawlerRunning = false;
 async function checkWatchlistMatch(item) {
   const activeTargets = (db.watchlist || []).filter(w => w.active);
   for (const target of activeTargets) {
-    const kw = (target.keyword || '').toLowerCase();
-    const title = (item.title || '').toLowerCase();
-    if (title.includes(kw)) {
-      const numPrice = item.numericPrice || 0;
-      if (target.maxPrice > 0 && numPrice > target.maxPrice) continue;
-      const disc = parseInt(item.discountPercent, 10) || 0;
-      if (target.minDiscount > 0 && disc < target.minDiscount) continue;
-
+    if (isWatchlistMatch(item, target)) {
       item.snipedFromTarget = target.keyword;
       if (!db.snipedDeals.some(d => d.asin === item.asin)) {
         item.snipedAt = Date.now();
