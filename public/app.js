@@ -10,6 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const inStockOnly = document.getElementById('inStockOnly');
   const loadMoreContainer = document.getElementById('loadMoreContainer');
   const loadMoreBtn = document.getElementById('loadMoreBtn');
+  const loadAllDbDealsBtn = document.getElementById('loadAllDbDealsBtn');
   const minDiscountSlider = document.getElementById('minDiscountSlider');
   const maxDiscountSlider = document.getElementById('maxDiscountSlider');
   const discountDisplay = document.getElementById('discountDisplay');
@@ -1093,8 +1094,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (loadMoreBtn) {
     loadMoreBtn.addEventListener('click', () => {
-      currentPage++;
-      executeSearch(true);
+      dbCurrentPage++;
+      loadDatabaseDeals(true, true, false);
+    });
+  }
+
+  if (loadAllDbDealsBtn) {
+    loadAllDbDealsBtn.addEventListener('click', () => {
+      loadDatabaseDeals(true, false, true);
     });
   }
 
@@ -1423,7 +1430,12 @@ document.addEventListener('DOMContentLoaded', () => {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Deals Discovered (${winLabel})`;
       filterSummaryBadge.textContent = `✨ Just Listed (${winLabel})`;
     } else {
-      resultsCount.textContent = `${items.length.toLocaleString()} Deals Found${pageCountText}`;
+      const matchTotal = totalMatches || dbTotalMatches || items.length;
+      if (matchTotal > items.length) {
+        resultsCount.textContent = `Showing ${items.length.toLocaleString()} of ${matchTotal.toLocaleString()} Deals in Database${pageCountText}`;
+      } else {
+        resultsCount.textContent = `${matchTotal.toLocaleString()} Deals Found in Database${pageCountText}`;
+      }
       filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
     }
 
@@ -1877,10 +1889,17 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {}
   }
 
-  async function loadDatabaseDeals(keepCurrentTab = false) {
+  let dbCurrentPage = 1;
+  const DB_PAGE_SIZE = 250;
+  let dbTotalMatches = 0;
+
+  async function loadDatabaseDeals(keepCurrentTab = false, isLoadMore = false, isLoadAll = false) {
     try {
-      if (!keepCurrentTab) {
-        resetToAllDealsTab();
+      if (!isLoadMore) {
+        dbCurrentPage = 1;
+        if (!keepCurrentTab) {
+          resetToAllDealsTab();
+        }
       }
       const activeStore = storeType || 'both';
       const rawCategory = categorySelect ? categorySelect.value : 'all';
@@ -1894,9 +1913,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const negKw = negKeywordsInput ? negKeywordsInput.value.trim() : '';
       const sort = sortSelect ? sortSelect.value : 'date-desc-rank';
 
+      if (isLoadMore && loadMoreBtn) {
+        loadMoreBtn.textContent = '⏳ Loading More Deals...';
+      }
+      if (isLoadAll && loadAllDbDealsBtn) {
+        loadAllDbDealsBtn.textContent = '⏳ Loading All Deals...';
+      }
+
+      const queryLimit = isLoadAll ? '10000' : DB_PAGE_SIZE.toString();
+      const queryPage = isLoadAll ? '1' : dbCurrentPage.toString();
+
       const queryParams = new URLSearchParams({
         timeWindow: 'all',
-        limit: '500',
+        page: queryPage,
+        limit: queryLimit,
         storeType: activeStore,
         category: categoryParam,
         keyword: kw,
@@ -1912,15 +1942,41 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`/api/db/deals?${queryParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        deals = data.products || [];
-        for (const d of deals) {
-          tagNewDealStatus(d);
+        dbTotalMatches = data.total || 0;
+        const newProducts = data.products || [];
+
+        if (isLoadMore) {
+          const seen = new Set(deals.map(d => d.asin));
+          for (const d of newProducts) {
+            if (!seen.has(d.asin)) {
+              tagNewDealStatus(d);
+              deals.push(d);
+              seen.add(d.asin);
+            }
+          }
+        } else {
+          deals = newProducts;
+          for (const d of deals) {
+            tagNewDealStatus(d);
+          }
         }
         localStorage.setItem(HISTORY_KEY, JSON.stringify(dealHistory));
 
         if (deals.length > 0) {
-          renderDeals(deals);
-          if (loadMoreContainer) loadMoreContainer.style.display = 'none';
+          renderDeals(deals, dbTotalMatches);
+          if (loadMoreContainer) {
+            const hasMore = deals.length < dbTotalMatches && !isLoadAll;
+            loadMoreContainer.style.display = hasMore ? 'flex' : 'none';
+            if (hasMore) {
+              const remaining = dbTotalMatches - deals.length;
+              if (loadMoreBtn) {
+                loadMoreBtn.textContent = `⬇️ Load More Deals (${deals.length.toLocaleString()} of ${dbTotalMatches.toLocaleString()} displayed • +${Math.min(remaining, DB_PAGE_SIZE)} more)`;
+              }
+              if (loadAllDbDealsBtn) {
+                loadAllDbDealsBtn.textContent = `⚡ Load All ${dbTotalMatches.toLocaleString()} Deals Into View`;
+              }
+            }
+          }
         } else {
           renderDatabaseEmptyState(kw, data.stats?.totalInDb || 0);
           if (loadMoreContainer) loadMoreContainer.style.display = 'none';
