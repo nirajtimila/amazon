@@ -70,6 +70,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const watchTargetCount = document.getElementById('watchTargetCount');
   const watchlistCountBadge = document.getElementById('watchlistCountBadge');
 
+  // Database Deal Radar & Time Filter Elements
+  const dbStatusBar = document.getElementById('dbStatusBar');
+  const dbPulseDot = document.getElementById('dbPulseDot');
+  const dbTotalDealsCount = document.getElementById('dbTotalDealsCount');
+  const dbLastScanText = document.getElementById('dbLastScanText');
+  const dbNextScanText = document.getElementById('dbNextScanText');
+  const dbScanNowBtn = document.getElementById('dbScanNowBtn');
+  const dbScanIcon = document.getElementById('dbScanIcon');
+  const dbScanLabel = document.getElementById('dbScanLabel');
+  const timeFilterRow = document.getElementById('timeFilterRow');
+  const timePills = document.querySelectorAll('.time-pill');
+  const count1h = document.getElementById('count1h');
+  const count2h = document.getElementById('count2h');
+  const count6h = document.getElementById('count6h');
+  const count12h = document.getElementById('count12h');
+  const count24h = document.getElementById('count24h');
+  let activeTimeWindow = '1h';
+
   // Currency Exchange Rates (Base USD = 1.0) with automatic online update & reliable offline fallback
   const EXCHANGE_RATES = {
     USD: 1.0,
@@ -275,8 +293,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize
   updateSavedCount();
   fetchLiveExchangeRates();
-  checkBackendHealth().then(() => {
-    executeSearch();
+  checkBackendHealth().then(async () => {
+    updateDatabaseStatus();
+    await loadDatabaseDeals();
+    if (!deals || deals.length === 0) {
+      executeSearch();
+    }
   });
   updateTargetUrl();
 
@@ -287,6 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tabAllDeals.classList.add('active');
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (timeFilterRow) timeFilterRow.style.display = 'none';
       renderDeals(deals);
     });
   }
@@ -297,6 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tabJustListed.classList.add('active');
       if (tabAllDeals) tabAllDeals.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (timeFilterRow) timeFilterRow.style.display = 'flex';
       renderDeals(deals);
     });
   }
@@ -307,9 +331,20 @@ document.addEventListener('DOMContentLoaded', () => {
       tabSnipedDeals.classList.add('active');
       if (tabAllDeals) tabAllDeals.classList.remove('active');
       if (tabJustListed) tabJustListed.classList.remove('active');
+      if (timeFilterRow) timeFilterRow.style.display = 'none';
       renderDeals(snipedDeals);
     });
   }
+
+  // Time Filter Pills for Just Listed
+  timePills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      timePills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      activeTimeWindow = pill.getAttribute('data-time') || '1h';
+      renderDeals(deals);
+    });
+  });
 
   // Persistent Watchlist & Sniping System
   const WATCHLIST_KEY = 'wh_sniper_watchlist';
@@ -1216,9 +1251,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const catText = categorySelect.options[categorySelect.selectedIndex].text;
     filterSummaryBadge.textContent = `${storeLabel} • ${catText} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
 
-    const justListedItems = items.filter(d => d.isJustListed);
+    const now = Date.now();
+    let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0;
+    for (const d of items) {
+      const ts = d.firstSeenAt || dealHistory[d.asin] || 0;
+      if (!ts) {
+        if (d.isJustListed) { c24h++; }
+        continue;
+      }
+      const age = now - ts;
+      if (age <= 1 * 3600000) c1h++;
+      if (age <= 2 * 3600000) c2h++;
+      if (age <= 6 * 3600000) c6h++;
+      if (age <= 12 * 3600000) c12h++;
+      if (age <= 24 * 3600000) c24h++;
+    }
+    if (count1h) count1h.textContent = c1h;
+    if (count2h) count2h.textContent = c2h;
+    if (count6h) count6h.textContent = c6h;
+    if (count12h) count12h.textContent = c12h;
+    if (count24h) count24h.textContent = c24h;
+
+    const justListedItems = items.filter(d => {
+      const ts = d.firstSeenAt || dealHistory[d.asin] || 0;
+      if (!ts) return d.isJustListed;
+      const age = now - ts;
+      if (activeTimeWindow === '1h') return age <= 1 * 3600000;
+      if (activeTimeWindow === '2h') return age <= 2 * 3600000;
+      if (activeTimeWindow === '6h') return age <= 6 * 3600000;
+      if (activeTimeWindow === '12h') return age <= 12 * 3600000;
+      if (activeTimeWindow === '24h') return age <= 24 * 3600000;
+      return true;
+    });
+
     if (countAllDeals) countAllDeals.textContent = items.length;
-    if (countJustListed) countJustListed.textContent = justListedItems.length;
+    if (countJustListed) countJustListed.textContent = c24h || justListedItems.length;
     if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
 
     let displayedItems = items;
@@ -1242,14 +1309,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (displayedItems.length === 0 && activeFilterTab === 'just_listed') {
+      const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
+      const winLabel = windowLabels[activeTimeWindow] || 'Current Window';
       dealsGrid.innerHTML = `
         <div class="empty-state card">
           <div class="empty-icon">✨</div>
-          <h3>No "Just Listed" Deals in Current View</h3>
-          <p>All ${items.length} deals have already been seen in your scan history. New items that drop during your next scan or auto-refresh will appear here!</p>
-          <button class="btn btn-secondary" id="backToAllBtn" style="margin-top: 1rem;">Show All Deals (${items.length})</button>
+          <h3>No Deals Discovered in ${winLabel}</h3>
+          <p>No new warehouse deals were indexed within this specific time window. Select a wider window (e.g. 6h, 12h, 24h) or trigger a fresh background scan.</p>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem;">
+            <button class="btn btn-secondary" id="backTo24hBtn">Show Last 24 Hours</button>
+            <button class="btn btn-primary" id="backToAllBtn">Show All Deals (${items.length})</button>
+          </div>
         </div>
       `;
+      document.getElementById('backTo24hBtn')?.addEventListener('click', () => {
+        const p24 = document.querySelector('.time-pill[data-time="24h"]');
+        if (p24) p24.click();
+      });
       document.getElementById('backToAllBtn')?.addEventListener('click', () => {
         tabAllDeals?.click();
       });
@@ -1273,6 +1349,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const storeBadgeText = isWarehouse ? '📦 Warehouse' : '🛒 Brand New';
       const savingsLabelText = isWarehouse ? 'Warehouse Deal' : 'Brand New Deal';
 
+      // Relative timestamp badge
+      const ts = item.firstSeenAt || dealHistory[item.asin];
+      let timeBadgeHtml = '';
+      if (ts) {
+        const ageMs = now - ts;
+        const relText = formatRelativeTime(ts);
+        if (ageMs <= 3600000) {
+          timeBadgeHtml = `<span class="deal-time-badge fresh-1h">🟢 Listed ${relText}</span>`;
+        } else if (ageMs <= 7200000) {
+          timeBadgeHtml = `<span class="deal-time-badge recent-2h">🟡 Listed ${relText}</span>`;
+        } else if (ageMs <= 86400000) {
+          timeBadgeHtml = `<span class="deal-time-badge older">🕒 Listed ${relText}</span>`;
+        }
+      }
+
+      // Price Drop badge
+      let priceDropHtml = '';
+      if (item.previousPrice) {
+        priceDropHtml = `<div class="deal-price-drop-badge">🔥 Price cut from ${escapeHtml(item.previousPrice)}</div>`;
+      }
+
       return `
         <div class="deal-card" data-asin="${item.asin}">
           <div class="card-img-wrap">
@@ -1293,6 +1390,8 @@ document.addEventListener('DOMContentLoaded', () => {
               ${escapeHtml(item.title)}
             </a>
             ${item.condition ? `<div style="margin: 2px 0 6px 0;"><span class="condition-badge">📦 ${escapeHtml(item.condition)}</span></div>` : ''}
+            ${timeBadgeHtml ? `<div style="margin-bottom: 4px;">${timeBadgeHtml}</div>` : ''}
+            ${priceDropHtml ? `<div style="margin-bottom: 4px;">${priceDropHtml}</div>` : ''}
             ${item.rating ? `
               <div class="card-rating">
                 <span>★ ${item.rating}</span>
@@ -1522,4 +1621,105 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
   }
+
+  // -------------------------------------------------------------
+  // DATABASE & HOURLY CRAWLER CLIENT FUNCTIONS
+  // -------------------------------------------------------------
+  function formatRelativeTime(timestamp) {
+    if (!timestamp) return '';
+    const now = Date.now();
+    const diffMs = now - timestamp;
+    if (diffMs < 0) return 'Just now';
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    const remMins = mins % 60;
+    if (hours < 24) return remMins > 0 ? `${hours}h ${remMins}m ago` : `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  async function updateDatabaseStatus() {
+    try {
+      const res = await fetch('/api/db/status');
+      if (!res.ok) return;
+      const data = await res.json();
+      const crawler = data.crawler || {};
+      const totalDeals = data.totalDeals || 0;
+
+      if (dbTotalDealsCount) dbTotalDealsCount.textContent = totalDeals.toLocaleString();
+
+      if (crawler.isRunning) {
+        if (dbPulseDot) {
+          dbPulseDot.style.background = '#f59e0b';
+          dbPulseDot.style.boxShadow = '0 0 8px #f59e0b';
+        }
+        if (dbLastScanText) dbLastScanText.textContent = `⚡ Running: ${crawler.currentStep || 'Scanning...'}`;
+        if (dbNextScanText) dbNextScanText.textContent = 'In progress';
+        if (dbScanNowBtn) {
+          dbScanNowBtn.classList.add('scanning');
+          if (dbScanLabel) dbScanLabel.textContent = 'Scanning...';
+        }
+      } else {
+        if (dbPulseDot) {
+          dbPulseDot.style.background = '#10b981';
+          dbPulseDot.style.boxShadow = '0 0 8px #10b981';
+        }
+        if (dbLastScanText) {
+          dbLastScanText.textContent = crawler.lastRunAt
+            ? `Last Auto-Scan: ${formatRelativeTime(crawler.lastRunAt)}`
+            : 'Last Auto-Scan: initializing...';
+        }
+        if (dbNextScanText) {
+          if (crawler.nextRunAt) {
+            const minsLeft = Math.max(0, Math.round((crawler.nextRunAt - Date.now()) / 60000));
+            dbNextScanText.textContent = `Next scan in: ${minsLeft}m`;
+          } else {
+            dbNextScanText.textContent = 'Next scan in: 60m';
+          }
+        }
+        if (dbScanNowBtn) {
+          dbScanNowBtn.classList.remove('scanning');
+          if (dbScanLabel) dbScanLabel.textContent = 'Run Scan Now';
+        }
+      }
+    } catch (e) {}
+  }
+
+  async function loadDatabaseDeals() {
+    try {
+      const res = await fetch('/api/db/deals?timeWindow=all&limit=300');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.products && data.products.length > 0) {
+          deals = data.products;
+          for (const d of deals) {
+            tagNewDealStatus(d);
+          }
+          renderDeals(deals);
+        }
+      }
+    } catch (e) {}
+    updateDatabaseStatus();
+  }
+
+  // Scan Now Button Handler
+  if (dbScanNowBtn) {
+    dbScanNowBtn.addEventListener('click', async () => {
+      showToast('🚀 Triggered hourly warehouse sweep! Scanning departments in background...');
+      if (dbScanNowBtn) dbScanNowBtn.classList.add('scanning');
+      if (dbScanLabel) dbScanLabel.textContent = 'Starting...';
+      try {
+        await fetch('/api/db/scan', { method: 'POST' });
+        updateDatabaseStatus();
+        setTimeout(loadDatabaseDeals, 6000);
+      } catch (e) {
+        showToast('Error triggering scan');
+      }
+    });
+  }
+
+  // Poll database status every 15 seconds
+  setInterval(updateDatabaseStatus, 15000);
 });

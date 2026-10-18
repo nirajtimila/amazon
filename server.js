@@ -64,6 +64,21 @@ const DEFAULT_DB = {
     telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || "",
     telegramChatId: process.env.TELEGRAM_CHAT_ID || "",
     defaultDomain: "amazon.com.au"
+  },
+  crawledDeals: {},
+  crawler: {
+    enabled: true,
+    intervalMinutes: 60,
+    lastRunAt: null,
+    nextRunAt: null,
+    isRunning: false,
+    currentStep: '',
+    lastRunStats: {
+      totalScanned: 0,
+      newAdded: 0,
+      priceDrops: 0,
+      durationSeconds: 0
+    }
   }
 };
 
@@ -72,7 +87,20 @@ function loadDb() {
   try {
     if (fs.existsSync(DB_FILE)) {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
-      return JSON.parse(raw);
+      const loaded = JSON.parse(raw);
+      if (!loaded.crawledDeals) loaded.crawledDeals = {};
+      if (!loaded.crawler) {
+        loaded.crawler = {
+          enabled: true,
+          intervalMinutes: 60,
+          lastRunAt: null,
+          nextRunAt: Date.now() + 60 * 60 * 1000,
+          isRunning: false,
+          currentStep: '',
+          lastRunStats: { totalScanned: 0, newAdded: 0, priceDrops: 0, durationSeconds: 0 }
+        };
+      }
+      return loaded;
     }
   } catch (err) {
     console.warn('[DB] Notice reading database.json:', err.message);
@@ -637,6 +665,166 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'healthy', uptime: process.uptime(), timestamp: Date.now() });
 });
 
+// -------------------------------------------------------------
+// DATABASE DEALS & HOURLY CRAWLER ENDPOINTS
+// -------------------------------------------------------------
+
+// Query Indexed Database Deals
+app.get('/api/db/deals', (req, res) => {
+  const {
+    timeWindow = 'all', // '1h', '2h', '6h', '12h', '24h', 'all'
+    category = 'all',
+    minDiscount = 0,
+    maxDiscount = 100,
+    minPrice = 0,
+    maxPrice = 0,
+    condition = 'all',
+    keyword = '',
+    negKeywords = '',
+    sort = 'date-desc-rank',
+    page = 1,
+    limit = 48
+  } = req.query;
+
+  const now = Date.now();
+  const allDeals = Object.values(db.crawledDeals || {});
+
+  // Time window bounds in milliseconds
+  const timeWindows = {
+    '1h': 1 * 60 * 60 * 1000,
+    '2h': 2 * 60 * 60 * 1000,
+    '6h': 6 * 60 * 60 * 1000,
+    '12h': 12 * 60 * 60 * 1000,
+    '24h': 24 * 60 * 60 * 1000
+  };
+  const windowMs = timeWindows[timeWindow] || 0;
+
+  // Compute live stats for quick pill counts
+  let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0;
+  for (const d of allDeals) {
+    if (d.status === 'sold_out') continue;
+    const age = now - (d.firstSeenAt || d.lastSeenAt || now);
+    if (age <= 1 * 3600000) count1h++;
+    if (age <= 2 * 3600000) count2h++;
+    if (age <= 6 * 3600000) count6h++;
+    if (age <= 12 * 3600000) count12h++;
+    if (age <= 24 * 3600000) count24h++;
+  }
+
+  const negList = negKeywords ? negKeywords.split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+  const searchTerms = keyword ? keyword.toLowerCase().split(/\s+/).filter(Boolean) : [];
+
+  let filtered = allDeals.filter(d => {
+    if (d.status === 'sold_out') return false;
+
+    // Time window filter
+    if (windowMs > 0) {
+      const age = now - (d.firstSeenAt || now);
+      if (age > windowMs) return false;
+    }
+
+    // Category filter
+    if (category !== 'all' && category !== 'sweep_all' && d.category !== category) {
+      return false;
+    }
+
+    // Discount filter
+    const disc = parseInt(d.discountPercent, 10) || 0;
+    if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) {
+      return false;
+    }
+
+    // Price filter
+    const np = d.numericPrice || 0;
+    const minP = parseFloat(minPrice) || 0;
+    const maxP = parseFloat(maxPrice) || 0;
+    if (minP > 0 && np < minP) return false;
+    if (maxP > 0 && np > maxP) return false;
+
+    // Condition filter
+    if (condition && condition !== 'all') {
+      const c = (d.condition || '').toLowerCase();
+      if (!c.includes(condition.toLowerCase())) return false;
+    }
+
+    // Excluded keywords
+    if (negList.length > 0) {
+      const text = `${d.title} ${d.condition || ''}`.toLowerCase();
+      if (negList.some(neg => text.includes(neg))) return false;
+    }
+
+    // Keyword search
+    if (searchTerms.length > 0) {
+      const text = `${d.title} ${d.asin}`.toLowerCase();
+      if (!searchTerms.every(t => text.includes(t))) return false;
+    }
+
+    return true;
+  });
+
+  // Sorting
+  filtered.sort((a, b) => {
+    switch (sort) {
+      case 'date-desc-rank':
+        return (b.firstSeenAt || 0) - (a.firstSeenAt || 0);
+      case 'price-asc-rank':
+        return (a.numericPrice || 0) - (b.numericPrice || 0);
+      case 'price-desc-rank':
+        return (b.numericPrice || 0) - (a.numericPrice || 0);
+      case 'discount-desc-rank':
+        return (parseInt(b.discountPercent, 10) || 0) - (parseInt(a.discountPercent, 10) || 0);
+      default:
+        return (b.firstSeenAt || 0) - (a.firstSeenAt || 0);
+    }
+  });
+
+  const p = Math.max(1, parseInt(page, 10) || 1);
+  const lim = Math.max(1, parseInt(limit, 10) || 48);
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / lim) || 1;
+  const products = filtered.slice((p - 1) * lim, p * lim);
+
+  res.json({
+    total,
+    page: p,
+    totalPages,
+    products,
+    stats: {
+      totalInDb: allDeals.length,
+      last1h: count1h,
+      last2h: count2h,
+      last6h: count6h,
+      last12h: count12h,
+      last24h: count24h,
+      lastCrawlerRun: db.crawler ? db.crawler.lastRunAt : null,
+      nextCrawlerRun: db.crawler ? db.crawler.nextRunAt : null,
+      isRunning: db.crawler ? db.crawler.isRunning : false,
+      currentStep: db.crawler ? db.crawler.currentStep : ''
+    }
+  });
+});
+
+// Crawler Status Endpoint
+app.get('/api/db/status', (req, res) => {
+  res.json({
+    totalDeals: Object.keys(db.crawledDeals || {}).length,
+    crawler: db.crawler || {}
+  });
+});
+
+// Manual Trigger for Crawler Sweep
+app.post('/api/db/scan', async (req, res) => {
+  try {
+    if (db.crawler && db.crawler.isRunning) {
+      return res.json({ success: false, message: 'Scan already in progress' });
+    }
+    runAutonomousCrawler().catch(e => console.error('[CRAWLER] Background error:', e));
+    res.json({ success: true, message: 'Hourly background scan started' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Manual Sniper Scan Trigger
 app.post('/api/watchlist/scan', async (req, res) => {
   try {
@@ -772,12 +960,169 @@ setInterval(async () => {
   }
 }, DEFAULT_INTERVAL_MS);
 
-// Run initial sniper check 30 seconds after server launch
-setTimeout(async () => {
-  if (db.settings && db.settings.autoSniperEnabled !== false) {
-    await runAutonomousSniperScan();
+// -------------------------------------------------------------
+// AUTONOMOUS HOURLY DATABASE CRAWLER
+// -------------------------------------------------------------
+const CRAWLER_DEPARTMENTS = [
+  { id: 'pc', name: 'Computers & Tablets' },
+  { id: 'electronics', name: 'Electronics & Audio' },
+  { id: 'videogames', name: 'Video Games & Consoles' },
+  { id: 'kitchen', name: 'Home & Kitchen' },
+  { id: 'hi', name: 'Tools & Home Improvement' },
+  { id: 'sporting', name: 'Sports & Outdoors' },
+  { id: 'toys-and-games', name: 'Toys & Games' },
+  { id: 'beauty', name: 'Beauty & Personal Care' },
+  { id: 'automotive', name: 'Automotive' }
+];
+
+let crawlerRunning = false;
+
+async function checkWatchlistMatch(item) {
+  const activeTargets = (db.watchlist || []).filter(w => w.active);
+  for (const target of activeTargets) {
+    const kw = (target.keyword || '').toLowerCase();
+    const title = (item.title || '').toLowerCase();
+    if (title.includes(kw)) {
+      const numPrice = item.numericPrice || 0;
+      if (target.maxPrice > 0 && numPrice > target.maxPrice) continue;
+      const disc = parseInt(item.discountPercent, 10) || 0;
+      if (target.minDiscount > 0 && disc < target.minDiscount) continue;
+
+      item.snipedFromTarget = target.keyword;
+      if (!db.snipedDeals.some(d => d.asin === item.asin)) {
+        item.snipedAt = Date.now();
+        db.snipedDeals.unshift(item);
+        target.matchCount = (target.matchCount || 0) + 1;
+        console.log(`[SNIPER HIT FROM CRAWLER] Matched "${target.keyword}": ${item.title} at ${item.price}`);
+        await dispatchDealNotification(item, target);
+      }
+    }
   }
-}, 30000);
+}
+
+async function runAutonomousCrawler(maxPagesPerDept = 2) {
+  if (crawlerRunning) {
+    console.log('[CRAWLER] Crawler already running. Skipping.');
+    return { skipped: true };
+  }
+  crawlerRunning = true;
+  if (!db.crawler) db.crawler = {};
+  db.crawler.isRunning = true;
+  db.crawler.lastRunAt = Date.now();
+  saveDb(db);
+
+  const startTime = Date.now();
+  console.log('[CRAWLER] 🚀 Starting automated hourly warehouse crawler sweep...');
+  let totalScanned = 0;
+  let newAdded = 0;
+  let priceDrops = 0;
+  const domain = db.settings.defaultDomain || 'amazon.com.au';
+
+  try {
+    for (let i = 0; i < CRAWLER_DEPARTMENTS.length; i++) {
+      const dept = CRAWLER_DEPARTMENTS[i];
+      db.crawler.currentStep = `${dept.name} (${i + 1}/${CRAWLER_DEPARTMENTS.length})`;
+
+      for (let p = 1; p <= maxPagesPerDept; p++) {
+        try {
+          const res = await scrapeAmazonStore({
+            storeType: 'warehouse',
+            category: dept.id,
+            minDiscount: 20,
+            maxDiscount: 99,
+            domain,
+            sort: 'date-desc-rank',
+            page: p,
+            availableOnly: true
+          });
+
+          const items = res.items || [];
+          totalScanned += items.length;
+
+          for (const item of items) {
+            item.category = dept.id;
+            const numericPrice = parseFloat(item.price.replace(/[^0-9.]/g, '')) || 0;
+            item.numericPrice = numericPrice;
+            item.domain = domain;
+
+            if (!db.crawledDeals[item.asin]) {
+              item.firstSeenAt = Date.now();
+              item.lastSeenAt = Date.now();
+              item.status = 'active';
+              db.crawledDeals[item.asin] = item;
+              newAdded++;
+              await checkWatchlistMatch(item);
+            } else {
+              const existing = db.crawledDeals[item.asin];
+              existing.lastSeenAt = Date.now();
+              existing.status = 'active';
+
+              if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
+                existing.previousPrice = existing.price;
+                existing.price = item.price;
+                existing.numericPrice = numericPrice;
+                existing.discountPercent = item.discountPercent;
+                existing.priceDropAt = Date.now();
+                priceDrops++;
+                console.log(`[CRAWLER] 🔥 Price drop on ${item.asin}: ${existing.previousPrice} -> ${item.price}`);
+              }
+            }
+          }
+
+          if (!res.hasNextPage || items.length === 0) break;
+          await new Promise(r => setTimeout(r, 1500));
+        } catch (pageErr) {
+          console.warn(`[CRAWLER] Page error in ${dept.name} p.${p}:`, pageErr.message);
+        }
+      }
+      await new Promise(r => setTimeout(r, 2000));
+    }
+
+    // Prune deals older than 14 days
+    const FOURTEEN_DAYS = 14 * 24 * 3600 * 1000;
+    const now = Date.now();
+    for (const asin in db.crawledDeals) {
+      const deal = db.crawledDeals[asin];
+      if (now - (deal.lastSeenAt || deal.firstSeenAt || now) > FOURTEEN_DAYS) {
+        delete db.crawledDeals[asin];
+      }
+    }
+
+    const durationSeconds = Math.round((Date.now() - startTime) / 1000);
+    db.crawler.lastRunStats = { totalScanned, newAdded, priceDrops, durationSeconds };
+    db.crawler.lastRunAt = Date.now();
+    const intervalMs = (db.crawler.intervalMinutes || 60) * 60 * 1000;
+    db.crawler.nextRunAt = Date.now() + intervalMs;
+    console.log(`[CRAWLER] ✅ Completed in ${durationSeconds}s. Scanned: ${totalScanned}, New: ${newAdded}, Price Drops: ${priceDrops}`);
+  } catch (err) {
+    console.error('[CRAWLER] Global error during sweep:', err.message);
+  } finally {
+    crawlerRunning = false;
+    db.crawler.isRunning = false;
+    db.crawler.currentStep = '';
+    saveDb(db);
+  }
+
+  return { totalScanned, newAdded, priceDrops };
+}
+
+// Scheduled Hourly Background Crawler
+const HOURLY_INTERVAL_MS = 60 * 60 * 1000;
+setInterval(async () => {
+  if (db.crawler && db.crawler.enabled !== false) {
+    await runAutonomousCrawler();
+  }
+}, HOURLY_INTERVAL_MS);
+
+// Initial Crawler kickstart: run 10s after server launch if DB has < 100 items or hasn't run in > 1 hr
+setTimeout(async () => {
+  const dealCount = Object.keys(db.crawledDeals || {}).length;
+  const needsRun = dealCount < 100 || !db.crawler.lastRunAt || (Date.now() - db.crawler.lastRunAt > 60 * 60 * 1000);
+  if (needsRun && db.crawler && db.crawler.enabled !== false) {
+    console.log(`[CRAWLER] Initializing first crawler sweep (current DB count: ${dealCount})...`);
+    await runAutonomousCrawler();
+  }
+}, 10000);
 
 // Launch Server
 app.listen(PORT, '0.0.0.0', () => {

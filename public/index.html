@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Amazon Warehouse Deal Hunter</title>
-  <link rel="stylesheet" href="app.css?v=2.5">
+  <link rel="stylesheet" href="app.css?v=3.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -295,6 +295,25 @@
             </svg>
           </button>
         </div>
+
+        <!-- ⚡ 24/7 Database & Automated Hourly Crawler Status Bar -->
+        <div class="db-status-bar" id="dbStatusBar">
+          <div class="db-status-info">
+            <span class="db-pulse-dot" id="dbPulseDot"></span>
+            <span class="db-title">Database Deal Radar:</span>
+            <strong id="dbTotalDealsCount">0</strong> deals indexed
+            <span class="db-divider">•</span>
+            <span id="dbLastScanText">Last Auto-Scan: loading...</span>
+            <span class="db-divider">•</span>
+            <span id="dbNextScanText">Next scan in: 60m</span>
+          </div>
+          <div class="db-status-actions">
+            <button type="button" class="btn btn-sm btn-outline db-scan-btn" id="dbScanNowBtn" title="Trigger a fresh background warehouse sweep immediately">
+              <span id="dbScanIcon">🔄</span>
+              <span id="dbScanLabel">Run Scan Now</span>
+            </button>
+          </div>
+        </div>
       </section>
 
       <!-- Results Stats & Filter Bar -->
@@ -307,6 +326,17 @@
             <button type="button" class="filter-tab-pill active" id="tabAllDeals">All Deals (<span id="countAllDeals">0</span>)</button>
             <button type="button" class="filter-tab-pill" id="tabJustListed">✨ Just Listed (<span id="countJustListed">0</span>)</button>
             <button type="button" class="filter-tab-pill" id="tabSnipedDeals">🎯 Sniped Matches (<span id="countSnipedDeals">0</span>)</button>
+          </div>
+
+          <!-- 🕒 Just Listed Granular Time Filter Row -->
+          <div class="time-filter-row" id="timeFilterRow" style="display: none;">
+            <span class="time-filter-label">🕒 Listed In:</span>
+            <button type="button" class="time-pill active" data-time="1h">⏱️ Last 1 Hour (<span id="count1h">0</span>)</button>
+            <button type="button" class="time-pill" data-time="2h">⏱️ Last 2 Hours (<span id="count2h">0</span>)</button>
+            <button type="button" class="time-pill" data-time="6h">⏱️ Last 6 Hours (<span id="count6h">0</span>)</button>
+            <button type="button" class="time-pill" data-time="12h">⏱️ Last 12 Hours (<span id="count12h">0</span>)</button>
+            <button type="button" class="time-pill" data-time="24h">⏱️ Last 24 Hours (<span id="count24h">0</span>)</button>
+            <button type="button" class="time-pill" data-time="all">All Time</button>
           </div>
         </div>
         <div class="meta-right">
@@ -432,6 +462,6 @@
     <div class="toast" id="toast"></div>
   </div>
 
-  <script src="app.js?v=2.5"></script>
+  <script src="app.js?v=3.0"></script>
 </body>
 </html>
