@@ -827,6 +827,20 @@ input::placeholder {
   font-weight: 700;
 }
 
+.price-options-pill {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: help;
+}
+
 .card-actions {
   display: flex;
   gap: 8px;

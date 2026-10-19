@@ -479,7 +479,7 @@ async function scrapeAmazonStore(opts) {
     items.push({
       asin,
       title,
-      price: price > 0 ? `${currencySymbol}${price.toFixed(2)}` : 'Check Site',
+      price: price > 0 ? `${currencySymbol}${price.toFixed(2)}` : 'See Options',
       originalPrice: originalPrice > 0 ? `${currencySymbol}${originalPrice.toFixed(2)}` : '',
       discountPercent: `${discountPercent}%`,
       savings: savings !== '0.00' ? `${currencySymbol}${savings}` : '',

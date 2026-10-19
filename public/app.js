@@ -138,8 +138,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatPriceWithCurrency(priceStr, storeDomain, targetCurrency) {
-    if (!priceStr || priceStr === 'See Options' || priceStr.toLowerCase().includes('unavailable')) {
-      return { display: priceStr || 'See Options', original: '', numVal: null };
+    if (!priceStr || priceStr === 'See Options' || priceStr === 'Check Site' || priceStr.toLowerCase().includes('unavailable')) {
+      return { display: 'See Options', original: '', numVal: null };
     }
 
     const cleanStr = priceStr.replace(/&nbsp;/gi, ' ').trim();
@@ -1628,8 +1628,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ` : '<div style="height: 18px;"></div>'}
             
             <div class="card-pricing">
-              <span class="price-current">${priceObj.display}</span>
-              ${listPriceObj.display && listPriceObj.display !== 'See Options' && listPriceObj.display !== priceObj.display ? `<span class="price-original" title="Original Amazon store price">${listPriceObj.display}</span>` : ''}
+              ${(!priceObj.numVal || priceObj.display === 'See Options' || priceObj.display === 'Check Site') ? `
+                <span class="price-options-pill" title="Amazon requires selecting your variant, size, or used buying option on the listing page to see the exact price.">⚡ See Options on Amazon</span>
+              ` : `
+                <span class="price-current">${priceObj.display}</span>
+                ${listPriceObj.display && listPriceObj.display !== 'See Options' && listPriceObj.display !== priceObj.display ? `<span class="price-original" title="Original Amazon store price">${listPriceObj.display}</span>` : ''}
+              `}
               <span class="savings-label">${savingsLabelText}</span>
             </div>
 
