@@ -555,6 +555,40 @@ app.get('/api/search', async (req, res) => {
     };
 
     const data = await searchAmazon(opts);
+
+    // Auto-save all scraped products into the database so deep searches are never lost!
+    if (data.products && data.products.length > 0) {
+      const now = Date.now();
+      for (const item of data.products) {
+        if (!item.asin) continue;
+        const numericPrice = parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+        item.numericPrice = numericPrice;
+        item.domain = opts.domain;
+        if (opts.category && opts.category !== 'all' && opts.category !== 'sweep_all') {
+          item.category = opts.category;
+        }
+
+        if (!db.crawledDeals[item.asin]) {
+          item.firstSeenAt = now;
+          item.lastSeenAt = now;
+          item.status = 'active';
+          db.crawledDeals[item.asin] = item;
+        } else {
+          const existing = db.crawledDeals[item.asin];
+          existing.lastSeenAt = now;
+          existing.status = 'active';
+          if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
+            existing.previousPrice = existing.price;
+            existing.price = item.price;
+            existing.numericPrice = numericPrice;
+            existing.discountPercent = item.discountPercent;
+            existing.priceDropAt = now;
+          }
+        }
+      }
+      saveDb(db);
+    }
+
     res.json(data);
   } catch (err) {
     console.error('[API /search ERROR]:', err.message);
@@ -818,8 +852,10 @@ app.post('/api/db/scan', async (req, res) => {
     if (db.crawler && db.crawler.isRunning) {
       return res.json({ success: false, message: 'Scan already in progress' });
     }
-    runAutonomousCrawler().catch(e => console.error('[CRAWLER] Background error:', e));
-    res.json({ success: true, message: 'Hourly background scan started' });
+    const isDeep = req.query.deep === 'true' || (req.body && req.body.deep);
+    const pages = isDeep ? 8 : (req.body && req.body.pages ? parseInt(req.body.pages, 10) : 6);
+    runAutonomousCrawler(pages).catch(e => console.error('[CRAWLER] Background error:', e));
+    res.json({ success: true, message: `Background ${isDeep ? 'Deep Sweep (70+ Pages)' : 'Scan'} started (${pages} pages per department)` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1000,7 +1036,7 @@ async function checkWatchlistMatch(item) {
   }
 }
 
-async function runAutonomousCrawler(maxPagesPerDept = 2) {
+async function runAutonomousCrawler(maxPagesPerDept = 6) {
   if (crawlerRunning) {
     console.log('[CRAWLER] Crawler already running. Skipping.');
     return { skipped: true };
@@ -1012,7 +1048,7 @@ async function runAutonomousCrawler(maxPagesPerDept = 2) {
   saveDb(db);
 
   const startTime = Date.now();
-  console.log('[CRAWLER] 🚀 Starting automated hourly warehouse crawler sweep...');
+  console.log(`[CRAWLER] 🚀 Starting automated warehouse crawler sweep (depth: ${maxPagesPerDept} pages/dept across 9 departments)...`);
   let totalScanned = 0;
   let newAdded = 0;
   let priceDrops = 0;
@@ -1021,9 +1057,9 @@ async function runAutonomousCrawler(maxPagesPerDept = 2) {
   try {
     for (let i = 0; i < CRAWLER_DEPARTMENTS.length; i++) {
       const dept = CRAWLER_DEPARTMENTS[i];
-      db.crawler.currentStep = `${dept.name} (${i + 1}/${CRAWLER_DEPARTMENTS.length})`;
 
       for (let p = 1; p <= maxPagesPerDept; p++) {
+        db.crawler.currentStep = `${dept.name} (p.${p}/${maxPagesPerDept} • Dept ${i + 1}/9)`;
         try {
           const res = await scrapeAmazonStore({
             storeType: 'warehouse',

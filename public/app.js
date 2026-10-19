@@ -1681,7 +1681,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (dbScanNowBtn) {
           dbScanNowBtn.classList.remove('scanning');
-          if (dbScanLabel) dbScanLabel.textContent = 'Run Scan Now';
+          if (dbScanLabel) dbScanLabel.textContent = 'Quick Scan (50+ Pgs)';
+        }
+        if (dbDeepScanBtn) {
+          dbDeepScanBtn.style.opacity = '1';
+          if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Search to Database (70+ Pages)';
         }
       }
     } catch (e) {}
@@ -1702,6 +1706,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (e) {}
     updateDatabaseStatus();
+  }
+
+  // Deep Scan Button Handler (70+ Pages into database)
+  const dbDeepScanBtn = document.getElementById('dbDeepScanBtn');
+  const dbDeepScanLabel = document.getElementById('dbDeepScanLabel');
+  if (dbDeepScanBtn) {
+    dbDeepScanBtn.addEventListener('click', async () => {
+      showToast('⚡ Starting full DEEP SEARCH across all 9 departments (70+ pages directly into database)...');
+      if (dbDeepScanBtn) dbDeepScanBtn.style.opacity = '0.6';
+      if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Sweeping 70+ Pgs...';
+      try {
+        await fetch('/api/db/scan?deep=true', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deep: true, pages: 8 })
+        });
+        updateDatabaseStatus();
+        setTimeout(loadDatabaseDeals, 6000);
+      } catch (e) {
+        showToast('Error triggering deep scan');
+      }
+    });
   }
 
   // Scan Now Button Handler

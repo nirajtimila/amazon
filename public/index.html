@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Amazon Warehouse Deal Hunter</title>
-  <link rel="stylesheet" href="app.css?v=3.0">
+  <link rel="stylesheet" href="app.css?v=3.5">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -307,10 +307,14 @@
             <span class="db-divider">•</span>
             <span id="dbNextScanText">Next scan in: 60m</span>
           </div>
-          <div class="db-status-actions">
-            <button type="button" class="btn btn-sm btn-outline db-scan-btn" id="dbScanNowBtn" title="Trigger a fresh background warehouse sweep immediately">
+          <div class="db-status-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-outline db-scan-btn" id="dbScanNowBtn" title="Trigger a standard background sweep (50+ pages)">
               <span id="dbScanIcon">🔄</span>
-              <span id="dbScanLabel">Run Scan Now</span>
+              <span id="dbScanLabel">Quick Scan (50+ Pgs)</span>
+            </button>
+            <button type="button" class="btn btn-sm btn-primary db-deep-scan-btn" id="dbDeepScanBtn" style="font-weight: 800; background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Deep scan all departments up to 8 pages each (70+ total pages and 1,500+ deals into database)">
+              <span>⚡</span>
+              <span id="dbDeepScanLabel">Deep Search to Database (70+ Pages)</span>
             </button>
           </div>
         </div>
@@ -462,6 +466,6 @@
     <div class="toast" id="toast"></div>
   </div>
 
-  <script src="app.js?v=3.0"></script>
+  <script src="app.js?v=3.5"></script>
 </body>
 </html>
