@@ -87,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const count6h = document.getElementById('count6h');
   const count12h = document.getElementById('count12h');
   const count24h = document.getElementById('count24h');
-  let activeTimeWindow = '1h';
+  let activeTimeWindow = '24h';
 
   // Currency Exchange Rates (Base USD = 1.0) with automatic online update & reliable offline fallback
   const EXCHANGE_RATES = {
@@ -295,7 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
   cleanHistory();
 
   // State
-  let storeType = 'warehouse'; // 'warehouse', 'normal', or 'both'
+  let storeType = 'both'; // 'both', 'warehouse', or 'normal'
   let deals = [];
   let savedDeals = JSON.parse(localStorage.getItem('saved_warehouse_deals') || '[]');
   let isBackendOnline = false;
@@ -342,23 +342,27 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'flex';
 
-      // Smart selection: if 1h has 0 deals, auto-select a wider window that has deals (e.g. 6h, 24h, all)
+      // Smart selection: if the currently selected window has 0 deals, auto-select a window that has deals
       const c1 = parseInt(count1h?.textContent || '0', 10);
       const c2 = parseInt(count2h?.textContent || '0', 10);
       const c6 = parseInt(count6h?.textContent || '0', 10);
+      const c12 = parseInt(count12h?.textContent || '0', 10);
       const c24 = parseInt(count24h?.textContent || '0', 10);
 
-      if (activeTimeWindow === '1h' && c1 === 0) {
-        if (c6 > 0) activeTimeWindow = '6h';
+      const counts = { '1h': c1, '2h': c2, '6h': c6, '12h': c12, '24h': c24 };
+      if (!counts[activeTimeWindow] || counts[activeTimeWindow] === 0) {
+        if (c24 > 0) activeTimeWindow = '24h';
+        else if (c12 > 0) activeTimeWindow = '12h';
+        else if (c6 > 0) activeTimeWindow = '6h';
         else if (c2 > 0) activeTimeWindow = '2h';
-        else if (c24 > 0) activeTimeWindow = '24h';
-        else activeTimeWindow = 'all';
-
-        timePills.forEach(p => {
-          if (p.getAttribute('data-time') === activeTimeWindow) p.classList.add('active');
-          else p.classList.remove('active');
-        });
+        else if (c1 > 0) activeTimeWindow = '1h';
+        else activeTimeWindow = '24h';
       }
+
+      timePills.forEach(p => {
+        if (p.getAttribute('data-time') === activeTimeWindow) p.classList.add('active');
+        else p.classList.remove('active');
+      });
 
       loadDatabaseDeals(true);
     });
@@ -1454,7 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let displayedItems = items;
     if (activeFilterTab === 'just_listed') {
-      displayedItems = justListedItems;
+      displayedItems = (items.length > 0 && justListedItems.length === 0) ? items : justListedItems;
     } else if (activeFilterTab === 'sniped') {
       displayedItems = snipedDeals;
     }
@@ -1465,24 +1469,35 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeFilterTab === 'sniped') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Watchlist Sniped Matches`;
       filterSummaryBadge.textContent = '🎯 Watchlist Sniper Target Hits';
-    } else if (activeFilterTab === 'just_listed') {
-      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Deals Discovered (${winLabel})`;
-      filterSummaryBadge.textContent = `✨ Just Listed (${winLabel})`;
+    } else {
       const matchTotal = totalMatches || dbTotalMatches || items.length;
       let countExtraHtml = '';
       if (storeType === 'warehouse' && stats && stats.normalDeals > 0) {
         countExtraHtml = ` <span style="font-weight: 500; font-size: 0.85em; opacity: 0.8; margin-left: 8px;">(${stats.normalDeals.toLocaleString()} Normal Deals also in DB • <a href="#" id="quickSwitchBothStores" style="color: #38bdf8; text-decoration: underline; font-weight: 700;">View Both</a>)</span>`;
+      } else if (storeType === 'normal' && stats && stats.warehouseDeals > 0) {
+        countExtraHtml = ` <span style="font-weight: 500; font-size: 0.85em; opacity: 0.8; margin-left: 8px;">(${stats.warehouseDeals.toLocaleString()} Warehouse Deals also in DB • <a href="#" id="quickSwitchBothStores" style="color: #38bdf8; text-decoration: underline; font-weight: 700;">View Both</a>)</span>`;
       }
-      if (matchTotal > items.length) {
-        resultsCount.innerHTML = `Showing ${items.length.toLocaleString()} of ${matchTotal.toLocaleString()} Deals in Database${pageCountText}${countExtraHtml}`;
+
+      if (activeFilterTab === 'just_listed') {
+        if (displayedItems.length < matchTotal) {
+          resultsCount.innerHTML = `Showing ${displayedItems.length.toLocaleString()} of ${matchTotal.toLocaleString()} Deals Discovered (${winLabel})${countExtraHtml}`;
+        } else {
+          resultsCount.innerHTML = `${displayedItems.length.toLocaleString()} Deals Discovered (${winLabel})${countExtraHtml}`;
+        }
+        filterSummaryBadge.textContent = `✨ Just Listed (${winLabel}) • ${storeLabel}`;
       } else {
-        resultsCount.innerHTML = `${matchTotal.toLocaleString()} Deals Found in Database${pageCountText}${countExtraHtml}`;
+        if (matchTotal > displayedItems.length) {
+          resultsCount.innerHTML = `Showing ${displayedItems.length.toLocaleString()} of ${matchTotal.toLocaleString()} Deals in Database${pageCountText}${countExtraHtml}`;
+        } else {
+          resultsCount.innerHTML = `${matchTotal.toLocaleString()} Deals Found in Database${pageCountText}${countExtraHtml}`;
+        }
+        filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
       }
+
       document.getElementById('quickSwitchBothStores')?.addEventListener('click', (e) => {
         e.preventDefault();
         document.querySelector('.store-pill[data-store="both"]')?.click();
       });
-      filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
     }
 
     if (displayedItems.length === 0 && activeFilterTab === 'sniped') {
@@ -1981,7 +1996,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const queryPage = isLoadAll ? '1' : dbCurrentPage.toString();
 
       const inStock = inStockOnly ? inStockOnly.checked : true;
-      const timeWin = (activeFilterTab === 'just_listed') ? (activeTimeWindow || '1h') : 'all';
+      const timeWin = (activeFilterTab === 'just_listed') ? (activeTimeWindow || '24h') : 'all';
 
       const queryParams = new URLSearchParams({
         timeWindow: timeWin,
@@ -2112,21 +2127,41 @@ document.addEventListener('DOMContentLoaded', () => {
     dealsGrid.innerHTML = `
       <div class="empty-state card" style="grid-column: 1 / -1;">
         <div class="empty-icon">🔎</div>
-        <h3>No Deals Found in Database</h3>
-        <p>No indexed deals matched your current filters${keyword ? ` for "<strong>${escapeHtml(keyword)}</strong>"` : ''}. The database currently contains <strong>${totalInDb.toLocaleString()} indexed deals</strong> across all categories.</p>
+        <h3>No Deals Match Current Filters</h3>
+        <p>No indexed deals matched this specific filter (${storeLabel} • ${catClean} • ${minDiscountSlider.value}%–${maxDiscountSlider.value}% off${keyword ? ` • "${escapeHtml(keyword)}"` : ''}).<br>
+        The database currently contains <strong>${totalInDb.toLocaleString()} active deals</strong> across all categories!</p>
         <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
-          <button class="btn btn-primary" id="runLiveScrapeFallbackBtn">🌐 Search Live Online (Amazon)</button>
-          <button class="btn btn-secondary" id="resetDbFiltersBtn">📦 Clear Filters & View All (${totalInDb.toLocaleString()})</button>
+          <button class="btn btn-primary" id="resetDbFiltersBtn">⚡ View All Deals in Database (${totalInDb.toLocaleString()})</button>
+          <button class="btn btn-secondary" id="widenDiscountBtn">🏷️ Broaden Discount to 20%–99%</button>
+          <button class="btn btn-ghost" id="runLiveScrapeFallbackBtn">🌐 Search Live Online (Amazon)</button>
         </div>
       </div>
     `;
-    document.getElementById('runLiveScrapeFallbackBtn')?.addEventListener('click', () => {
-      executeSearch(false);
-    });
     document.getElementById('resetDbFiltersBtn')?.addEventListener('click', () => {
       if (keywordInput) keywordInput.value = '';
+      if (minDiscountSlider) minDiscountSlider.value = 20;
+      if (maxDiscountSlider) maxDiscountSlider.value = 99;
+      syncDiscountUI();
+      if (categorySelect) categorySelect.value = 'sweep_all';
+      storeType = 'both';
+      storePills.forEach(p => {
+        if (p.getAttribute('data-store') === 'both') p.classList.add('active');
+        else p.classList.remove('active');
+      });
+      updateTargetUrl();
       resetToAllDealsTab();
       loadDatabaseDeals(false);
+    });
+    document.getElementById('widenDiscountBtn')?.addEventListener('click', () => {
+      if (minDiscountSlider) minDiscountSlider.value = 20;
+      if (maxDiscountSlider) maxDiscountSlider.value = 99;
+      syncDiscountUI();
+      updateTargetUrl();
+      resetToAllDealsTab();
+      loadDatabaseDeals(false);
+    });
+    document.getElementById('runLiveScrapeFallbackBtn')?.addEventListener('click', () => {
+      executeSearch(false);
     });
   }
 

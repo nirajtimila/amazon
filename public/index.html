@@ -51,14 +51,21 @@
       <section class="control-panel card">
         <div class="panel-header">
           <h2>Hunt Deep Amazon & Warehouse Discounts</h2>
-          <p>Scan 60%–90% off deals on Amazon Warehouse (open-box) & Normal Amazon (brand new)</p>
+          <p>Instant radar scanning across Amazon Warehouse (open-box) & Normal Amazon (brand new clearance)</p>
         </div>
 
         <!-- Store Selection Segmented Control -->
         <div class="store-selector-group">
           <label class="section-label">1. Choose Store Source:</label>
           <div class="segmented-store-pills" id="storeSelector">
-            <div class="store-pill active" data-store="warehouse">
+            <div class="store-pill active" data-store="both">
+              <span class="pill-icon">⚡</span>
+              <div class="pill-text">
+                <strong>Both Stores (All Deals) <span class="badge-store-count" id="countStoreBoth" style="font-size: 0.85em; opacity: 0.85;"></span></strong>
+                <small>Warehouse & Normal Combined</small>
+              </div>
+            </div>
+            <div class="store-pill" data-store="warehouse">
               <span class="pill-icon">📦</span>
               <div class="pill-text">
                 <strong>Amazon Warehouse <span class="badge-store-count" id="countStoreWarehouse" style="font-size: 0.85em; opacity: 0.85;"></span></strong>
@@ -70,13 +77,6 @@
               <div class="pill-text">
                 <strong>Normal Amazon <span class="badge-store-count" id="countStoreNormal" style="font-size: 0.85em; opacity: 0.85;"></span></strong>
                 <small>Brand New Deep Discounts</small>
-              </div>
-            </div>
-            <div class="store-pill" data-store="both">
-              <span class="pill-icon">⚡</span>
-              <div class="pill-text">
-                <strong>Both (All Deals) <span class="badge-store-count" id="countStoreBoth" style="font-size: 0.85em; opacity: 0.85;"></span></strong>
-                <small>Warehouse & Normal Combined</small>
               </div>
             </div>
           </div>
@@ -151,18 +151,18 @@
           <!-- Discount Range Presets & Sliders -->
           <div class="form-group span-2">
             <div class="label-row">
-              <label>Discount Range: <span class="range-display" id="discountDisplay">60% – 90%</span></label>
+              <label>Discount Range: <span class="range-display" id="discountDisplay">20% – 99%</span></label>
               <div class="presets-row">
-                <button type="button" class="preset-pill active" data-min="60" data-max="90">60%–90%</button>
-                <button type="button" class="preset-pill" data-min="70" data-max="95">70%–95%</button>
-                <button type="button" class="preset-pill" data-min="80" data-max="99">80%+</button>
-                <button type="button" class="preset-pill" data-min="50" data-max="80">50%–80%</button>
+                <button type="button" class="preset-pill active" data-min="20" data-max="99">All Deals (20%+)</button>
+                <button type="button" class="preset-pill" data-min="30" data-max="99">30%+</button>
+                <button type="button" class="preset-pill" data-min="50" data-max="99">50%+</button>
+                <button type="button" class="preset-pill" data-min="70" data-max="99">70%+</button>
               </div>
             </div>
 
             <div class="dual-range-container">
-              <input type="range" id="minDiscountSlider" min="10" max="99" value="60" step="5">
-              <input type="range" id="maxDiscountSlider" min="10" max="99" value="90" step="5">
+              <input type="range" id="minDiscountSlider" min="10" max="99" value="20" step="5">
+              <input type="range" id="maxDiscountSlider" min="10" max="99" value="99" step="5">
             </div>
           </div>
 
@@ -278,7 +278,7 @@
                 </svg>
                 Hunt Deep Deals
               </button>
-              <a href="https://www.amazon.com.au/s?i=warehouse-deals&pct-off=60-90&rh=p_n_availability%3A4910513051" target="_blank" rel="noopener noreferrer" class="btn btn-outline" id="openDirectBtn" style="text-decoration: none;" title="Directly opens the filtered Amazon search page in a new tab">
+              <a href="https://www.amazon.com.au/s?i=aps&pct-off=20-99&rh=p_n_availability%3A4910513051" target="_blank" rel="noopener noreferrer" class="btn btn-outline" id="openDirectBtn" style="text-decoration: none;" title="Directly opens the filtered Amazon search page in a new tab">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                   <polyline points="15 3 21 3 21 9"></polyline>
@@ -293,7 +293,7 @@
         <!-- Generated URL preview pill -->
         <div class="url-preview-bar">
           <span class="preview-label">Live Filter Target:</span>
-          <span class="preview-url" id="targetUrlText">https://www.amazon.com.au/s?i=warehouse-deals&pct-off=60-90&rh=p_n_availability%3A4910513051</span>
+          <span class="preview-url" id="targetUrlText">https://www.amazon.com.au/s?i=aps&pct-off=20-99&rh=p_n_availability%3A4910513051</span>
           <button class="btn-icon" id="copyUrlBtn" title="Copy URL">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -377,11 +377,11 @@
             <span class="time-filter-label">Discovered:</span>
           </div>
           <div class="time-pills-track">
-            <button type="button" class="time-pill active" data-time="1h">⏱️ Last 1h (<span id="count1h">0</span>)</button>
+            <button type="button" class="time-pill" data-time="1h">⏱️ Last 1h (<span id="count1h">0</span>)</button>
             <button type="button" class="time-pill" data-time="2h">⏱️ Last 2h (<span id="count2h">0</span>)</button>
             <button type="button" class="time-pill" data-time="6h">⏱️ Last 6h (<span id="count6h">0</span>)</button>
             <button type="button" class="time-pill" data-time="12h">⏱️ Last 12h (<span id="count12h">0</span>)</button>
-            <button type="button" class="time-pill" data-time="24h">⏱️ Last 24h (<span id="count24h">0</span>)</button>
+            <button type="button" class="time-pill active" data-time="24h">⏱️ Last 24h (<span id="count24h">0</span>)</button>
             <button type="button" class="time-pill" data-time="all">All Time</button>
           </div>
         </div>
@@ -398,8 +398,8 @@
         <!-- Default State: Quick Picks -->
         <div class="empty-state card">
           <div class="empty-icon">🏷️</div>
-          <h3>Ready to Hunt Extreme 60%–90% Deals</h3>
-          <p>Select <strong>Amazon Warehouse</strong> or <strong>Normal Amazon</strong>, pick a category, and click <strong>"Hunt Deep Deals"</strong>. Or click <strong>"Open in Amazon"</strong> to jump directly into the live Amazon store.</p>
+          <h3>Ready to Hunt Deep Amazon Deals</h3>
+          <p>Select <strong>Both Stores</strong>, <strong>Amazon Warehouse</strong> or <strong>Normal Amazon</strong>, pick a category, and click <strong>"Hunt Deep Deals"</strong>. Or click <strong>"Open in Amazon"</strong> to jump directly into the live Amazon store.</p>
           <div class="quick-keywords">
             <span>Popular searches:</span>
             <button class="keyword-chip" data-q="Headphones">🎧 Headphones</button>
@@ -501,6 +501,6 @@
     <div class="toast" id="toast"></div>
   </div>
 
-  <script src="app.js?v=4.5"></script>
+  <script src="app.js?v=4.6"></script>
 </body>
 </html>
