@@ -627,22 +627,40 @@ app.get('/api/watchlist', (req, res) => {
 });
 
 app.post('/api/watchlist', (req, res) => {
-  const { keyword, category = 'all', maxPrice = 0, minDiscount = 25 } = req.body;
+  const { keyword, category = 'all', maxPrice = 0, minDiscount = 0 } = req.body;
   if (!keyword || !keyword.trim()) {
     return res.status(400).json({ error: 'Keyword is required' });
   }
+
+  const parsedMinDisc = req.body.minDiscount !== undefined && !isNaN(parseInt(req.body.minDiscount, 10))
+    ? Math.max(0, parseInt(req.body.minDiscount, 10))
+    : 0;
 
   const newTarget = {
     id: `target-${crypto.randomBytes(4).toString('hex')}`,
     keyword: keyword.trim(),
     category: category || 'all',
     maxPrice: parseFloat(maxPrice) || 0,
-    minDiscount: parseInt(minDiscount, 10) || 25,
+    minDiscount: parsedMinDisc,
     active: true,
     createdAt: Date.now(),
     lastScannedAt: null,
     matchCount: 0
   };
+
+  // Check newly added target against existing database deals immediately
+  for (const deal of Object.values(db.crawledDeals || {})) {
+    if (deal.status === 'sold_out') continue;
+    if (isWatchlistMatch(deal, newTarget)) {
+      deal.snipedFromTarget = newTarget.keyword;
+      if (!db.snipedDeals.some(d => d.asin === deal.asin)) {
+        deal.snipedAt = Date.now();
+        db.snipedDeals.unshift(deal);
+        newTarget.matchCount = (newTarget.matchCount || 0) + 1;
+        console.log(`[WATCHLIST INSTANT MATCH] "${newTarget.keyword}": ${deal.title} at ${deal.price}`);
+      }
+    }
+  }
 
   db.watchlist.unshift(newTarget);
   saveDb(db);
@@ -742,6 +760,7 @@ app.get('/api/db/deals', (req, res) => {
     timeWindow = 'all', // '1h', '2h', '6h', '12h', '24h', 'all'
     storeType = 'both', // 'warehouse', 'normal', 'both'
     category = 'all',
+    excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
     minDiscount = 0,
     maxDiscount = 100,
     minPrice = 0,
@@ -758,6 +777,29 @@ app.get('/api/db/deals', (req, res) => {
   const now = Date.now();
   const allDeals = Object.values(db.crawledDeals || {});
 
+  // Excluded categories set with alias normalization
+  const excludedSet = new Set(
+    (excludeCategories || '')
+      .split(/[,;]/)
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+
+  const isCategoryExcluded = (cat) => {
+    if (!cat || excludedSet.size === 0) return false;
+    const c = cat.toLowerCase();
+    if (excludedSet.has(c)) return true;
+    if (excludedSet.has('books') && (c === 'stripbooks' || c === 'books')) return true;
+    if (excludedSet.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
+    if (excludedSet.has('toys') && (c === 'toys-and-games' || c === 'toys')) return true;
+    if (excludedSet.has('toys-and-games') && (c === 'toys-and-games' || c === 'toys')) return true;
+    if (excludedSet.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
+    if (excludedSet.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
+    if (excludedSet.has('music') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+    if (excludedSet.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+    return false;
+  };
+
   // Time window bounds in milliseconds
   const timeWindows = {
     '1h': 1 * 60 * 60 * 1000,
@@ -768,11 +810,15 @@ app.get('/api/db/deals', (req, res) => {
   };
   const windowMs = timeWindows[timeWindow] || 0;
 
-  // Compute live stats for quick pill counts matching active store, category, and discount filters
+  // Compute live stats for quick pill counts matching active store, category, exclusion, and discount filters
   let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0;
   let totalWarehouse = 0, totalNormal = 0;
   for (const d of allDeals) {
     if (d.status === 'sold_out') continue;
+
+    // Excluded category filter for stats
+    if (isCategoryExcluded(d.category)) continue;
+
     if (d.store === 'Normal Amazon') totalNormal++;
     else totalWarehouse++;
 
@@ -805,6 +851,9 @@ app.get('/api/db/deals', (req, res) => {
 
   let filtered = allDeals.filter(d => {
     if (d.status === 'sold_out') return false;
+
+    // Excluded categories filter (e.g. books, pets)
+    if (isCategoryExcluded(d.category)) return false;
 
     // Available / In-stock filter
     if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) {
@@ -932,7 +981,9 @@ app.post('/api/db/scan', async (req, res) => {
     }
     const isDeep = req.query.deep === 'true' || (req.body && req.body.deep);
     const pages = isDeep ? 8 : (req.body && req.body.pages ? parseInt(req.body.pages, 10) : 6);
-    runAutonomousCrawler(pages).catch(e => console.error('[CRAWLER] Background error:', e));
+    const excludeList = req.body?.excludeCategories || req.query?.excludeCategories;
+    const excludedCats = excludeList ? excludeList.split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean) : null;
+    runAutonomousCrawler(pages, excludedCats).catch(e => console.error('[CRAWLER] Background error:', e));
     res.json({ success: true, message: `Background ${isDeep ? `Deep Sweep (150+ Pages across all ${CRAWLER_DEPARTMENTS.length} Categories)` : 'Scan'} started (${pages} pages per department)` });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1013,40 +1064,79 @@ async function dispatchDealNotification(item, target) {
 function isWatchlistMatch(item, target) {
   if (!item || !item.title || !target || !target.keyword) return false;
 
+  const normalizeKw = (str) => {
+    return (str || '')
+      .toLowerCase()
+      .replace(/play\s*station\s*5/g, 'playstation 5 ps5')
+      .replace(/\bps5\b/g, 'playstation 5 ps5')
+      .replace(/play\s*station\s*4/g, 'playstation 4 ps4')
+      .replace(/\bps4\b/g, 'playstation 4 ps4')
+      .replace(/play\s*station/g, 'playstation')
+      .replace(/xbox\s*series\s*x/g, 'xbox series x xsx')
+      .replace(/air\s*pods/g, 'airpods');
+  };
+
   const targetKw = target.keyword.trim().toLowerCase();
   const title = (item.title || '').toLowerCase();
+  const normTarget = normalizeKw(targetKw);
+  const normTitle = normalizeKw(title);
 
   // 1. Tokenize significant words from target keyword (length >= 2)
-  const requiredTokens = targetKw
+  const rawTokens = targetKw
     .replace(/[^a-z0-9\s]/gi, ' ')
     .split(/\s+/)
     .filter(t => t.length >= 2);
 
-  if (requiredTokens.length === 0) return false;
+  if (rawTokens.length === 0) return false;
 
-  // 2. All required tokens must be present in the title as word boundaries
-  const allTokensMatch = requiredTokens.every(token => {
-    const re = new RegExp('\\b' + token + '\\b', 'i');
-    return re.test(title);
-  });
-  if (!allTokensMatch) return false;
+  // 2. Token Matching (supports alias matches like PS5 <-> PlayStation 5)
+  const isPs5Target = /\b(playstation\s*5|ps5)\b/i.test(targetKw);
+  const isPs4Target = /\b(playstation\s*4|ps4)\b/i.test(targetKw);
 
-  // 3. Accessory, Case, Adapter & Manual filter: If target keyword does NOT ask for an accessory,
-  // reject items that are cases, covers, sleeves, pouches, cables, straps, user guides, etc.
-  const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
-
-  if (!targetWantsAccessory) {
-    const isJunkOrAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+([0-9a-z.-]+\s+)*(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
-    if (isJunkOrAccessory) return false;
+  if (isPs5Target) {
+    const hasPs5InTitle = /\b(playstation\s*5|ps5)\b/i.test(title);
+    if (!hasPs5InTitle) return false;
+  } else if (isPs4Target) {
+    const hasPs4InTitle = /\b(playstation\s*4|ps4)\b/i.test(title);
+    if (!hasPs4InTitle) return false;
+  } else {
+    // Standard all-token match with substring fallback for compound words
+    const allTokensMatch = rawTokens.every(token => {
+      const re = new RegExp('\\b' + token + '\\b', 'i');
+      return re.test(title) || normTitle.includes(token);
+    });
+    if (!allTokensMatch) return false;
   }
 
-  // 4. Price bounds check
+  // 3. Category match check (if target specified category other than 'all')
+  if (target.category && target.category !== 'all' && target.category !== 'sweep_all') {
+    if (item.category && item.category !== target.category) return false;
+  }
+
+  // 4. Accessory & Junk Filter:
+  // If target did NOT explicitly ask for a case, cover, skin, or cable, reject pure accessories
+  const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads|thumb\s*grips?)\b/i.test(targetKw);
+
+  if (!targetWantsAccessory) {
+    // Pure accessory pattern
+    const isAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies)|buttons?)|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|thumb\s*grips?)\b/i.test(title);
+    
+    // Protect primary hardware (consoles, bundles, full controllers, games) from false accessory rejection
+    const isPrimaryHardware = /\b(console|bundle|edition|standard\s+edition|digital\s+edition|disc\s+edition|wireless\s+controller|dualsense)\b/i.test(title);
+
+    if (isAccessory && !isPrimaryHardware) return false;
+  }
+
+  // 5. Price bounds check
   const numPrice = item.numericPrice || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
   if (target.maxPrice > 0 && numPrice > target.maxPrice) return false;
 
-  // 5. Discount threshold check
-  const disc = parseInt(item.discountPercent, 10) || 0;
-  if (target.minDiscount > 0 && disc < target.minDiscount) return false;
+  // 6. Discount threshold check (only enforced if target explicitly specified minDiscount > 0)
+  const targetMinDisc = parseInt(target.minDiscount, 10) || 0;
+  if (targetMinDisc > 0) {
+    const disc = parseInt(item.discountPercent, 10) || 0;
+    if (disc < targetMinDisc) return false;
+  }
 
   return true;
 }
@@ -1078,18 +1168,39 @@ async function runAutonomousSniperScan() {
   db.sniperDaemon.lastRunAt = Date.now();
   db.sniperDaemon.nextRunAt = Date.now() + intervalMs;
 
-  console.log(`[SNIPER DAEMON] 🎯 Scanning ${activeTargets.length} active watchlist targets (every ${intervalMinutes}m / 2h)...`);
+  console.log(`[SNIPER DAEMON] 🎯 Scanning ${activeTargets.length} active watchlist targets across indexed database and live stores...`);
   const domain = db.settings.defaultDomain || 'amazon.com.au';
   const newHits = [];
 
   try {
+    // 1. FIRST: Scan all indexed database deals (finds hits instantly from 10,000+ cached deals)
+    const allDeals = Object.values(db.crawledDeals || {});
+    for (const deal of allDeals) {
+      if (deal.status === 'sold_out') continue;
+      for (const target of activeTargets) {
+        if (isWatchlistMatch(deal, target)) {
+          deal.snipedFromTarget = target.keyword;
+          if (!db.snipedDeals.some(d => d.asin === deal.asin)) {
+            deal.snipedAt = Date.now();
+            db.snipedDeals.unshift(deal);
+            newHits.push(deal);
+            target.matchCount = (target.matchCount || 0) + 1;
+            console.log(`[SNIPER HIT FROM DB] 🎯 Matched "${target.keyword}": ${deal.title} at ${deal.price}!`);
+            await dispatchDealNotification(deal, target);
+          }
+        }
+      }
+    }
+
+    // 2. SECOND: Query live Amazon store for each active target
     for (const target of activeTargets) {
       try {
+        const targetMinDisc = parseInt(target.minDiscount, 10) || 0;
         const res = await scrapeAmazonStore({
           storeType: 'both',
           keyword: target.keyword,
           category: target.category || 'all',
-          minDiscount: target.minDiscount || 25,
+          minDiscount: targetMinDisc > 0 ? targetMinDisc : 0,
           maxDiscount: 99,
           domain,
           sort: 'price-asc-rank',
@@ -1112,7 +1223,7 @@ async function runAutonomousSniperScan() {
             db.snipedDeals.unshift(item);
             newHits.push(item);
             target.matchCount = (target.matchCount || 0) + 1;
-            console.log(`[SNIPER HIT] Found matching deal: ${item.title} at ${item.price}!`);
+            console.log(`[SNIPER HIT LIVE] 🎯 Found matching deal: ${item.title} at ${item.price}!`);
 
             // Send push notifications
             await dispatchDealNotification(item, target);
@@ -1195,7 +1306,7 @@ async function checkWatchlistMatch(item) {
   }
 }
 
-async function runAutonomousCrawler(maxPagesPerDept = 20) {
+async function runAutonomousCrawler(maxPagesPerDept = 20, overrideExcluded = null) {
   if (crawlerRunning) {
     console.log('[CRAWLER] Crawler already running. Skipping.');
     return { skipped: true };
@@ -1224,6 +1335,12 @@ async function runAutonomousCrawler(maxPagesPerDept = 20) {
     for (const store of storesToCrawl) {
       for (let i = 0; i < CRAWLER_DEPARTMENTS.length; i++) {
         const dept = CRAWLER_DEPARTMENTS[i];
+
+        const activeExcluded = overrideExcluded || (db.settings && db.settings.excludedCategories) || [];
+        if (activeExcluded.includes(dept.id) || (activeExcluded.includes('books') && dept.id === 'stripbooks') || (activeExcluded.includes('stripbooks') && dept.id === 'books') || (activeExcluded.includes('pets') && dept.id === 'pets')) {
+          console.log(`[CRAWLER] ⏭️ Skipping excluded department: ${dept.name}`);
+          continue;
+        }
 
         for (let p = 1; p <= depth; p++) {
           db.crawler.currentStep = `${store.label}: ${dept.name} (p.${p}/${depth} • Dept ${i + 1}/${CRAWLER_DEPARTMENTS.length})`;

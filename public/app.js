@@ -89,6 +89,78 @@ document.addEventListener('DOMContentLoaded', () => {
   const count24h = document.getElementById('count24h');
   let activeTimeWindow = '24h';
 
+  // Excluded Categories Engine (Deep Sweep & Database Radar)
+  const EXCLUDE_STORAGE_KEY = 'wh_excluded_categories';
+  const EXCLUDABLE_DEPARTMENTS = [
+    { id: 'stripbooks', name: 'Books', icon: '📚' },
+    { id: 'pets', name: 'Pet Supplies', icon: '🐾' },
+    { id: 'baby', name: 'Baby Products', icon: '🍼' },
+    { id: 'beauty', name: 'Beauty', icon: '💄' },
+    { id: 'toys-and-games', name: 'Toys & Games', icon: '🧸' },
+    { id: 'videogames', name: 'Video Games', icon: '🎮' },
+    { id: 'automotive', name: 'Automotive', icon: '🚗' },
+    { id: 'garden', name: 'Garden & Outdoor', icon: '🌱' },
+    { id: 'office-products', name: 'Office', icon: '📎' },
+    { id: 'mi', name: 'Musical Instruments', icon: '🎸' },
+    { id: 'luggage', name: 'Luggage & Travel', icon: '🧳' },
+    { id: 'hpc', name: 'Health & Household', icon: '💊' },
+    { id: 'hi', name: 'Tools & Home', icon: '🔧' },
+    { id: 'sporting', name: 'Sports & Outdoors', icon: '⚽' },
+    { id: 'kitchen', name: 'Home & Kitchen', icon: '🍳' },
+    { id: 'pc', name: 'Computers & Tablets', icon: '💻' },
+    { id: 'electronics', name: 'Electronics', icon: '🎧' }
+  ];
+
+  let excludedCategories = new Set(JSON.parse(localStorage.getItem(EXCLUDE_STORAGE_KEY) || '["stripbooks", "pets"]'));
+
+  function isCategoryExcluded(catId) {
+    if (!catId || excludedCategories.size === 0) return false;
+    const c = catId.toLowerCase();
+    if (excludedCategories.has(c)) return true;
+    if (excludedCategories.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
+    if (excludedCategories.has('books') && (c === 'stripbooks' || c === 'books')) return true;
+    if (excludedCategories.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
+    if (excludedCategories.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
+    if (excludedCategories.has('baby') && (c === 'baby' || c === 'baby-products')) return true;
+    if (excludedCategories.has('toys-and-games') && (c === 'toys' || c === 'toys-and-games')) return true;
+    if (excludedCategories.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+    return false;
+  }
+
+  function renderExcludePills() {
+    const wrap = document.getElementById('excludePillsWrap');
+    if (!wrap) return;
+    wrap.innerHTML = EXCLUDABLE_DEPARTMENTS.map(dept => {
+      const isEx = isCategoryExcluded(dept.id);
+      return `<button type="button" class="exclude-pill ${isEx ? 'excluded' : ''}" data-cat="${dept.id}" title="${isEx ? 'Click to re-include ' + dept.name : 'Click to exclude ' + dept.name}">${dept.icon} ${dept.name}</button>`;
+    }).join('');
+
+    wrap.querySelectorAll('.exclude-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cat = btn.getAttribute('data-cat');
+        if (isCategoryExcluded(cat)) {
+          excludedCategories.delete(cat);
+          if (cat === 'stripbooks') excludedCategories.delete('books');
+          if (cat === 'pets') excludedCategories.delete('pet-supplies');
+        } else {
+          excludedCategories.add(cat);
+        }
+        localStorage.setItem(EXCLUDE_STORAGE_KEY, JSON.stringify(Array.from(excludedCategories)));
+        renderExcludePills();
+        currentPage = 1;
+        deals = [];
+        loadDatabaseDeals(false);
+      });
+    });
+  }
+
+  function updateExcludePanelVisibility() {
+    const panel = document.getElementById('excludeCategoriesPanel');
+    if (!panel || !categorySelect) return;
+    const isMultiCat = categorySelect.value === 'sweep_all' || categorySelect.value === 'all';
+    panel.style.display = isMultiCat ? 'block' : 'none';
+  }
+
   // Currency Exchange Rates (Base USD = 1.0) with automatic online update & reliable offline fallback
   const EXCHANGE_RATES = {
     USD: 1.0,
@@ -308,6 +380,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize
   updateSavedCount();
   fetchLiveExchangeRates();
+  renderExcludePills();
+  updateExcludePanelVisibility();
   checkBackendHealth().then(async () => {
     updateDatabaseStatus();
     await loadDatabaseDeals();
@@ -514,18 +588,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     watchlistItemsContainer.querySelectorAll('.watch-snipe-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
+      btn.addEventListener('click', async (e) => {
         const id = e.currentTarget.getAttribute('data-id');
         const target = watchlist.find(w => w.id === id);
         if (target) {
           closeWatchlistModal();
-          keywordInput.value = target.keyword;
-          categorySelect.value = target.category;
-          minDiscountSlider.value = target.minDiscount || 30;
-          syncDiscountUI();
-          if (target.maxPrice && maxPriceInput) maxPriceInput.value = target.maxPrice;
-          updateTargetUrl();
-          executeSearch(false);
+          showToast(`🎯 Sniping "${target.keyword}" across database and live stores...`);
+          await runWatchlistSniperForTarget(target);
         }
       });
     });
@@ -557,7 +626,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const cat = watchCategorySelect.value || 'all';
       const maxP = parseFloat(watchMaxPriceInput.value) || 0;
-      const minD = parseInt(watchMinDiscountInput.value) || 30;
+      const minD = (watchMinDiscountInput && watchMinDiscountInput.value !== '' && !isNaN(parseInt(watchMinDiscountInput.value, 10)))
+        ? Math.max(0, parseInt(watchMinDiscountInput.value, 10))
+        : 0;
       const newTarget = {
         id: 'w_' + Date.now(),
         keyword: kw,
@@ -577,7 +648,11 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (err) {}
       watchKeywordInput.value = '';
       watchMaxPriceInput.value = '';
-      showToast(`Added "${kw}" to Watchlist!`);
+      if (watchMinDiscountInput) watchMinDiscountInput.value = '0';
+      showToast(`Added "${kw}" to Watchlist! (Min: ${minD}% off, Max: $${maxP || 'Any'})`);
+
+      // Immediately run sniper for newly added target
+      runWatchlistSniperForTarget(newTarget);
     });
   }
 
@@ -587,42 +662,136 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function isWatchlistMatch(item, target) {
     if (!item || !item.title || !target || !target.keyword) return false;
+
+    const normalizeKw = (str) => {
+      return (str || '')
+        .toLowerCase()
+        .replace(/play\s*station\s*5/g, 'playstation 5 ps5')
+        .replace(/\bps5\b/g, 'playstation 5 ps5')
+        .replace(/play\s*station\s*4/g, 'playstation 4 ps4')
+        .replace(/\bps4\b/g, 'playstation 4 ps4')
+        .replace(/play\s*station/g, 'playstation')
+        .replace(/xbox\s*series\s*x/g, 'xbox series x xsx')
+        .replace(/air\s*pods/g, 'airpods');
+    };
+
     const targetKw = target.keyword.trim().toLowerCase();
     const title = (item.title || '').toLowerCase();
+    const normTarget = normalizeKw(targetKw);
+    const normTitle = normalizeKw(title);
 
     // 1. Tokenize significant words from target keyword (length >= 2)
-    const requiredTokens = targetKw
+    const rawTokens = targetKw
       .replace(/[^a-z0-9\s]/gi, ' ')
       .split(/\s+/)
       .filter(t => t.length >= 2);
 
-    if (requiredTokens.length === 0) return false;
+    if (rawTokens.length === 0) return false;
 
-    // 2. All required tokens must be present in the title as word boundaries
-    const allTokensMatch = requiredTokens.every(token => {
-      const re = new RegExp('\\b' + token + '\\b', 'i');
-      return re.test(title);
-    });
-    if (!allTokensMatch) return false;
+    // 2. Token Matching (supports alias matches like PS5 <-> PlayStation 5)
+    const isPs5Target = /\b(playstation\s*5|ps5)\b/i.test(targetKw);
+    const isPs4Target = /\b(playstation\s*4|ps4)\b/i.test(targetKw);
 
-    // 3. Accessory, Case, Adapter & Manual filter: If target keyword does NOT ask for an accessory,
-    // reject items that are cases, covers, sleeves, pouches, cables, straps, user guides, etc.
-    const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads)\b/i.test(targetKw);
-
-    if (!targetWantsAccessory) {
-      const isJunkOrAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies))|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|for\s+([0-9a-z.-]+\s+)*(apple|kindle|sony|samsung|iphone|airpods|ipad)\b|compatible\s+with)\b/i.test(title);
-      if (isJunkOrAccessory) return false;
+    if (isPs5Target) {
+      const hasPs5InTitle = /\b(playstation\s*5|ps5)\b/i.test(title);
+      if (!hasPs5InTitle) return false;
+    } else if (isPs4Target) {
+      const hasPs4InTitle = /\b(playstation\s*4|ps4)\b/i.test(title);
+      if (!hasPs4InTitle) return false;
+    } else {
+      const allTokensMatch = rawTokens.every(token => {
+        const re = new RegExp('\\b' + token + '\\b', 'i');
+        return re.test(title) || normTitle.includes(token);
+      });
+      if (!allTokensMatch) return false;
     }
 
-    // 4. Price bounds check
+    // 3. Category match check (if target specified category other than 'all')
+    if (target.category && target.category !== 'all' && target.category !== 'sweep_all') {
+      if (item.category && item.category !== target.category) return false;
+    }
+
+    // 4. Accessory & Junk Filter
+    const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads|thumb\s*grips?)\b/i.test(targetKw);
+
+    if (!targetWantsAccessory) {
+      const isAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies)|buttons?)|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|thumb\s*grips?)\b/i.test(title);
+      const isPrimaryHardware = /\b(console|bundle|edition|standard\s+edition|digital\s+edition|disc\s+edition|wireless\s+controller|dualsense)\b/i.test(title);
+      if (isAccessory && !isPrimaryHardware) return false;
+    }
+
+    // 5. Price bounds check
     const numPrice = item.numericPrice || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
     if (target.maxPrice > 0 && numPrice > target.maxPrice) return false;
 
-    // 5. Discount threshold check
-    const disc = parseInt(item.discountPercent, 10) || 0;
-    if (target.minDiscount > 0 && disc < target.minDiscount) return false;
+    // 6. Discount threshold check (only if target explicitly specified minDiscount > 0)
+    const targetMinDisc = parseInt(target.minDiscount, 10) || 0;
+    if (targetMinDisc > 0) {
+      const disc = parseInt(item.discountPercent, 10) || 0;
+      if (disc < targetMinDisc) return false;
+    }
 
     return true;
+  }
+
+  async function runWatchlistSniperForTarget(target) {
+    if (!target) return;
+    if (scanBanner) {
+      scanBanner.style.display = 'flex';
+      scanBannerText.textContent = `🎯 Sniper scanning target: "${target.keyword}" across database & live stores...`;
+    }
+
+    const domain = domainSelect ? domainSelect.value : 'amazon.com.au';
+    const onlyInStock = inStockOnly ? inStockOnly.checked : true;
+    let foundHits = 0;
+
+    // 1. Check existing database deals first
+    try {
+      const dbUrl = `/api/db/deals?keyword=${encodeURIComponent(target.keyword)}&category=${encodeURIComponent(target.category || 'all')}&timeWindow=all&limit=50`;
+      const dbRes = await fetch(dbUrl);
+      if (dbRes.ok) {
+        const dbData = await dbRes.json();
+        for (const item of (dbData.products || [])) {
+          if (!isWatchlistMatch(item, target)) continue;
+          item.snipedFromTarget = target.keyword;
+          tagNewDealStatus(item);
+          if (!snipedDeals.some(d => d.asin === item.asin)) {
+            snipedDeals.unshift(item);
+            foundHits++;
+          }
+        }
+      }
+    } catch (e) {}
+
+    // 2. Query live store
+    try {
+      const targetMinDisc = parseInt(target.minDiscount, 10) || 0;
+      const apiUrl = `/api/search?storeType=both&keyword=${encodeURIComponent(target.keyword)}&category=${encodeURIComponent(target.category || 'all')}&minDiscount=${targetMinDisc}&maxDiscount=99&domain=${encodeURIComponent(domain)}&sort=price-asc-rank&page=1&maxPages=1&availableOnly=${onlyInStock}&maxPrice=${target.maxPrice || 0}`;
+      const res = await fetch(apiUrl);
+      if (res.ok) {
+        const data = await res.json();
+        for (const item of (data.products || [])) {
+          if (!isWatchlistMatch(item, target)) continue;
+          item.snipedFromTarget = target.keyword;
+          tagNewDealStatus(item);
+          if (!snipedDeals.some(d => d.asin === item.asin)) {
+            snipedDeals.unshift(item);
+            foundHits++;
+          }
+        }
+      }
+    } catch (e) {}
+
+    if (scanBanner) scanBanner.style.display = 'none';
+    if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
+
+    if (snipedDeals.length > 0) {
+      playNotificationChime();
+      showToast(`🎯 Found ${foundHits > 0 ? foundHits : snipedDeals.length} match(es) for "${target.keyword}"!`);
+      if (tabSnipedDeals) tabSnipedDeals.click();
+    } else {
+      showToast(`🎯 Scanned "${target.keyword}". 0 matching deals right now. Tip: Set Min Off to 0% or raise Max Price.`);
+    }
   }
 
   async function runWatchlistSniper() {
@@ -638,44 +807,40 @@ document.addEventListener('DOMContentLoaded', () => {
       scanBannerText.textContent = `🎯 Sniper scanning ${activeTargets.length} active watchlist targets...`;
     }
 
-    snipedDeals = [];
     showToast(`🎯 Running Watchlist Sniper for ${activeTargets.length} target(s)...`);
 
-    const domain = domainSelect ? domainSelect.value : 'amazon.com.au';
-    const onlyInStock = inStockOnly ? inStockOnly.checked : true;
+    // Trigger backend autonomous scan as well
+    fetch('/api/watchlist/scan', { method: 'POST' }).catch(() => {});
 
     for (let i = 0; i < activeTargets.length; i++) {
       const target = activeTargets[i];
       if (scanBannerText) {
         scanBannerText.textContent = `🎯 Sniper scanning target ${i + 1}/${activeTargets.length}: "${target.keyword}"...`;
       }
+      await runWatchlistSniperForTarget(target);
+    }
 
-      try {
-        const apiUrl = `/api/search?storeType=both&keyword=${encodeURIComponent(target.keyword)}&category=${encodeURIComponent(target.category)}&minDiscount=${target.minDiscount || 25}&maxDiscount=90&domain=${encodeURIComponent(domain)}&sort=price-asc-rank&page=1&maxPages=1&availableOnly=${onlyInStock}&maxPrice=${target.maxPrice || 0}`;
-        const res = await fetch(apiUrl);
-        if (res.ok) {
-          const data = await res.json();
-          const items = data.products || [];
-          for (const item of items) {
-            if (!isWatchlistMatch(item, target)) continue;
-            item.snipedFromTarget = target.keyword;
-            tagNewDealStatus(item);
+    // Refresh sniped deals from backend
+    try {
+      const sRes = await fetch('/api/sniped');
+      if (sRes.ok) {
+        const fresh = await sRes.json();
+        if (Array.isArray(fresh) && fresh.length > 0) {
+          for (const item of fresh) {
             if (!snipedDeals.some(d => d.asin === item.asin)) {
-              snipedDeals.push(item);
+              snipedDeals.unshift(item);
             }
           }
         }
-      } catch (e) {
-        console.warn('Sniper error on target:', target.keyword, e);
       }
-    }
+    } catch (e) {}
 
     if (scanBanner) scanBanner.style.display = 'none';
     if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
 
     if (snipedDeals.length > 0) {
       playNotificationChime();
-      showToast(`🎯 SNIPER SUCCESS! Found ${snipedDeals.length} match(es) for your watchlist!`);
+      showToast(`🎯 SNIPER SUCCESS! ${snipedDeals.length} match(es) in your sniped list!`);
       if (tabSnipedDeals) tabSnipedDeals.click();
     } else {
       showToast('🎯 Sniper scan complete. No items currently match your target price/discount thresholds.');
@@ -878,11 +1043,34 @@ document.addEventListener('DOMContentLoaded', () => {
   // Event Listeners for Filters
   keywordInput.addEventListener('input', updateTargetUrl);
   categorySelect.addEventListener('change', () => {
+    updateExcludePanelVisibility();
     updateTargetUrl();
     currentPage = 1;
     deals = [];
     resetToAllDealsTab();
     loadDatabaseDeals();
+  });
+
+  // Exclude Categories Shortcut Buttons
+  document.getElementById('quickExcludeBooksPetsBtn')?.addEventListener('click', () => {
+    excludedCategories.add('stripbooks');
+    excludedCategories.add('pets');
+    localStorage.setItem(EXCLUDE_STORAGE_KEY, JSON.stringify(Array.from(excludedCategories)));
+    renderExcludePills();
+    showToast('🚫 Excluded Books & Pet Supplies from Sweep & Radar');
+    currentPage = 1;
+    deals = [];
+    loadDatabaseDeals(false);
+  });
+
+  document.getElementById('resetExcludedCatsBtn')?.addEventListener('click', () => {
+    excludedCategories.clear();
+    localStorage.removeItem(EXCLUDE_STORAGE_KEY);
+    renderExcludePills();
+    showToast('✅ All categories included in Sweep & Radar');
+    currentPage = 1;
+    deals = [];
+    loadDatabaseDeals(false);
   });
   domainSelect.addEventListener('change', () => {
     syncCurrencyUI();
@@ -1219,6 +1407,10 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let c = 0; c < DEEP_SWEEP_CATEGORIES.length; c++) {
           if (stopRequested) break;
           const currentCat = DEEP_SWEEP_CATEGORIES[c];
+          if (isCategoryExcluded(currentCat.id)) {
+            console.log(`[DEEP SWEEP] ⏭️ Skipping excluded department: ${currentCat.name}`);
+            continue;
+          }
           categoriesScanned++;
 
           for (let p = 1; p <= pagesPerCat; p++) {
@@ -1407,8 +1599,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageCountText = currentPage > 1 ? ` (${currentPage} pgs)` : '';
     const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
     let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
-    if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') catClean = 'All Categories';
-    else catClean = catClean.replace(/\s*\(.*?\)/, '');
+    if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') {
+      const exCount = excludedCategories ? excludedCategories.size : 0;
+      catClean = exCount > 0 ? `All Categories (${exCount} Excluded)` : 'All Categories';
+    } else {
+      catClean = catClean.replace(/\s*\(.*?\)/, '');
+    }
 
     const now = Date.now();
     if (stats) {
@@ -2005,6 +2201,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const inStock = inStockOnly ? inStockOnly.checked : true;
       const timeWin = (activeFilterTab === 'just_listed') ? (activeTimeWindow || '24h') : 'all';
 
+      const isMultiCat = (categoryParam === 'sweep_all' || categoryParam === 'all');
+
       const queryParams = new URLSearchParams({
         timeWindow: timeWin,
         page: queryPage,
@@ -2022,11 +2220,18 @@ document.addEventListener('DOMContentLoaded', () => {
         availableOnly: inStock.toString()
       });
 
+      if (isMultiCat && excludedCategories && excludedCategories.size > 0) {
+        queryParams.set('excludeCategories', Array.from(excludedCategories).join(','));
+      }
+
       const res = await fetch(`/api/db/deals?${queryParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
         dbTotalMatches = data.total || 0;
-        const newProducts = data.products || [];
+        let newProducts = data.products || [];
+        if (isMultiCat && excludedCategories && excludedCategories.size > 0) {
+          newProducts = newProducts.filter(d => !isCategoryExcluded(d.category));
+        }
 
         if (isLoadMore) {
           const seen = new Set(deals.map(d => d.asin));
@@ -2125,8 +2330,12 @@ document.addEventListener('DOMContentLoaded', () => {
     resultsMeta.style.display = 'flex';
     const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
     let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
-    if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') catClean = 'All Categories';
-    else catClean = catClean.replace(/\s*\(.*?\)/, '');
+    if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') {
+      const exCount = excludedCategories ? excludedCategories.size : 0;
+      catClean = exCount > 0 ? `All Categories (${exCount} Excluded)` : 'All Categories';
+    } else {
+      catClean = catClean.replace(/\s*\(.*?\)/, '');
+    }
 
     resultsCount.textContent = `0 Deals Found in Database`;
     filterSummaryBadge.textContent = `${storeLabel} • ${catClean} (${minDiscountSlider.value}%–${maxDiscountSlider.value}% off)`;
