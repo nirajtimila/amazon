@@ -790,7 +790,8 @@ app.get('/api/db/deals', (req, res) => {
     // In-stock filter for stats
     if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) continue;
 
-    const dealTs = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || now;
+    // Discovery / fresh deal timestamp: evaluates when product was first discovered or price-dropped
+    const dealTs = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || d.lastSeenAt || now;
     const age = now - dealTs;
     if (age <= 1 * 3600000) count1h++;
     if (age <= 2 * 3600000) count2h++;
@@ -814,9 +815,9 @@ app.get('/api/db/deals', (req, res) => {
     if (storeType === 'warehouse' && d.store === 'Normal Amazon') return false;
     if (storeType === 'normal' && d.store !== 'Normal Amazon') return false;
 
-    // Time window filter (evaluates freshest discovery / indexed timestamp)
+    // Time window filter: strictly evaluates when deal was first discovered or price-dropped
     if (windowMs > 0) {
-      const dealTs = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || now;
+      const dealTs = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || d.lastSeenAt || now;
       const age = now - dealTs;
       if (age > windowMs) return false;
     }
@@ -865,7 +866,7 @@ app.get('/api/db/deals', (req, res) => {
   filtered.sort((a, b) => {
     switch (sort) {
       case 'date-desc-rank':
-        return (Math.max(b.firstSeenAt || 0, b.lastSeenAt || 0)) - (Math.max(a.firstSeenAt || 0, a.lastSeenAt || 0));
+        return (Math.max(b.firstSeenAt || 0, b.priceDropAt || 0)) - (Math.max(a.firstSeenAt || 0, a.priceDropAt || 0));
       case 'price-asc-rank':
         return (a.numericPrice || 0) - (b.numericPrice || 0);
       case 'price-desc-rank':
@@ -875,7 +876,7 @@ app.get('/api/db/deals', (req, res) => {
       case 'review-rank':
         return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
       default:
-        return (Math.max(b.firstSeenAt || 0, b.lastSeenAt || 0)) - (Math.max(a.firstSeenAt || 0, a.lastSeenAt || 0));
+        return (Math.max(b.firstSeenAt || 0, b.priceDropAt || 0)) - (Math.max(a.firstSeenAt || 0, a.priceDropAt || 0));
     }
   });
 
@@ -1260,7 +1261,15 @@ async function runAutonomousCrawler(maxPagesPerDept = 20) {
                 const existing = db.crawledDeals[item.asin];
                 existing.lastSeenAt = Date.now();
                 existing.status = 'active';
-                existing.store = item.store;
+                // Preserve warehouse store type if either crawl found it in Warehouse
+                if (item.store === 'Amazon Warehouse' || existing.store === 'Amazon Warehouse') {
+                  existing.store = 'Amazon Warehouse';
+                } else {
+                  existing.store = item.store;
+                }
+                if (item.condition && !existing.condition) {
+                  existing.condition = item.condition;
+                }
                 // Preserve original firstSeenAt: a deal seen 1 hour ago stays 1 hour ago
                 if (!existing.firstSeenAt) {
                   existing.firstSeenAt = existing.lastSeenAt || Date.now();

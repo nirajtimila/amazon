@@ -1418,11 +1418,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count12h) count12h.textContent = stats.last12h || 0;
       if (count24h) count24h.textContent = stats.last24h || 0;
       if (countJustListed) countJustListed.textContent = stats.last24h || stats.last6h || 0;
-      if (countAllDeals) countAllDeals.textContent = (activeFilterTab === 'all' && totalMatches ? totalMatches : items.length);
+      if (countAllDeals) countAllDeals.textContent = (stats.totalInDb ? (storeType === 'warehouse' ? stats.warehouseDeals : (storeType === 'normal' ? stats.normalDeals : stats.totalInDb)).toLocaleString() : (totalMatches ? totalMatches.toLocaleString() : items.length.toLocaleString()));
     } else {
       let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0;
       for (const d of items) {
-        const ts = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || dealHistory[d.asin] || 0;
+        const ts = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || dealHistory[d.asin] || 0;
         if (!ts) {
           if (d.isJustListed) { c24h++; }
           continue;
@@ -1440,12 +1440,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count12h) count12h.textContent = c12h;
       if (count24h) count24h.textContent = c24h;
       if (countJustListed) countJustListed.textContent = c24h;
-      if (countAllDeals) countAllDeals.textContent = items.length;
+      if (countAllDeals) countAllDeals.textContent = items.length.toLocaleString();
     }
     if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
 
     const justListedItems = items.filter(d => {
-      const ts = Math.max(d.firstSeenAt || 0, d.lastSeenAt || 0) || dealHistory[d.asin] || 0;
+      const ts = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || dealHistory[d.asin] || 0;
       if (!ts) return d.isJustListed;
       const age = now - ts;
       if (activeTimeWindow === '1h') return age <= 1 * 3600000;
@@ -1458,7 +1458,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let displayedItems = items;
     if (activeFilterTab === 'just_listed') {
-      displayedItems = (items.length > 0 && justListedItems.length === 0) ? items : justListedItems;
+      displayedItems = justListedItems;
     } else if (activeFilterTab === 'sniped') {
       displayedItems = snipedDeals;
     }
@@ -1568,27 +1568,30 @@ document.addEventListener('DOMContentLoaded', () => {
       const priceObj = formatPriceWithCurrency(item.price, itemDomain, activeCurrency);
       const listPriceObj = formatPriceWithCurrency(item.originalPrice || item.listPrice, itemDomain, activeCurrency);
 
-      const isWarehouse = (item.store !== 'Normal Amazon');
+      const isUsedCondition = item.condition && /used|open box|like new/i.test(item.condition);
+      const isWarehouse = (item.store !== 'Normal Amazon') || isUsedCondition;
       const storeBadgeClass = isWarehouse ? 'warehouse' : 'normal';
       const storeBadgeText = isWarehouse ? '📦 Warehouse' : '🛒 Brand New';
       const savingsLabelText = isWarehouse ? 'Warehouse Deal' : 'Brand New Deal';
 
-      // Relative timestamp badge
-      const ts = item.firstSeenAt || dealHistory[item.asin];
+      // Relative timestamp badge (evaluates first listed or price drop date)
+      const ts = Math.max(item.firstSeenAt || 0, item.priceDropAt || 0) || dealHistory[item.asin];
       let timeBadgeHtml = '';
       if (ts) {
         const ageMs = now - ts;
+        const isDrop = item.priceDropAt && (now - item.priceDropAt <= 86400000);
+        const actionPrefix = isDrop ? '🔥 Price Drop' : '🟢 Listed';
         const relText = formatRelativeTime(ts);
         const lastSeen = item.lastSeenAt;
         const scannedText = (lastSeen && (now - lastSeen < ageMs - 300000)) ? ` • Scanned ${formatRelativeTime(lastSeen)}` : '';
         if (ageMs <= 3600000) {
-          timeBadgeHtml = `<span class="deal-time-badge fresh-1h" title="First listed: ${relText}${scannedText}">🟢 Listed ${relText}${scannedText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge fresh-1h" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${actionPrefix} ${relText}${scannedText}</span>`;
         } else if (ageMs <= 7200000) {
-          timeBadgeHtml = `<span class="deal-time-badge recent-2h" title="First listed: ${relText}${scannedText}">🟡 Listed ${relText}${scannedText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge recent-2h" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${isDrop ? '🔥 Price Drop' : '🟡 Listed'} ${relText}${scannedText}</span>`;
         } else if (ageMs <= 86400000) {
-          timeBadgeHtml = `<span class="deal-time-badge older" title="First listed: ${relText}${scannedText}">🕒 Listed ${relText}${scannedText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge older" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${isDrop ? '🔥 Price Drop' : '🕒 Listed'} ${relText}${scannedText}</span>`;
         } else {
-          timeBadgeHtml = `<span class="deal-time-badge older" title="First listed: ${relText}${scannedText}">📦 Listed ${relText}${scannedText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge older" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${isDrop ? '🔥 Price Drop' : '📦 Listed'} ${relText}${scannedText}</span>`;
         }
       }
 
