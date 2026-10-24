@@ -41,9 +41,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabAllDeals = document.getElementById('tabAllDeals');
   const tabJustListed = document.getElementById('tabJustListed');
   const tabSnipedDeals = document.getElementById('tabSnipedDeals');
+  const tabPriceErrors = document.getElementById('tabPriceErrors');
   const countAllDeals = document.getElementById('countAllDeals');
   const countJustListed = document.getElementById('countJustListed');
   const countSnipedDeals = document.getElementById('countSnipedDeals');
+  const countPriceErrors = document.getElementById('countPriceErrors');
 
   // New Filters
   const minPriceInput = document.getElementById('minPriceInput');
@@ -113,17 +115,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let excludedCategories = new Set(JSON.parse(localStorage.getItem(EXCLUDE_STORAGE_KEY) || '["stripbooks", "pets"]'));
 
-  function isCategoryExcluded(catId) {
-    if (!catId || excludedCategories.size === 0) return false;
-    const c = catId.toLowerCase();
-    if (excludedCategories.has(c)) return true;
-    if (excludedCategories.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
-    if (excludedCategories.has('books') && (c === 'stripbooks' || c === 'books')) return true;
-    if (excludedCategories.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
-    if (excludedCategories.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
-    if (excludedCategories.has('baby') && (c === 'baby' || c === 'baby-products')) return true;
-    if (excludedCategories.has('toys-and-games') && (c === 'toys' || c === 'toys-and-games')) return true;
-    if (excludedCategories.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+  function isCategoryExcluded(catId, title, asin) {
+    if (excludedCategories.size === 0) return false;
+    if ((excludedCategories.has('books') || excludedCategories.has('stripbooks')) && asin && /^\d{9}[\dX]$/i.test(asin)) {
+      return true;
+    }
+    if (catId) {
+      const c = catId.toLowerCase();
+      if (excludedCategories.has(c)) return true;
+      if (excludedCategories.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
+      if (excludedCategories.has('books') && (c === 'stripbooks' || c === 'books')) return true;
+      if (excludedCategories.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
+      if (excludedCategories.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
+      if (excludedCategories.has('baby') && (c === 'baby' || c === 'baby-products')) return true;
+      if (excludedCategories.has('toys-and-games') && (c === 'toys' || c === 'toys-and-games')) return true;
+      if (excludedCategories.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+    }
+    if ((excludedCategories.has('books') || excludedCategories.has('stripbooks')) && title) {
+      if (/\b(paperback|hardcover|memoir|study\s+guide|bestseller|novel|thriller|biography|handbook)\b/i.test(title)) return true;
+    }
     return false;
   }
 
@@ -397,14 +407,38 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabAllDeals) tabAllDeals.classList.add('active');
     if (tabJustListed) tabJustListed.classList.remove('active');
     if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+    if (tabPriceErrors) tabPriceErrors.classList.remove('active');
     if (timeFilterRow) timeFilterRow.style.display = 'none';
   }
 
-  // Filter Tabs (All Deals vs Just Listed vs Sniped Deals)
+  // Filter Tabs (All Deals vs Just Listed vs Sniped Deals vs Price Errors)
   if (tabAllDeals) {
     tabAllDeals.addEventListener('click', () => {
       resetToAllDealsTab();
       loadDatabaseDeals(false);
+    });
+  }
+
+  if (tabPriceErrors) {
+    tabPriceErrors.addEventListener('click', () => {
+      activeFilterTab = 'price_errors';
+      tabPriceErrors.classList.add('active');
+      if (tabAllDeals) tabAllDeals.classList.remove('active');
+      if (tabJustListed) tabJustListed.classList.remove('active');
+      if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (timeFilterRow) timeFilterRow.style.display = 'none';
+
+      // Set min discount slider to 80%
+      if (minDiscountSlider) {
+        minDiscountSlider.value = 80;
+        syncDiscountUI();
+      }
+      presetPills.forEach(p => {
+        if (p.getAttribute('data-min') === '80') p.classList.add('active');
+        else p.classList.remove('active');
+      });
+
+      loadDatabaseDeals(true);
     });
   }
 
@@ -450,18 +484,31 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
-      // Always fetch fresh sniped matches from backend
+      // Always fetch fresh sniped matches from backend and merge
       try {
         const res = await fetch('/api/sniped');
         if (res.ok) {
           const fresh = await res.json();
-          if (Array.isArray(fresh)) {
-            snipedDeals = fresh;
-            if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
+          if (Array.isArray(fresh) && fresh.length > 0) {
+            for (const item of fresh) {
+              if (!snipedDeals.some(d => d.asin === item.asin)) {
+                snipedDeals.push(item);
+              }
+            }
           }
         }
       } catch (err) {}
 
+      // If local has sniped deals, ensure backend has them too
+      if (snipedDeals.length > 0) {
+        fetch('/api/sniped', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(snipedDeals)
+        }).catch(() => {});
+      }
+
+      if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
       renderDeals(snipedDeals);
     });
   }
@@ -504,6 +551,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Array.isArray(wData) && wData.length > 0) {
           watchlist = wData;
           saveWatchlist();
+        } else if (Array.isArray(watchlist) && watchlist.length > 0) {
+          fetch('/api/watchlist/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(watchlist)
+          }).catch(() => {});
         }
       }
       if (sRes.status === 'fulfilled' && sRes.value.ok) {
@@ -640,11 +693,18 @@ document.addEventListener('DOMContentLoaded', () => {
       watchlist.unshift(newTarget);
       saveWatchlist();
       try {
-        await fetch('/api/watchlist', {
+        const resp = await fetch('/api/watchlist', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newTarget)
         });
+        if (resp.ok) {
+          const created = await resp.json();
+          if (created && created.id) {
+            newTarget.id = created.id;
+            saveWatchlist();
+          }
+        }
       } catch (err) {}
       watchKeywordInput.value = '';
       watchMaxPriceInput.value = '';
@@ -708,16 +768,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Category match check (if target specified category other than 'all')
     if (target.category && target.category !== 'all' && target.category !== 'sweep_all') {
-      if (item.category && item.category !== target.category) return false;
+      if (item.category && item.category !== 'all' && item.category !== 'sweep_all' && item.category !== target.category) return false;
     }
 
     // 4. Accessory & Junk Filter
     const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads|thumb\s*grips?)\b/i.test(targetKw);
 
     if (!targetWantsAccessory) {
-      const isAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies)|buttons?)|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|thumb\s*grips?)\b/i.test(title);
-      const isPrimaryHardware = /\b(console|bundle|edition|standard\s+edition|digital\s+edition|disc\s+edition|wireless\s+controller|dualsense)\b/i.test(title);
-      if (isAccessory && !isPrimaryHardware) return false;
+      const isAccessoryKeyword = /\b(cases?|covers?|sleeves?|pouches?|skins?|decals?|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies)|buttons?)|adapters?|converters?|chargers?|cables?|cords?|straps?|stands?|mounts?|holders?|cleaning\s*kits?|stylus)\b/i.test(title);
+
+      if (isAccessoryKeyword) {
+        const hasAccessoryPrefix = /\b(case\s+(for|compatible|to\s+fit)|cover\s+(for|compatible)|protective\s+(case|cover|skin|sleeve)|carrying\s+(case|bag)|silicone\s+(case|cover)|hard\s+(case|shell)|travel\s+case|storage\s+case|stand\s+(for|compatible)|mount\s+(for|compatible)|holder\s+(for|compatible)|strap\s+(for|compatible)|dock\s+(for|compatible))\b/i.test(title);
+        if (hasAccessoryPrefix) return false;
+
+        const isActualDevice = /\b(wireless\s+earbuds|headphones?|earphones?|console|bundle|ereader|e-reader|tablet)\b/i.test(title);
+        if (!isActualDevice) return false;
+      }
     }
 
     // 5. Price bounds check
@@ -747,7 +813,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 1. Check existing database deals first
     try {
-      const dbUrl = `/api/db/deals?keyword=${encodeURIComponent(target.keyword)}&category=${encodeURIComponent(target.category || 'all')}&timeWindow=all&limit=50`;
+      const targetMinDisc = parseInt(target.minDiscount, 10) || 0;
+      const targetMaxP = parseFloat(target.maxPrice) || 0;
+      const dbUrl = `/api/db/deals?keyword=${encodeURIComponent(target.keyword)}&category=${encodeURIComponent(target.category || 'all')}&minDiscount=${targetMinDisc}&maxPrice=${targetMaxP}&timeWindow=all&limit=100`;
       const dbRes = await fetch(dbUrl);
       if (dbRes.ok) {
         const dbData = await dbRes.json();
@@ -786,6 +854,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
 
     if (snipedDeals.length > 0) {
+      // Sync sniped deals to backend so they persist
+      fetch('/api/sniped', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(snipedDeals)
+      }).catch(() => {});
+
       playNotificationChime();
       showToast(`🎯 Found ${foundHits > 0 ? foundHits : snipedDeals.length} match(es) for "${target.keyword}"!`);
       if (tabSnipedDeals) tabSnipedDeals.click();
@@ -839,6 +914,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
 
     if (snipedDeals.length > 0) {
+      // Sync full set to backend
+      fetch('/api/sniped', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(snipedDeals)
+      }).catch(() => {});
+
       playNotificationChime();
       showToast(`🎯 SNIPER SUCCESS! ${snipedDeals.length} match(es) in your sniped list!`);
       if (tabSnipedDeals) tabSnipedDeals.click();
@@ -1613,11 +1695,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count6h) count6h.textContent = stats.last6h || 0;
       if (count12h) count12h.textContent = stats.last12h || 0;
       if (count24h) count24h.textContent = stats.last24h || 0;
+      if (countPriceErrors) countPriceErrors.textContent = stats.priceErrors !== undefined ? stats.priceErrors : 0;
       if (countJustListed) countJustListed.textContent = stats.last24h || stats.last6h || 0;
       if (countAllDeals) countAllDeals.textContent = (stats.totalInDb ? (storeType === 'warehouse' ? stats.warehouseDeals : (storeType === 'normal' ? stats.normalDeals : stats.totalInDb)).toLocaleString() : (totalMatches ? totalMatches.toLocaleString() : items.length.toLocaleString()));
     } else {
-      let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0;
+      let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0, cPriceErrors = 0;
       for (const d of items) {
+        const disc = parseInt(d.discountPercent, 10) || 0;
+        if (disc >= 80 || d.isPriceError) cPriceErrors++;
         const ts = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || dealHistory[d.asin] || 0;
         if (!ts) {
           if (d.isJustListed) { c24h++; }
@@ -1635,6 +1720,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count6h) count6h.textContent = c6h;
       if (count12h) count12h.textContent = c12h;
       if (count24h) count24h.textContent = c24h;
+      if (countPriceErrors) countPriceErrors.textContent = cPriceErrors;
       if (countJustListed) countJustListed.textContent = c24h;
       if (countAllDeals) countAllDeals.textContent = items.length.toLocaleString();
     }
@@ -1657,6 +1743,8 @@ document.addEventListener('DOMContentLoaded', () => {
       displayedItems = justListedItems;
     } else if (activeFilterTab === 'sniped') {
       displayedItems = snipedDeals;
+    } else if (activeFilterTab === 'price_errors') {
+      displayedItems = items.filter(d => (parseInt(d.discountPercent, 10) || 0) >= 80 || d.isPriceError);
     }
 
     const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
@@ -1665,6 +1753,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeFilterTab === 'sniped') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Watchlist Sniped Matches`;
       filterSummaryBadge.textContent = '🎯 Watchlist Sniper Target Hits';
+    } else if (activeFilterTab === 'price_errors') {
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Price Errors & Glitches (80%+ Off)`;
+      filterSummaryBadge.textContent = `🔥 Price Errors & Glitches • ${storeLabel}`;
     } else {
       const matchTotal = totalMatches || dbTotalMatches || items.length;
       let countExtraHtml = '';
@@ -1694,6 +1785,23 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         document.querySelector('.store-pill[data-store="both"]')?.click();
       });
+    }
+
+    if (displayedItems.length === 0 && activeFilterTab === 'price_errors') {
+      dealsGrid.innerHTML = `
+        <div class="empty-state card" style="grid-column: 1 / -1;">
+          <div class="empty-icon">🔥</div>
+          <h3>No 80%+ Price Errors Found For Current Filter</h3>
+          <p>Price error and 80%+ discount clearance glitches update dynamically. Try switching to "All Categories" or adjusting store type.</p>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="exitGlitchEmptyBtn" style="background: linear-gradient(135deg, #dc2626, #ea580c); border: none;">Show All Deals (${items.length})</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('exitGlitchEmptyBtn')?.addEventListener('click', () => {
+        tabAllDeals?.click();
+      });
+      return;
     }
 
     if (displayedItems.length === 0 && activeFilterTab === 'sniped') {
@@ -1753,6 +1861,18 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
         </div>
       `;
+    } else if (activeFilterTab === 'price_errors') {
+      contextBannerHtml = `
+        <div class="glitch-context-banner">
+          <div style="display: flex; align-items: center; gap: 8px; color: #fca5a5;">
+            <span style="font-size: 1.25rem;">🔥</span>
+            <span style="font-size: 0.95rem;">Currently viewing <strong>Price Error & Clearance Glitches (80%+ Off)</strong> (${displayedItems.length} deals found).</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" id="exitGlitchBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem; background: linear-gradient(135deg, #dc2626, #ea580c); border: none;">
+            📦 View All Normal Deals (${items.length || deals.length})
+          </button>
+        </div>
+      `;
     }
 
     dealsGrid.innerHTML = contextBannerHtml + displayedItems.map(item => {
@@ -1802,6 +1922,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="card-img-wrap">
             <span class="discount-badge">${item.discountPercent || item.discount || (minDiscountSlider.value + '%+ OFF')}</span>
             <span class="store-badge ${storeBadgeClass}">${storeBadgeText}</span>
+            ${(parseInt(item.discountPercent, 10) || 0) >= 80 || item.isPriceError ? '<span class="badge-glitch-error">🔥 PRICE ERROR</span>' : ''}
             ${item.isJustListed ? '<span class="just-listed-badge">✨ JUST LISTED</span>' : ''}
             ${item.snipedFromTarget ? `<span class="sniper-match-badge" title="Matched Watchlist: ${escapeHtml(item.snipedFromTarget)}">🎯 ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
             ${item.page ? `<span class="page-badge" style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #cbd5e1; font-size: 0.68rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">Pg ${item.page}</span>` : ''}
@@ -1866,6 +1987,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Attach exit sniper banner listener
     document.getElementById('exitSniperBannerBtn')?.addEventListener('click', () => {
+      tabAllDeals?.click();
+    });
+
+    // Attach exit price error banner listener
+    document.getElementById('exitGlitchBannerBtn')?.addEventListener('click', () => {
       tabAllDeals?.click();
     });
 
@@ -2224,13 +2350,18 @@ document.addEventListener('DOMContentLoaded', () => {
         queryParams.set('excludeCategories', Array.from(excludedCategories).join(','));
       }
 
+      if (activeFilterTab === 'price_errors') {
+        queryParams.set('priceErrorsOnly', 'true');
+        queryParams.set('minDiscount', Math.max(80, parseInt(minDisc, 10) || 80).toString());
+      }
+
       const res = await fetch(`/api/db/deals?${queryParams.toString()}`);
       if (res.ok) {
         const data = await res.json();
         dbTotalMatches = data.total || 0;
         let newProducts = data.products || [];
         if (isMultiCat && excludedCategories && excludedCategories.size > 0) {
-          newProducts = newProducts.filter(d => !isCategoryExcluded(d.category));
+          newProducts = newProducts.filter(d => !isCategoryExcluded(d.category, d.title, d.asin));
         }
 
         if (isLoadMore) {

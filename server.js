@@ -100,6 +100,11 @@ function loadDb() {
           isRunning: false
         };
       }
+      if (!Array.isArray(loaded.watchlist) || loaded.watchlist.length === 0) {
+        loaded.watchlist = [...DEFAULT_DB.watchlist];
+      }
+      if (!Array.isArray(loaded.snipedDeals)) loaded.snipedDeals = [];
+      if (!Array.isArray(loaded.savedDeals)) loaded.savedDeals = [];
       if (!loaded.crawler) {
         loaded.crawler = {
           enabled: true,
@@ -300,14 +305,20 @@ async function scrapeAmazonStore(opts) {
 
   if (storeType === 'normal' || storeType === 'both') {
     const iParam = dept || (category === 'all' || category === 'warehouse-deals' ? 'aps' : category);
-    url = `https://www.${domain}/s?i=${encodeURIComponent(iParam)}&pct-off=${minDiscount}-${maxDiscount}`;
+    url = `https://www.${domain}/s?i=${encodeURIComponent(iParam)}`;
+    if (minDiscount > 0) {
+      url += `&pct-off=${minDiscount}-${maxDiscount || 99}`;
+    }
     let combinedK = keyword || '';
     if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
     if (negTermsStr) combinedK = combinedK ? `${combinedK} ${negTermsStr}` : negTermsStr;
     if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
   } else {
     // Warehouse deals: always search within i=warehouse-deals to stay in Amazon Warehouse
-    url = `https://www.${domain}/s?i=warehouse-deals&pct-off=${minDiscount}-${maxDiscount}`;
+    url = `https://www.${domain}/s?i=warehouse-deals`;
+    if (minDiscount > 0) {
+      url += `&pct-off=${minDiscount}-${maxDiscount || 99}`;
+    }
     const catKw = (category && category !== 'all' && category !== 'sweep_all') ? (WAREHOUSE_CATEGORY_KEYWORDS[category] || category) : '';
     let combinedK = keyword || catKw || '';
     if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
@@ -627,7 +638,7 @@ app.get('/api/watchlist', (req, res) => {
 });
 
 app.post('/api/watchlist', (req, res) => {
-  const { keyword, category = 'all', maxPrice = 0, minDiscount = 0 } = req.body;
+  const { keyword, category = 'all', maxPrice = 0, minDiscount = 0, id } = req.body;
   if (!keyword || !keyword.trim()) {
     return res.status(400).json({ error: 'Keyword is required' });
   }
@@ -636,8 +647,11 @@ app.post('/api/watchlist', (req, res) => {
     ? Math.max(0, parseInt(req.body.minDiscount, 10))
     : 0;
 
+  const targetId = id || `target-${crypto.randomBytes(4).toString('hex')}`;
+  const existingIdx = (db.watchlist || []).findIndex(w => w.id === targetId || w.keyword.toLowerCase() === keyword.trim().toLowerCase());
+
   const newTarget = {
-    id: `target-${crypto.randomBytes(4).toString('hex')}`,
+    id: targetId,
     keyword: keyword.trim(),
     category: category || 'all',
     maxPrice: parseFloat(maxPrice) || 0,
@@ -662,21 +676,37 @@ app.post('/api/watchlist', (req, res) => {
     }
   }
 
-  db.watchlist.unshift(newTarget);
+  if (!Array.isArray(db.watchlist)) db.watchlist = [];
+  if (existingIdx >= 0) {
+    db.watchlist[existingIdx] = newTarget;
+  } else {
+    db.watchlist.unshift(newTarget);
+  }
   saveDb(db);
   res.status(201).json(newTarget);
 });
 
+app.post('/api/watchlist/sync', (req, res) => {
+  const clientTargets = req.body;
+  if (Array.isArray(clientTargets) && clientTargets.length > 0) {
+    if (!Array.isArray(db.watchlist) || db.watchlist.length === 0) {
+      db.watchlist = clientTargets;
+      saveDb(db);
+    }
+  }
+  res.json(db.watchlist || []);
+});
+
 app.delete('/api/watchlist/:id', (req, res) => {
   const id = req.params.id;
-  db.watchlist = db.watchlist.filter(w => w.id !== id);
+  db.watchlist = (db.watchlist || []).filter(w => w.id !== id);
   saveDb(db);
   res.json({ success: true, count: db.watchlist.length });
 });
 
 app.put('/api/watchlist/:id/toggle', (req, res) => {
   const id = req.params.id;
-  const target = db.watchlist.find(w => w.id === id);
+  const target = (db.watchlist || []).find(w => w.id === id);
   if (!target) return res.status(404).json({ error: 'Target not found' });
 
   target.active = !target.active;
@@ -689,6 +719,24 @@ app.get('/api/sniped', (req, res) => {
   res.json(db.snipedDeals || []);
 });
 
+app.post('/api/sniped', (req, res) => {
+  const items = Array.isArray(req.body) ? req.body : [req.body];
+  let added = 0;
+  if (!Array.isArray(db.snipedDeals)) db.snipedDeals = [];
+  for (const item of items) {
+    if (!item || !item.asin) continue;
+    if (!db.snipedDeals.some(d => d.asin === item.asin)) {
+      if (!item.snipedAt) item.snipedAt = Date.now();
+      db.snipedDeals.unshift(item);
+      added++;
+    }
+  }
+  if (added > 0) {
+    saveDb(db);
+  }
+  res.json({ success: true, added, total: db.snipedDeals.length });
+});
+
 app.delete('/api/sniped', (req, res) => {
   db.snipedDeals = [];
   (db.watchlist || []).forEach(w => w.matchCount = 0);
@@ -698,7 +746,7 @@ app.delete('/api/sniped', (req, res) => {
 
 app.delete('/api/sniped/:asin', (req, res) => {
   const asin = req.params.asin;
-  db.snipedDeals = db.snipedDeals.filter(s => s.asin !== asin);
+  db.snipedDeals = (db.snipedDeals || []).filter(s => s.asin !== asin);
   saveDb(db);
   res.json({ success: true });
 });
@@ -761,6 +809,7 @@ app.get('/api/db/deals', (req, res) => {
     storeType = 'both', // 'warehouse', 'normal', 'both'
     category = 'all',
     excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
+    priceErrorsOnly = 'false', // 'true' to show only 80%+ price errors / clearance glitches
     minDiscount = 0,
     maxDiscount = 100,
     minPrice = 0,
@@ -785,18 +834,26 @@ app.get('/api/db/deals', (req, res) => {
       .filter(Boolean)
   );
 
-  const isCategoryExcluded = (cat) => {
-    if (!cat || excludedSet.size === 0) return false;
-    const c = cat.toLowerCase();
-    if (excludedSet.has(c)) return true;
-    if (excludedSet.has('books') && (c === 'stripbooks' || c === 'books')) return true;
-    if (excludedSet.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
-    if (excludedSet.has('toys') && (c === 'toys-and-games' || c === 'toys')) return true;
-    if (excludedSet.has('toys-and-games') && (c === 'toys-and-games' || c === 'toys')) return true;
-    if (excludedSet.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
-    if (excludedSet.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
-    if (excludedSet.has('music') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
-    if (excludedSet.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+  const isCategoryExcluded = (cat, title, asin) => {
+    if (excludedSet.size === 0) return false;
+    if ((excludedSet.has('books') || excludedSet.has('stripbooks')) && asin && /^\d{9}[\dX]$/i.test(asin)) {
+      return true;
+    }
+    if (cat) {
+      const c = cat.toLowerCase();
+      if (excludedSet.has(c)) return true;
+      if (excludedSet.has('books') && (c === 'stripbooks' || c === 'books')) return true;
+      if (excludedSet.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
+      if (excludedSet.has('toys') && (c === 'toys-and-games' || c === 'toys')) return true;
+      if (excludedSet.has('toys-and-games') && (c === 'toys-and-games' || c === 'toys')) return true;
+      if (excludedSet.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
+      if (excludedSet.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
+      if (excludedSet.has('music') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+      if (excludedSet.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+    }
+    if ((excludedSet.has('books') || excludedSet.has('stripbooks')) && title) {
+      if (/\b(paperback|hardcover|memoir|study\s+guide|bestseller|novel|thriller|biography|handbook)\b/i.test(title)) return true;
+    }
     return false;
   };
 
@@ -811,13 +868,13 @@ app.get('/api/db/deals', (req, res) => {
   const windowMs = timeWindows[timeWindow] || 0;
 
   // Compute live stats for quick pill counts matching active store, category, exclusion, and discount filters
-  let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0;
+  let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0, countPriceErrors = 0;
   let totalWarehouse = 0, totalNormal = 0;
   for (const d of allDeals) {
     if (d.status === 'sold_out') continue;
 
     // Excluded category filter for stats
-    if (isCategoryExcluded(d.category)) continue;
+    if (isCategoryExcluded(d.category, d.title, d.asin)) continue;
 
     if (d.store === 'Normal Amazon') totalNormal++;
     else totalWarehouse++;
@@ -827,10 +884,12 @@ app.get('/api/db/deals', (req, res) => {
     if (storeType === 'normal' && d.store !== 'Normal Amazon') continue;
 
     // Category filter for stats (when not all or sweep_all)
-    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category) continue;
+    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') continue;
+
+    const disc = parseInt(d.discountPercent, 10) || 0;
+    if (disc >= 80 || d.isPriceError) countPriceErrors++;
 
     // Discount filter for stats
-    const disc = parseInt(d.discountPercent, 10) || 0;
     if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) continue;
 
     // In-stock filter for stats
@@ -853,7 +912,7 @@ app.get('/api/db/deals', (req, res) => {
     if (d.status === 'sold_out') return false;
 
     // Excluded categories filter (e.g. books, pets)
-    if (isCategoryExcluded(d.category)) return false;
+    if (isCategoryExcluded(d.category, d.title, d.asin)) return false;
 
     // Available / In-stock filter
     if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) {
@@ -872,8 +931,14 @@ app.get('/api/db/deals', (req, res) => {
     }
 
     // Category filter (allows all categories for 'all' and 'sweep_all')
-    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category) {
+    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') {
       return false;
+    }
+
+    // Price Errors / Glitches filter (80%+ discount or explicitly flagged)
+    if (priceErrorsOnly === 'true' || priceErrorsOnly === true) {
+      const disc = parseInt(d.discountPercent, 10) || 0;
+      if (disc < 80 && !d.isPriceError) return false;
     }
 
     // Discount filter
@@ -944,6 +1009,7 @@ app.get('/api/db/deals', (req, res) => {
       totalInDb: allDeals.length,
       warehouseDeals: totalWarehouse,
       normalDeals: totalNormal,
+      priceErrors: countPriceErrors,
       last1h: count1h,
       last2h: count2h,
       last6h: count6h,
@@ -1058,6 +1124,61 @@ async function dispatchDealNotification(item, target) {
   }
 }
 
+async function dispatchPriceErrorNotification(item) {
+  const settings = db.settings || {};
+
+  // Discord Webhook Notification
+  if (settings.discordWebhookUrl && settings.discordWebhookUrl.startsWith('http')) {
+    try {
+      const payload = {
+        embeds: [{
+          title: `🚨 PRICE ERROR DETECTED (${item.discountPercent || ''} OFF): ${item.title.substring(0, 100)}...`,
+          url: item.link,
+          color: 0xef4444, // Red
+          thumbnail: { url: item.image },
+          fields: [
+            { name: "Price", value: `**${item.price}** (was ${item.originalPrice || 'higher'})`, inline: true },
+            { name: "Discount", value: `🔥 **${item.discountPercent}**`, inline: true },
+            { name: "Store", value: item.store || 'Amazon', inline: true },
+            { name: "Department", value: item.category || 'General', inline: true },
+            { name: "Condition", value: item.condition || 'New/Warehouse', inline: true }
+          ],
+          footer: { text: "Amazon Warehouse Hunter • Autonomous Price Error Hunter" },
+          timestamp: new Date().toISOString()
+        }]
+      };
+      await fetch(settings.discordWebhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      console.log(`[ALERT] Sent Discord Price Error alert for ${item.asin}`);
+    } catch (err) {
+      console.error('[ALERT] Failed to send Discord Price Error notification:', err.message);
+    }
+  }
+
+  // Telegram Bot Notification
+  if (settings.telegramBotToken && settings.telegramChatId) {
+    try {
+      const text = `🚨 *AMAZON PRICE ERROR DETECTED!* 🔥\n\n*Product:* ${item.title}\n*Price:* ${item.price} (was ${item.originalPrice || 'higher'})\n*Discount:* ${item.discountPercent} OFF\n*Store:* ${item.store || 'Amazon'}\n\n[🛒 Open Deal on Amazon Now!](${item.link})`;
+      const tgUrl = `https://api.telegram.org/bot${settings.telegramBotToken}/sendMessage`;
+      await fetch(tgUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: settings.telegramChatId,
+          text,
+          parse_mode: 'Markdown'
+        })
+      });
+      console.log(`[ALERT] Sent Telegram Price Error alert for ${item.asin}`);
+    } catch (err) {
+      console.error('[ALERT] Failed to send Telegram Price Error notification:', err.message);
+    }
+  }
+}
+
 // -------------------------------------------------------------
 // WATCHLIST MATCH ENGINE (Precision Keyword & Anti-Accessory Verification)
 // -------------------------------------------------------------
@@ -1110,7 +1231,7 @@ function isWatchlistMatch(item, target) {
 
   // 3. Category match check (if target specified category other than 'all')
   if (target.category && target.category !== 'all' && target.category !== 'sweep_all') {
-    if (item.category && item.category !== target.category) return false;
+    if (item.category && item.category !== 'all' && item.category !== 'sweep_all' && item.category !== target.category) return false;
   }
 
   // 4. Accessory & Junk Filter:
@@ -1118,13 +1239,15 @@ function isWatchlistMatch(item, target) {
   const targetWantsAccessory = /\b(case|cover|sleeve|pouch|strap|cable|charger|adapter|converter|protector|holder|skin|band|keychain|charm|manual|guide|book|stand|mount|tips|pads|thumb\s*grips?)\b/i.test(targetKw);
 
   if (!targetWantsAccessory) {
-    // Pure accessory pattern
-    const isAccessory = /\b(case\s+(for|compatible|cover|bag|pouch|shell|skin)|cover\s+(for|compatible|case|skin)|protective\s+(case|cover|shell|skin|sleeve)|(carrying|travel|storage)\s+(case|bag|pouch)|(silicone|clear|hard|leather|rugged|tpu|neoprene)\s+(case|cover|skin|sleeve|bag|pouch)|(sleeve|sleeves|pouch|pouches|skin|skins|decal|decals|holster|holsters)|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies)|buttons?)|adapters?|converters?|chargers?|cables?|cords?|dust\s*plugs?|keychains?|charms?|straps?|stands?|mounts?|cleaning\s*kits?|users?['’s]*\s+guides?|manuals?|guidebooks?|handbooks?|tips\s+and\s+tricks|thumb\s*grips?)\b/i.test(title);
-    
-    // Protect primary hardware (consoles, bundles, full controllers, games) from false accessory rejection
-    const isPrimaryHardware = /\b(console|bundle|edition|standard\s+edition|digital\s+edition|disc\s+edition|wireless\s+controller|dualsense)\b/i.test(title);
+    const isAccessoryKeyword = /\b(cases?|covers?|sleeves?|pouches?|skins?|decals?|screen\s+protectors?|replacement\s+(ear\s*tips?|ear\s*pads?|cushions?|cables?|batter(y|ies)|buttons?)|adapters?|converters?|chargers?|cables?|cords?|straps?|stands?|mounts?|holders?|cleaning\s*kits?|stylus)\b/i.test(title);
 
-    if (isAccessory && !isPrimaryHardware) return false;
+    if (isAccessoryKeyword) {
+      const hasAccessoryPrefix = /\b(case\s+(for|compatible|to\s+fit)|cover\s+(for|compatible)|protective\s+(case|cover|skin|sleeve)|carrying\s+(case|bag)|silicone\s+(case|cover)|hard\s+(case|shell)|travel\s+case|storage\s+case|stand\s+(for|compatible)|mount\s+(for|compatible)|holder\s+(for|compatible)|strap\s+(for|compatible)|dock\s+(for|compatible))\b/i.test(title);
+      if (hasAccessoryPrefix) return false;
+
+      const isActualDevice = /\b(wireless\s+earbuds|headphones?|earphones?|console|bundle|ereader|e-reader|tablet)\b/i.test(title);
+      if (!isActualDevice) return false;
+    }
   }
 
   // 5. Price bounds check
@@ -1144,6 +1267,7 @@ function isWatchlistMatch(item, target) {
 function pruneInvalidSnipedDeals() {
   if (!Array.isArray(db.snipedDeals) || db.snipedDeals.length === 0) return;
   const activeTargets = (db.watchlist || []).filter(w => w.active);
+  if (activeTargets.length === 0) return;
   const beforeCount = db.snipedDeals.length;
   db.snipedDeals = db.snipedDeals.filter(deal => {
     return activeTargets.some(target => isWatchlistMatch(deal, target));
@@ -1367,17 +1491,25 @@ async function runAutonomousCrawler(maxPagesPerDept = 20, overrideExcluded = nul
               item.domain = domain;
               item.store = store.type === 'warehouse' ? 'Amazon Warehouse' : 'Normal Amazon';
 
+              const discNum = parseInt(item.discountPercent, 10) || 0;
+              if (discNum >= 80) item.isPriceError = true;
+
               if (!db.crawledDeals[item.asin]) {
                 item.firstSeenAt = Date.now();
                 item.lastSeenAt = Date.now();
                 item.status = 'active';
                 db.crawledDeals[item.asin] = item;
                 newAdded++;
+                if (item.isPriceError) {
+                  console.log(`[CRAWLER] 🚨 Price Error Ingested: ${item.title.substring(0, 50)} at ${item.price} (${item.discountPercent} OFF)!`);
+                  await dispatchPriceErrorNotification(item);
+                }
                 await checkWatchlistMatch(item);
               } else {
                 const existing = db.crawledDeals[item.asin];
                 existing.lastSeenAt = Date.now();
                 existing.status = 'active';
+                if (item.isPriceError) existing.isPriceError = true;
                 // Preserve warehouse store type if either crawl found it in Warehouse
                 if (item.store === 'Amazon Warehouse' || existing.store === 'Amazon Warehouse') {
                   existing.store = 'Amazon Warehouse';
@@ -1398,8 +1530,12 @@ async function runAutonomousCrawler(maxPagesPerDept = 20, overrideExcluded = nul
                   existing.numericPrice = numericPrice;
                   existing.discountPercent = item.discountPercent;
                   existing.priceDropAt = Date.now();
+                  if (discNum >= 80) existing.isPriceError = true;
                   priceDrops++;
                   console.log(`[CRAWLER] 🔥 Price drop on ${item.asin}: ${existing.previousPrice} -> ${item.price}`);
+                  if (existing.isPriceError) {
+                    await dispatchPriceErrorNotification(existing);
+                  }
                 }
               }
             }
@@ -1415,6 +1551,66 @@ async function runAutonomousCrawler(maxPagesPerDept = 20, overrideExcluded = nul
       // Save database periodically after each department completes
       saveDb(db);
     }
+
+    // Dedicated Price Error Sweep Pass (80%+ Off on high-value departments)
+    const GLITCH_DEPARTMENTS = ['electronics', 'computers', 'videogames', 'kitchen', 'tools', 'toys-and-games', 'beauty'];
+    console.log(`[CRAWLER] 🔥 Initiating Price Error / Glitch Sweep across ${GLITCH_DEPARTMENTS.length} high-value departments (80%+ clearance)...`);
+    const activeExcludedGlitch = overrideExcluded || (db.settings && db.settings.excludedCategories) || [];
+    for (const deptId of GLITCH_DEPARTMENTS) {
+      if (activeExcludedGlitch.includes(deptId)) continue;
+      db.crawler.currentStep = `🔥 Price Error Sweep: ${deptId} (80%+ Off)`;
+      try {
+        pagesScanned++;
+        const glitchRes = await scrapeAmazonStore({
+          storeType: 'both',
+          category: deptId,
+          minDiscount: 80,
+          maxDiscount: 99,
+          domain,
+          sort: 'date-desc-rank',
+          page: 1,
+          availableOnly: true
+        });
+        const glitchItems = glitchRes.items || [];
+        totalScanned += glitchItems.length;
+        for (const item of glitchItems) {
+          item.category = deptId;
+          item.isPriceError = true;
+          const numericPrice = parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+          item.numericPrice = numericPrice;
+          item.domain = domain;
+          item.store = item.store || 'Normal Amazon';
+
+          if (!db.crawledDeals[item.asin]) {
+            item.firstSeenAt = Date.now();
+            item.lastSeenAt = Date.now();
+            item.status = 'active';
+            db.crawledDeals[item.asin] = item;
+            newAdded++;
+            console.log(`[PRICE ERROR SWEEP] 🚨 Discovered ${item.discountPercent} OFF glitch: ${item.title.substring(0, 60)} for ${item.price}!`);
+            await dispatchPriceErrorNotification(item);
+            await checkWatchlistMatch(item);
+          } else {
+            const existing = db.crawledDeals[item.asin];
+            existing.lastSeenAt = Date.now();
+            existing.isPriceError = true;
+            if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
+              existing.previousPrice = existing.price;
+              existing.price = item.price;
+              existing.numericPrice = numericPrice;
+              existing.discountPercent = item.discountPercent;
+              existing.priceDropAt = Date.now();
+              priceDrops++;
+              await dispatchPriceErrorNotification(existing);
+            }
+          }
+        }
+        await new Promise(r => setTimeout(r, 1200));
+      } catch (err) {
+        console.warn(`[CRAWLER] Glitch sweep error on ${deptId}:`, err.message);
+      }
+    }
+    saveDb(db);
 
     // Prune deals older than 14 days
     const FOURTEEN_DAYS = 14 * 24 * 3600 * 1000;
