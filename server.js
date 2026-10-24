@@ -99,6 +99,8 @@ function loadDb() {
           nextRunAt: Date.now() + 120 * 60 * 1000,
           isRunning: false
         };
+      } else {
+        loaded.sniperDaemon.isRunning = false;
       }
       if (!Array.isArray(loaded.watchlist) || loaded.watchlist.length === 0) {
         loaded.watchlist = [...DEFAULT_DB.watchlist];
@@ -115,6 +117,11 @@ function loadDb() {
           currentStep: '',
           lastRunStats: { totalScanned: 0, newAdded: 0, priceDrops: 0, durationSeconds: 0 }
         };
+      } else {
+        // ALWAYS sanitize volatile runtime state on boot:
+        // A crashed or restarted process should never leave ghost running state in DB
+        loaded.crawler.isRunning = false;
+        loaded.crawler.currentStep = '';
       }
       return loaded;
     }
@@ -264,7 +271,7 @@ async function fetchWithHttp(url) {
     'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
     'Accept-Language': 'en-AU,en-US;q=0.9,en;q=0.8'
   };
-  const res = await fetch(url, { headers });
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
   return await res.text();
 }
 async function scrapeAmazonStore(opts) {
@@ -1096,6 +1103,12 @@ app.get('/api/db/deals', (req, res) => {
 
 // Crawler Status Endpoint
 app.get('/api/db/status', (req, res) => {
+  // Self-heal: If DB thinks crawler is running but Node memory says no process is running
+  if (db.crawler && db.crawler.isRunning && !crawlerRunning) {
+    db.crawler.isRunning = false;
+    db.crawler.currentStep = '';
+    saveDb(db);
+  }
   const all = Object.values(db.crawledDeals || {});
   let whCount = 0, normCount = 0;
   for (const d of all) {
@@ -1110,11 +1123,28 @@ app.get('/api/db/status', (req, res) => {
   });
 });
 
+// Force-Reset Crawler State Endpoint
+app.post('/api/db/reset-crawler', (req, res) => {
+  crawlerRunning = false;
+  if (db.crawler) {
+    db.crawler.isRunning = false;
+    db.crawler.currentStep = '';
+  }
+  saveDb(db);
+  res.json({ success: true, message: 'Crawler runtime state cleared' });
+});
+
 // Manual Trigger for Crawler Sweep
 app.post('/api/db/scan', async (req, res) => {
   try {
-    if (db.crawler && db.crawler.isRunning) {
+    const force = req.query.force === 'true' || req.body?.force;
+    if (crawlerRunning && !force) {
       return res.json({ success: false, message: 'Scan already in progress' });
+    }
+    // Auto-heal stale DB flag if process was not actually running
+    if (!crawlerRunning && db.crawler) {
+      db.crawler.isRunning = false;
+      db.crawler.currentStep = '';
     }
     const isDeep = req.query.deep === 'true' || (req.body && req.body.deep);
     const pages = isDeep ? 8 : (req.body && req.body.pages ? parseInt(req.body.pages, 10) : 6);
@@ -1352,9 +1382,19 @@ function pruneInvalidSnipedDeals() {
 // -------------------------------------------------------------
 // AUTONOMOUS 24/7 BACKGROUND SNIPER DAEMON
 // -------------------------------------------------------------
+let sniperRunning = false;
+
 async function runAutonomousSniperScan() {
+  if (sniperRunning) {
+    console.log('[SNIPER DAEMON] Scan already in progress. Skipping.');
+    return [];
+  }
+  sniperRunning = true;
   const activeTargets = (db.watchlist || []).filter(w => w.active);
-  if (activeTargets.length === 0) return [];
+  if (activeTargets.length === 0) {
+    sniperRunning = false;
+    return [];
+  }
 
   const intervalMinutes = (db.settings && db.settings.scanIntervalMinutes) || 120;
   const intervalMs = intervalMinutes * 60 * 1000;
@@ -1362,6 +1402,7 @@ async function runAutonomousSniperScan() {
   db.sniperDaemon.isRunning = true;
   db.sniperDaemon.lastRunAt = Date.now();
   db.sniperDaemon.nextRunAt = Date.now() + intervalMs;
+  saveDb(db);
 
   console.log(`[SNIPER DAEMON] 🎯 Scanning ${activeTargets.length} active watchlist targets across indexed database and live stores...`);
   const domain = db.settings.defaultDomain || 'amazon.com.au';
@@ -1429,29 +1470,38 @@ async function runAutonomousSniperScan() {
       }
     }
   } finally {
-    db.sniperDaemon.isRunning = false;
+    sniperRunning = false;
+    if (db.sniperDaemon) db.sniperDaemon.isRunning = false;
     saveDb(db);
   }
 
   return newHits;
 }
 
-// Start Periodic Background Sniper Schedule (Runs every 2 hours)
-const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+// Periodic Background Sniper Check: every 5 minutes, checks if interval elapsed
+const SNIPER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 setInterval(async () => {
-  if (db.settings && db.settings.autoSniperEnabled !== false) {
-    console.log(`[SNIPER DAEMON] ⏰ Starting scheduled 2-hour scan cycle...`);
-    await runAutonomousSniperScan();
+  if (db.settings && db.settings.autoSniperEnabled !== false && !sniperRunning) {
+    const activeTargets = (db.watchlist || []).filter(w => w.active);
+    if (activeTargets.length > 0) {
+      const intervalMinutes = (db.settings && db.settings.scanIntervalMinutes) || 120;
+      const intervalMs = intervalMinutes * 60 * 1000;
+      const lastRun = db.sniperDaemon?.lastRunAt || 0;
+      if (Date.now() - lastRun >= intervalMs) {
+        console.log(`[SNIPER DAEMON] ⏰ Scheduled scan trigger (${Math.round((Date.now() - lastRun) / 60000)}m elapsed >= ${intervalMinutes}m interval). Starting sniper scan...`);
+        await runAutonomousSniperScan();
+      }
+    }
   }
-}, TWO_HOURS_MS);
+}, SNIPER_CHECK_INTERVAL_MS);
 
-// Initial Sniper kickstart: run 15s after startup if never run or > 2 hours since last scan
+// Initial Sniper kickstart: run 15s after startup if never run or > 30 mins since last scan
 setTimeout(async () => {
-  if (db.settings && db.settings.autoSniperEnabled !== false) {
+  if (db.settings && db.settings.autoSniperEnabled !== false && !sniperRunning) {
     const activeTargets = (db.watchlist || []).filter(w => w.active);
     const lastRun = db.sniperDaemon && db.sniperDaemon.lastRunAt;
     const intervalMs = ((db.settings && db.settings.scanIntervalMinutes) || 120) * 60 * 1000;
-    const needsRun = activeTargets.length > 0 && (!lastRun || (Date.now() - lastRun > intervalMs));
+    const needsRun = activeTargets.length > 0 && (!lastRun || (Date.now() - lastRun > Math.min(intervalMs, 30 * 60 * 1000)));
     if (needsRun) {
       console.log(`[SNIPER DAEMON] Initializing kickstart scan (${activeTargets.length} active watchlist targets)...`);
       await runAutonomousSniperScan();
@@ -1501,7 +1551,7 @@ async function checkWatchlistMatch(item) {
   }
 }
 
-async function runAutonomousCrawler(maxPagesPerDept = 20, overrideExcluded = null) {
+async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null) {
   if (crawlerRunning) {
     console.log('[CRAWLER] Crawler already running. Skipping.');
     return { skipped: true };
@@ -1711,23 +1761,49 @@ async function runAutonomousCrawler(maxPagesPerDept = 20, overrideExcluded = nul
   return { totalScanned, newAdded, priceDrops };
 }
 
-// Scheduled Hourly Background Crawler
-const HOURLY_INTERVAL_MS = 60 * 60 * 1000;
+// Scheduled Background Crawler Check: every 5 minutes, checks if crawler interval has elapsed
+const CRAWLER_CHECK_INTERVAL_MS = 5 * 60 * 1000;
 setInterval(async () => {
-  if (db.crawler && db.crawler.enabled !== false) {
-    await runAutonomousCrawler();
+  if (db.crawler && db.crawler.enabled !== false && !crawlerRunning) {
+    const intervalMinutes = db.crawler.intervalMinutes || 60;
+    const intervalMs = intervalMinutes * 60 * 1000;
+    const timeSinceLast = db.crawler.lastRunAt ? (Date.now() - db.crawler.lastRunAt) : Infinity;
+    if (timeSinceLast >= intervalMs) {
+      console.log(`[CRAWLER] ⏰ Scheduled sweep trigger (${Math.round(timeSinceLast / 60000)}m elapsed >= ${intervalMinutes}m interval). Starting autonomous crawl...`);
+      await runAutonomousCrawler();
+    }
   }
-}, HOURLY_INTERVAL_MS);
+}, CRAWLER_CHECK_INTERVAL_MS);
 
-// Initial Crawler kickstart: run 10s after server launch if DB has < 100 items or hasn't run in > 1 hr
+// Initial Crawler kickstart: run 5s after server launch if DB has < 100 items or hasn't run in > 30 mins
 setTimeout(async () => {
   const dealCount = Object.keys(db.crawledDeals || {}).length;
-  const needsRun = dealCount < 100 || !db.crawler.lastRunAt || (Date.now() - db.crawler.lastRunAt > 60 * 60 * 1000);
-  if (needsRun && db.crawler && db.crawler.enabled !== false) {
-    console.log(`[CRAWLER] Initializing first crawler sweep (current DB count: ${dealCount})...`);
+  const timeSinceLast = db.crawler?.lastRunAt ? (Date.now() - db.crawler.lastRunAt) : Infinity;
+  const needsRun = dealCount < 100 || timeSinceLast > 30 * 60 * 1000;
+  if (needsRun && db.crawler && db.crawler.enabled !== false && !crawlerRunning) {
+    console.log(`[CRAWLER] Initializing startup crawler sweep (current DB count: ${dealCount}, time since last crawl: ${timeSinceLast === Infinity ? 'never' : Math.round(timeSinceLast / 60000) + 'm'})...`);
     await runAutonomousCrawler();
   }
-}, 10000);
+}, 5000);
+
+// Graceful Shutdown Handlers (Docker Stop / Restart)
+function handleShutdown(signal) {
+  console.log(`[SERVER] Received ${signal}. Resetting active runtime flags and saving database...`);
+  crawlerRunning = false;
+  sniperRunning = false;
+  if (db.crawler) {
+    db.crawler.isRunning = false;
+    db.crawler.currentStep = '';
+  }
+  if (db.sniperDaemon) {
+    db.sniperDaemon.isRunning = false;
+  }
+  saveDb(db);
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => handleShutdown('SIGTERM'));
+process.on('SIGINT', () => handleShutdown('SIGINT'));
 
 // Launch Server
 app.listen(PORT, '0.0.0.0', () => {

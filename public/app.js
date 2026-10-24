@@ -2529,13 +2529,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dbDeepScanBtn) dbDeepScanBtn.style.opacity = '0.6';
       if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Sweeping 150+ Pgs...';
       try {
-        await fetch('/api/db/scan?deep=true', {
+        const res = await fetch('/api/db/scan?deep=true', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ deep: true, pages: 8 })
         });
+        const data = await res.json();
+        if (data.message) showToast(data.message);
         updateDatabaseStatus();
-        setTimeout(loadDatabaseDeals, 6000);
+        setTimeout(loadDatabaseDeals, 4000);
       } catch (e) {
         showToast('Error triggering deep scan');
       }
@@ -2546,13 +2548,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dbScanNowBtn) {
     dbScanNowBtn.addEventListener('click', async () => {
       resetToAllDealsTab();
-      showToast('🚀 Triggered hourly warehouse sweep! Scanning departments in background...');
       if (dbScanNowBtn) dbScanNowBtn.classList.add('scanning');
       if (dbScanLabel) dbScanLabel.textContent = 'Starting...';
       try {
-        await fetch('/api/db/scan', { method: 'POST' });
+        const res = await fetch('/api/db/scan', { method: 'POST' });
+        const data = await res.json();
+        if (data.message) showToast(data.message);
         updateDatabaseStatus();
-        setTimeout(loadDatabaseDeals, 6000);
+        setTimeout(loadDatabaseDeals, 4000);
       } catch (e) {
         showToast('Error triggering scan');
       }
