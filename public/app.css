@@ -2134,3 +2134,17 @@ input::placeholder {
   gap: 10px;
 }
 
+.warehouse-direct-hint {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 3px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+

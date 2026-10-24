@@ -1879,13 +1879,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const isSaved = savedDeals.some(s => s.asin === item.asin);
       const cleanImg = item.image || 'https://via.placeholder.com/300x200?text=No+Image';
       
-      const itemUrl = item.url || item.link || (item.asin ? `https://${activeDomain}/dp/${item.asin}` : '#');
+      let itemUrl = item.url || item.link || (item.asin ? `https://${activeDomain}/dp/${item.asin}` : '#');
       const itemDomain = itemUrl.startsWith('http') ? (itemUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/)?.[1] || activeDomain) : activeDomain;
       const priceObj = formatPriceWithCurrency(item.price, itemDomain, activeCurrency);
       const listPriceObj = formatPriceWithCurrency(item.originalPrice || item.listPrice, itemDomain, activeCurrency);
 
       const isUsedCondition = item.condition && /used|open box|like new/i.test(item.condition);
       const isWarehouse = (item.store !== 'Normal Amazon') || isUsedCondition;
+      // Direct warehouse link to Amazon's All Offers Display so the discounted used offer is opened automatically
+      if (isWarehouse && item.asin && !itemUrl.includes('aod=1')) {
+        itemUrl += (itemUrl.includes('?') ? '&' : '?') + 'aod=1';
+      }
       const storeBadgeClass = isWarehouse ? 'warehouse' : 'normal';
       const storeBadgeText = isWarehouse ? '📦 Warehouse' : '🛒 Brand New';
       const savingsLabelText = isWarehouse ? 'Warehouse Deal' : 'Brand New Deal';
@@ -1938,6 +1942,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ${escapeHtml(item.title)}
             </a>
             ${item.condition ? `<div style="margin: 2px 0 6px 0;"><span class="condition-badge">📦 ${escapeHtml(item.condition)}</span></div>` : ''}
+            ${isWarehouse ? `<div class="warehouse-direct-hint" title="Amazon defaults to the brand-new Buy Box. Clicking opens the used/warehouse offers panel.">📦 Direct Link to Warehouse Offer</div>` : ''}
             ${timeBadgeHtml ? `<div style="margin-bottom: 4px;">${timeBadgeHtml}</div>` : ''}
             ${priceDropHtml ? `<div style="margin-bottom: 4px;">${priceDropHtml}</div>` : ''}
             ${item.rating ? `
@@ -2360,6 +2365,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         dbTotalMatches = data.total || 0;
         let newProducts = data.products || [];
+        // Strictly filter out any items with no confirmed price
+        newProducts = newProducts.filter(d => d.numericPrice && d.numericPrice > 0 && d.price !== 'See Options' && d.price !== 'Check Site');
         if (isMultiCat && excludedCategories && excludedCategories.size > 0) {
           newProducts = newProducts.filter(d => !isCategoryExcluded(d.category, d.title, d.asin));
         }

@@ -360,6 +360,12 @@ async function scrapeAmazonStore(opts) {
     const asin = $(el).attr('data-asin');
     if (!asin || asin.trim() === '') return;
 
+    // Skip sponsored ads (paid advertisements that are almost always full-price retail products)
+    const isSponsored = $(el).find('.puis-sponsored-label-text, .s-sponsored-label-info-icon, [data-component-type="sp-sponsored-result"]').length > 0 ||
+      $(el).hasClass('AdHolder') ||
+      /^\s*sponsored\b/i.test($(el).text());
+    if (isSponsored) return;
+
     // Title
     let title = $(el).find('h2 a span, h2 span, .a-size-medium, .a-size-base-plus').first().text().trim();
     if (!title) return;
@@ -372,11 +378,19 @@ async function scrapeAmazonStore(opts) {
       }
     }
 
-    // Link
+    // Link: If warehouse deal or has secondary offer link, use direct secondary offer link or add ?aod=1
     let link = $(el).find('h2 a').first().attr('href');
+    const secondaryOfferLink = $(el).find('[data-cy="secondary-offer-recipe"] a').first().attr('href');
+    if (secondaryOfferLink) {
+      link = secondaryOfferLink;
+    }
     if (!link) link = `/dp/${asin}`;
     if (!link.startsWith('http')) {
       link = `https://www.${domain}${link.startsWith('/') ? '' : '/'}${link}`;
+    }
+    // For Amazon Warehouse items, ensure link has ?aod=1 so Amazon opens the Used/Warehouse drawer automatically
+    if (storeType === 'warehouse' && asin && !link.includes('aod=1')) {
+      link += (link.includes('?') ? '&' : '?') + 'aod=1';
     }
 
     // Image
@@ -428,29 +442,79 @@ async function scrapeAmazonStore(opts) {
       }
     }
 
-    // Original / List price
-    let originalPrice = 0;
-    const basisText = $(el).find('.a-text-price .a-offscreen, .a-text-strike, span[data-a-strike="true"]').first().text();
-    if (basisText) {
-      const match = basisText.replace(/,/g, '').match(/[\d.]+/);
-      if (match) originalPrice = parseFloat(match[0]);
+    // CRITICAL: If no confirmed price was found, DO NOT ingest as a deal!
+    // Products with no price are either out of stock or full-price variants.
+    if (!price || price <= 0 || isNaN(price)) {
+      return; // Skip items without a verified price!
     }
 
-    // Calculate discount
+    // Original / List price
+    let originalPrice = 0;
+    const basisSelectors = [
+      '.a-price.a-text-price .a-offscreen',
+      '.a-text-price .a-offscreen',
+      '.a-text-strike',
+      'span[data-a-strike="true"]',
+      '.s-price-instructions-style .a-text-price .a-offscreen'
+    ];
+    for (const sel of basisSelectors) {
+      const txt = $(el).find(sel).first().text().trim();
+      if (txt) {
+        const match = txt.replace(/,/g, '').match(/[\d.]+/);
+        if (match) {
+          const val = parseFloat(match[0]);
+          if (val > price) {
+            originalPrice = val;
+            break;
+          }
+        }
+      }
+    }
+
+    // Calculate verified discount (never fabricate fake list prices)
     let discountPercent = 0;
     if (originalPrice > price && price > 0) {
       discountPercent = Math.round(((originalPrice - price) / originalPrice) * 100);
     } else {
-      const badgeText = $(el).find('.s-coupon-unclipped, .a-badge-text').text();
-      const pctMatch = badgeText.match(/(\d+)%/);
+      const badgeEl = $(el).find('.savingPriceOverride, span[aria-label*="% off"], .s-coupon-unclipped, .a-badge-text');
+      const badgeText = badgeEl.text() + ' ' + (badgeEl.attr('aria-label') || '');
+      let pctMatch = badgeText.match(/(\d+)%/);
+      if (!pctMatch) {
+        const priceContainerText = $(el).find('.s-price-instructions-style, .a-price').parent().text();
+        pctMatch = priceContainerText.match(/-\s*(\d+)%/);
+      }
       if (pctMatch) {
         discountPercent = parseInt(pctMatch[1], 10);
-      } else {
-        discountPercent = parseInt(minDiscount, 10) || 50;
+        if (price > 0 && discountPercent > 0 && discountPercent < 100) {
+          originalPrice = Math.round((price / (1 - (discountPercent / 100))) * 100) / 100;
+        }
       }
-      if (price > 0 && discountPercent > 0 && discountPercent < 100) {
-        originalPrice = Math.round((price / (1 - (discountPercent / 100))) * 100) / 100;
+    }
+
+    // For Amazon Warehouse items: if it's genuinely in Warehouse, the discount is relative to new price
+    if (storeType === 'warehouse' && discountPercent === 0) {
+      // In warehouse search, if there's a primary price (new) and secondary price (used), use that
+      const primaryPriceText = $(el).find('.a-price .a-offscreen').first().text().trim();
+      const secondaryText = $(el).find('[data-cy="secondary-offer-recipe"] .a-color-base').first().text().trim();
+      if (primaryPriceText && secondaryText) {
+        const m1 = primaryPriceText.replace(/,/g, '').match(/[\d.]+/);
+        const m2 = secondaryText.replace(/,/g, '').match(/[\d.]+/);
+        if (m1 && m2) {
+          const newP = parseFloat(m1[0]);
+          const usedP = parseFloat(m2[0]);
+          if (newP > usedP && usedP > 0) {
+            originalPrice = newP;
+            price = usedP;
+            discountPercent = Math.round(((newP - usedP) / newP) * 100);
+          }
+        }
       }
+    }
+
+    // Enforce minimum discount requirement: if minDiscount was requested, skip non-discounted items
+    const requiredMinDiscount = parseInt(minDiscount, 10) || 0;
+    if (requiredMinDiscount > 0 && discountPercent < requiredMinDiscount) {
+      return; // Skip items that do not meet the minimum verified discount!
     }
 
     // Savings
@@ -873,6 +937,10 @@ app.get('/api/db/deals', (req, res) => {
   for (const d of allDeals) {
     if (d.status === 'sold_out') continue;
 
+    // Require valid confirmed price (never include items with no price or 'See Options')
+    const np = d.numericPrice || 0;
+    if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') continue;
+
     // Excluded category filter for stats
     if (isCategoryExcluded(d.category, d.title, d.asin)) continue;
 
@@ -911,6 +979,10 @@ app.get('/api/db/deals', (req, res) => {
   let filtered = allDeals.filter(d => {
     if (d.status === 'sold_out') return false;
 
+    // Require valid confirmed price (never return items with no price or 'See Options')
+    const np = d.numericPrice || 0;
+    if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') return false;
+
     // Excluded categories filter (e.g. books, pets)
     if (isCategoryExcluded(d.category, d.title, d.asin)) return false;
 
@@ -948,7 +1020,6 @@ app.get('/api/db/deals', (req, res) => {
     }
 
     // Price filter
-    const np = d.numericPrice || 0;
     const minP = parseFloat(minPrice) || 0;
     const maxP = parseFloat(maxPrice) || 0;
     if (minP > 0 && np < minP) return false;
