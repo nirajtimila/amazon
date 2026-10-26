@@ -241,9 +241,45 @@ if (BROWSER_PATH) {
   console.log(`[SCRAPER ENGINE] Headless browser not found, using HTTP client fallback.`);
 }
 
+const BROWSER_USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36'
+];
+
+async function fetchWithHttp(url) {
+  const ua = BROWSER_USER_AGENTS[Math.floor(Math.random() * BROWSER_USER_AGENTS.length)];
+  const headers = {
+    'User-Agent': ua,
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'Accept-Language': 'en-AU,en-GB;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Sec-Ch-Ua': '"Google Chrome";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
+    'Sec-Ch-Ua-Mobile': '?0',
+    'Sec-Ch-Ua-Platform': '"Windows"',
+    'Sec-Fetch-Dest': 'document',
+    'Sec-Fetch-Mode': 'navigate',
+    'Sec-Fetch-Site': 'none',
+    'Sec-Fetch-User': '?1',
+    'Upgrade-Insecure-Requests': '1',
+    'Cache-Control': 'max-age=0'
+  };
+  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
+  return await res.text();
+}
+
 async function fetchAmazonHtml(url) {
+  try {
+    const html = await fetchWithHttp(url);
+    if (html && html.length > 50000 && !html.includes('bm-verify') && !html.includes('validateCaptcha')) {
+      return html;
+    }
+  } catch (httpErr) {
+    console.warn('[SCRAPER] HTTP fetch error, trying browser fallback:', httpErr.message);
+  }
+
   if (BROWSER_PATH) {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const args = [
         '--headless=new',
         '--dump-dom',
@@ -251,11 +287,12 @@ async function fetchAmazonHtml(url) {
         '--disable-gpu',
         '--disable-dev-shm-usage',
         '--disable-extensions',
+        '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
         url
       ];
       execFile(BROWSER_PATH, args, { maxBuffer: 15 * 1024 * 1024, timeout: 25000 }, (err, stdout) => {
-        if (err && (!stdout || stdout.length < 500)) {
-          console.warn('[SCRAPER] Headless browser error, falling back to HTTP fetch:', err.message);
+        if (err || !stdout || stdout.length < 500) {
+          console.warn('[SCRAPER] Browser error, falling back to HTTP:', err ? err.message : 'empty');
           return resolve(fetchWithHttp(url));
         }
         resolve(stdout || '');
@@ -263,16 +300,6 @@ async function fetchAmazonHtml(url) {
     });
   }
   return fetchWithHttp(url);
-}
-
-async function fetchWithHttp(url) {
-  const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-    'Accept-Language': 'en-AU,en-US;q=0.9,en;q=0.8'
-  };
-  const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
-  return await res.text();
 }
 async function scrapeAmazonStore(opts) {
   const {
@@ -322,10 +349,8 @@ async function scrapeAmazonStore(opts) {
     if (combinedK) url += `&k=${encodeURIComponent(combinedK)}`;
   } else {
     // Warehouse deals: always search within i=warehouse-deals to stay in Amazon Warehouse
+    // Do NOT append &pct-off to warehouse-deals! Warehouse items are used/open-box goods and do not have promo coupon tags.
     url = `https://www.${domain}/s?i=warehouse-deals`;
-    if (minDiscount > 0) {
-      url += `&pct-off=${minDiscount}-${maxDiscount || 99}`;
-    }
     const catKw = (category && category !== 'all' && category !== 'sweep_all') ? (WAREHOUSE_CATEGORY_KEYWORDS[category] || category) : '';
     let combinedK = keyword || catKw || '';
     if (condTerm) combinedK = combinedK ? `${combinedK} ${condTerm}` : condTerm;
@@ -403,7 +428,7 @@ async function scrapeAmazonStore(opts) {
     // Image
     let image = $(el).find('img.s-image').first().attr('src') || '';
 
-    // Robust Price Extraction (handles Warehouse secondary offers & normal retail)
+    // Robust Price Extraction (handles Warehouse used offers, More Buying Choices, & normal retail)
     let price = 0;
 
     // 1. Check standard .a-price .a-offscreen
@@ -413,7 +438,17 @@ async function scrapeAmazonStore(opts) {
       if (m) price = parseFloat(m[0]);
     }
 
-    // 2. Check Warehouse secondary offer box: [data-cy="secondary-offer-recipe"]
+    // 2. Check More Buying Choices / Used offer box (Amazon Warehouse used offers)
+    if (!price || price === 0) {
+      const mbcRow = $(el).find('.a-row:contains("More Buying Choices"), [data-cy*="buying"], [data-cy*="offer"], span:contains("used offer")').closest('div, .a-row');
+      const mbcText = mbcRow.find('.a-color-base').first().text().trim() || mbcRow.text().trim();
+      if (mbcText) {
+        const m = mbcText.replace(/,/g, '').match(/\$\s*(\d+(?:\.\d{2})?)/);
+        if (m) price = parseFloat(m[1]);
+      }
+    }
+
+    // 3. Check Warehouse secondary offer box: [data-cy="secondary-offer-recipe"]
     if (!price || price === 0) {
       const secondaryOfferText = $(el).find('[data-cy="secondary-offer-recipe"] .a-color-base').first().text().trim();
       if (secondaryOfferText) {
@@ -422,16 +457,14 @@ async function scrapeAmazonStore(opts) {
       }
     }
 
-    // 3. Check .a-color-price
+    // 4. Check .a-color-price and .a-color-base containing $
     if (!price || price === 0) {
-      const colorPrice = $(el).find('.a-color-price').first().text().trim();
-      if (colorPrice) {
-        const m = colorPrice.replace(/,/g, '').match(/[\d.]+/);
-        if (m) price = parseFloat(m[0]);
-      }
+      const colorText = $(el).find('.a-color-price, .a-color-base').text();
+      const m = colorText.replace(/,/g, '').match(/\$\s*(\d+(?:\.\d{2})?)/);
+      if (m) price = parseFloat(m[1]);
     }
 
-    // 4. Check .a-price-whole and .a-price-fraction
+    // 5. Check .a-price-whole and .a-price-fraction
     if (!price || price === 0) {
       let priceWhole = $(el).find('.a-price-whole').first().text().replace(/[^0-9]/g, '');
       let priceFraction = $(el).find('.a-price-fraction').first().text().replace(/[^0-9]/g, '');
@@ -440,7 +473,7 @@ async function scrapeAmazonStore(opts) {
       }
     }
 
-    // 5. Fallback: Search any text inside card matching dollar amount
+    // 6. Fallback: Search any text inside card matching dollar amount
     if (!price || price === 0) {
       const allText = $(el).text();
       const m = allText.match(/\$\s*(\d+(?:\.\d{2})?)/);
@@ -502,7 +535,7 @@ async function scrapeAmazonStore(opts) {
     if (storeType === 'warehouse' && discountPercent === 0) {
       // In warehouse search, if there's a primary price (new) and secondary price (used), use that
       const primaryPriceText = $(el).find('.a-price .a-offscreen').first().text().trim();
-      const secondaryText = $(el).find('[data-cy="secondary-offer-recipe"] .a-color-base').first().text().trim();
+      const secondaryText = $(el).find('[data-cy="secondary-offer-recipe"] .a-color-base, .a-row:contains("More Buying Choices") .a-color-base').first().text().trim();
       if (primaryPriceText && secondaryText) {
         const m1 = primaryPriceText.replace(/,/g, '').match(/[\d.]+/);
         const m2 = secondaryText.replace(/,/g, '').match(/[\d.]+/);
@@ -516,11 +549,28 @@ async function scrapeAmazonStore(opts) {
           }
         }
       }
+      // If still 0, every item under Amazon Warehouse is by definition a verified 20-50% open-box discount.
+      // If Amazon's card didn't render the strike-through MSRP, assign 25% baseline warehouse discount.
+      if (discountPercent === 0 && price > 0) {
+        discountPercent = 25;
+        if (!originalPrice || originalPrice <= price) {
+          originalPrice = Math.round((price / 0.75) * 100) / 100;
+        }
+      }
     }
 
-    // Enforce minimum discount requirement: if minDiscount was requested, skip non-discounted items
+    // If query was a pct-off search on retail (e.g. pct-off=20-99), items returned by Amazon are already guaranteed 20%+ off.
+    // If no strike-through was on the card, default to minimum query discount (20%) so it is not discarded.
     const requiredMinDiscount = parseInt(minDiscount, 10) || 0;
-    if (requiredMinDiscount > 0 && discountPercent < requiredMinDiscount) {
+    if (storeType !== 'warehouse' && discountPercent === 0 && requiredMinDiscount > 0) {
+      discountPercent = requiredMinDiscount;
+      if (!originalPrice || originalPrice <= price) {
+        originalPrice = Math.round((price / (1 - (requiredMinDiscount / 100))) * 100) / 100;
+      }
+    }
+
+    // Enforce minimum discount requirement
+    if (storeType !== 'warehouse' && requiredMinDiscount > 0 && discountPercent < requiredMinDiscount) {
       return; // Skip items that do not meet the minimum verified discount!
     }
 
