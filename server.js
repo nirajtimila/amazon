@@ -82,6 +82,53 @@ const DEFAULT_DB = {
   }
 };
 
+// Price Error & Spam Quality Filters
+const SPAM_REGEX = /\b(shorts|hot\s*pants|mini\s*short|bermuda|chafing|booty|leggings|panties|thong|underwear|bra\b|bikini|swimwear|lingerie|boxer\s*briefs)\b/i;
+
+function isValidPriceError(item) {
+  if (!item) return false;
+  const np = item.numericPrice || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+  if (np <= 0) return false;
+  const title = (item.title || '').toLowerCase();
+
+  // Reject cheap clothing spam miscategorized across non-apparel categories
+  if (np <= 5.0 && SPAM_REGEX.test(title)) return false;
+
+  const disc = parseInt(item.discountPercent, 10) || 0;
+  const origPrice = parseFloat((item.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+  const savings = origPrice > np ? (origPrice - np) : 0;
+
+  // Genuine price error / glitch criteria:
+  // 1. Extreme 80%+ discount with verified significant savings (at least $15 saved) or price >= $5
+  if (disc >= 80 && (savings >= 15 || np >= 5)) return true;
+  // 2. High absolute dollar savings (saves $50+ on clearance) with at least 65% discount
+  if (disc >= 65 && savings >= 50) return true;
+  // 3. Obvious pricing glitch (saves $150+ regardless)
+  if (savings >= 150 && disc >= 50) return true;
+
+  return false;
+}
+
+function pruneSpamDeals(dbObj) {
+  if (!dbObj || !dbObj.crawledDeals) return 0;
+  let removed = 0;
+  for (const asin in dbObj.crawledDeals) {
+    const d = dbObj.crawledDeals[asin];
+    const np = d.numericPrice || 0;
+    const title = (d.title || '').toLowerCase();
+    const orig = parseFloat((d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+    const savings = orig - np;
+    if (np <= 5.0 && SPAM_REGEX.test(title)) {
+      delete dbObj.crawledDeals[asin];
+      removed++;
+    } else if (d.isPriceError && np < 5.0 && savings < 15 && SPAM_REGEX.test(title)) {
+      delete dbObj.crawledDeals[asin];
+      removed++;
+    }
+  }
+  return removed;
+}
+
 // Thread-safe / Atomic JSON Database Loader & Saver
 function loadDb() {
   try {
@@ -89,6 +136,10 @@ function loadDb() {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       const loaded = JSON.parse(raw);
       if (!loaded.crawledDeals) loaded.crawledDeals = {};
+      const purged = pruneSpamDeals(loaded);
+      if (purged > 0) {
+        console.log(`[DB] 🧹 Purged ${purged} junk/spam miscategorized items from database.`);
+      }
       if (!loaded.settings) loaded.settings = { ...DEFAULT_DB.settings };
       if (!loaded.settings.scanIntervalMinutes || loaded.settings.scanIntervalMinutes === 10) {
         loaded.settings.scanIntervalMinutes = 120;
@@ -1011,8 +1062,7 @@ app.get('/api/db/deals', (req, res) => {
     // Category filter for stats (when not all or sweep_all)
     if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') continue;
 
-    const disc = parseInt(d.discountPercent, 10) || 0;
-    if (disc >= 80 || d.isPriceError) countPriceErrors++;
+    if (isValidPriceError(d)) countPriceErrors++;
 
     // Discount filter for stats
     if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) continue;
@@ -1064,10 +1114,9 @@ app.get('/api/db/deals', (req, res) => {
       return false;
     }
 
-    // Price Errors / Glitches filter (80%+ discount or explicitly flagged)
+    // Price Errors / Glitches filter (genuine high-value clearance or price errors)
     if (priceErrorsOnly === 'true' || priceErrorsOnly === true) {
-      const disc = parseInt(d.discountPercent, 10) || 0;
-      if (disc < 80 && !d.isPriceError) return false;
+      if (!isValidPriceError(d)) return false;
     }
 
     // Discount filter
@@ -1662,8 +1711,7 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
               item.domain = domain;
               item.store = store.type === 'warehouse' ? 'Amazon Warehouse' : 'Normal Amazon';
 
-              const discNum = parseInt(item.discountPercent, 10) || 0;
-              if (discNum >= 80) item.isPriceError = true;
+              item.isPriceError = isValidPriceError(item);
 
               if (!db.crawledDeals[item.asin]) {
                 item.firstSeenAt = Date.now();
@@ -1723,34 +1771,110 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
       saveDb(db);
     }
 
-    // Dedicated Price Error Sweep Pass (80%+ Off on high-value departments)
-    const GLITCH_DEPARTMENTS = ['electronics', 'computers', 'videogames', 'kitchen', 'tools', 'toys-and-games', 'beauty'];
-    console.log(`[CRAWLER] 🔥 Initiating Price Error / Glitch Sweep across ${GLITCH_DEPARTMENTS.length} high-value departments (80%+ clearance)...`);
+    // 1. Dedicated Price Error & Deep Clearance Sweep (70%-99% Off across high-value departments, pages 1..3)
+    const GLITCH_DEPARTMENTS = [
+      { id: 'electronics', name: 'Electronics' },
+      { id: 'computers', name: 'Computers' },
+      { id: 'videogames', name: 'Video Games' },
+      { id: 'kitchen', name: 'Kitchen & Home' },
+      { id: 'hi', name: 'Tools & Hardware' },
+      { id: 'sporting', name: 'Sports & Outdoors' },
+      { id: 'toys-and-games', name: 'Toys & Games' },
+      { id: 'automotive', name: 'Automotive' },
+      { id: 'office-products', name: 'Office Products' },
+      { id: 'hpc', name: 'Health & Personal' },
+      { id: 'mi', name: 'Audio & Music' }
+    ];
+    console.log(`[CRAWLER] 🔥 Initiating Expanded Clearance & Glitch Sweep across ${GLITCH_DEPARTMENTS.length} categories (70%+ off, multiple pages)...`);
     const activeExcludedGlitch = overrideExcluded || (db.settings && db.settings.excludedCategories) || [];
-    for (const deptId of GLITCH_DEPARTMENTS) {
-      if (activeExcludedGlitch.includes(deptId)) continue;
-      db.crawler.currentStep = `🔥 Price Error Sweep: ${deptId} (80%+ Off)`;
+    for (const dept of GLITCH_DEPARTMENTS) {
+      if (activeExcludedGlitch.includes(dept.id)) continue;
+      for (let gp = 1; gp <= 3; gp++) {
+        db.crawler.currentStep = `🔥 Clearance / Glitch Sweep: ${dept.name} (p.${gp}/3 • 70%+ Off)`;
+        try {
+          pagesScanned++;
+          const glitchRes = await scrapeAmazonStore({
+            storeType: 'both',
+            category: dept.id,
+            minDiscount: 70,
+            maxDiscount: 99,
+            domain,
+            sort: 'date-desc-rank',
+            page: gp,
+            availableOnly: true
+          });
+          const glitchItems = glitchRes.items || [];
+          totalScanned += glitchItems.length;
+          for (const item of glitchItems) {
+            item.category = dept.id;
+            item.isPriceError = isValidPriceError(item);
+            const numericPrice = parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+            item.numericPrice = numericPrice;
+            item.domain = domain;
+            item.store = item.store || 'Normal Amazon';
+
+            if (!db.crawledDeals[item.asin]) {
+              item.firstSeenAt = Date.now();
+              item.lastSeenAt = Date.now();
+              item.status = 'active';
+              db.crawledDeals[item.asin] = item;
+              newAdded++;
+              if (item.isPriceError) {
+                console.log(`[PRICE ERROR SWEEP] 🚨 Discovered ${item.discountPercent} OFF glitch: ${item.title.substring(0, 60)} for ${item.price}!`);
+                await dispatchPriceErrorNotification(item);
+              }
+              await checkWatchlistMatch(item);
+            } else {
+              const existing = db.crawledDeals[item.asin];
+              existing.lastSeenAt = Date.now();
+              if (item.isPriceError) existing.isPriceError = true;
+              if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
+                existing.previousPrice = existing.price;
+                existing.price = item.price;
+                existing.numericPrice = numericPrice;
+                existing.discountPercent = item.discountPercent;
+                existing.priceDropAt = Date.now();
+                priceDrops++;
+                if (existing.isPriceError) await dispatchPriceErrorNotification(existing);
+              }
+            }
+          }
+          if (!glitchRes.hasNextPage || glitchItems.length === 0) break;
+          await new Promise(r => setTimeout(r, 1200));
+        } catch (err) {
+          console.warn(`[CRAWLER] Glitch sweep error on ${dept.id} p.${gp}:`, err.message);
+        }
+      }
+    }
+    saveDb(db);
+
+    // 2. Dedicated Amazon Warehouse Brand Bargain Sniper (High-demand brands)
+    const WAREHOUSE_SNIPER_BRANDS = [
+      'apple', 'sony', 'bose', 'dyson', 'nintendo', 'playstation', 
+      'xbox', 'logitech', 'samsung', 'garmin', 'ninja', 'dewalt', 'asus'
+    ];
+    console.log(`[CRAWLER] 🎯 Scanning Amazon Warehouse for top in-demand brand bargains across ${WAREHOUSE_SNIPER_BRANDS.length} brands...`);
+    for (const brand of WAREHOUSE_SNIPER_BRANDS) {
+      db.crawler.currentStep = `📦 Warehouse Brand Sniper: ${brand.toUpperCase()}`;
       try {
         pagesScanned++;
-        const glitchRes = await scrapeAmazonStore({
-          storeType: 'both',
-          category: deptId,
-          minDiscount: 80,
-          maxDiscount: 99,
+        const brandRes = await scrapeAmazonStore({
+          storeType: 'warehouse',
+          keyword: brand,
+          category: 'all',
           domain,
           sort: 'date-desc-rank',
           page: 1,
           availableOnly: true
         });
-        const glitchItems = glitchRes.items || [];
-        totalScanned += glitchItems.length;
-        for (const item of glitchItems) {
-          item.category = deptId;
-          item.isPriceError = true;
+        const brandItems = brandRes.items || [];
+        totalScanned += brandItems.length;
+        for (const item of brandItems) {
+          item.isPriceError = isValidPriceError(item);
           const numericPrice = parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
           item.numericPrice = numericPrice;
           item.domain = domain;
-          item.store = item.store || 'Normal Amazon';
+          item.store = 'Amazon Warehouse';
 
           if (!db.crawledDeals[item.asin]) {
             item.firstSeenAt = Date.now();
@@ -1758,13 +1882,16 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
             item.status = 'active';
             db.crawledDeals[item.asin] = item;
             newAdded++;
-            console.log(`[PRICE ERROR SWEEP] 🚨 Discovered ${item.discountPercent} OFF glitch: ${item.title.substring(0, 60)} for ${item.price}!`);
-            await dispatchPriceErrorNotification(item);
+            if (item.isPriceError) {
+              console.log(`[BRAND SNIPER] 🚨 Price Error on ${brand}: ${item.title.substring(0, 50)} at ${item.price}!`);
+              await dispatchPriceErrorNotification(item);
+            }
             await checkWatchlistMatch(item);
           } else {
             const existing = db.crawledDeals[item.asin];
             existing.lastSeenAt = Date.now();
-            existing.isPriceError = true;
+            existing.store = 'Amazon Warehouse';
+            if (item.isPriceError) existing.isPriceError = true;
             if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
               existing.previousPrice = existing.price;
               existing.price = item.price;
@@ -1772,13 +1899,13 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
               existing.discountPercent = item.discountPercent;
               existing.priceDropAt = Date.now();
               priceDrops++;
-              await dispatchPriceErrorNotification(existing);
+              if (existing.isPriceError) await dispatchPriceErrorNotification(existing);
             }
           }
         }
         await new Promise(r => setTimeout(r, 1200));
-      } catch (err) {
-        console.warn(`[CRAWLER] Glitch sweep error on ${deptId}:`, err.message);
+      } catch (brandErr) {
+        console.warn(`[CRAWLER] Brand sweep error for ${brand}:`, brandErr.message);
       }
     }
     saveDb(db);
