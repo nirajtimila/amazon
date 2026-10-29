@@ -87,15 +87,15 @@ const SPAM_REGEX = /\b(shorts|hot\s*pants|mini\s*short|bermuda|chafing|booty|leg
 
 function isValidPriceError(item) {
   if (!item) return false;
-  const np = item.numericPrice || parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+  const np = item.numericPrice || parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
   if (np <= 0) return false;
-  const title = (item.title || '').toLowerCase();
+  const title = String(item.title || '').toLowerCase();
 
   // Reject cheap clothing spam miscategorized across non-apparel categories
   if (np <= 5.0 && SPAM_REGEX.test(title)) return false;
 
   const disc = parseInt(item.discountPercent, 10) || 0;
-  const origPrice = parseFloat((item.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+  const origPrice = parseFloat(String(item.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
   const savings = origPrice > np ? (origPrice - np) : 0;
 
   // Genuine price error / glitch criteria:
@@ -114,9 +114,10 @@ function pruneSpamDeals(dbObj) {
   let removed = 0;
   for (const asin in dbObj.crawledDeals) {
     const d = dbObj.crawledDeals[asin];
+    if (!d) continue;
     const np = d.numericPrice || 0;
-    const title = (d.title || '').toLowerCase();
-    const orig = parseFloat((d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+    const title = String(d.title || '').toLowerCase();
+    const orig = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
     const savings = orig - np;
     if (np <= 5.0 && SPAM_REGEX.test(title)) {
       delete dbObj.crawledDeals[asin];
@@ -976,228 +977,234 @@ app.get('/api/health', (req, res) => {
 
 // Query Indexed Database Deals
 app.get('/api/db/deals', (req, res) => {
-  const {
-    timeWindow = 'all', // '1h', '2h', '6h', '12h', '24h', 'all'
-    storeType = 'both', // 'warehouse', 'normal', 'both'
-    category = 'all',
-    excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
-    priceErrorsOnly = 'false', // 'true' to show only 80%+ price errors / clearance glitches
-    minDiscount = 0,
-    maxDiscount = 100,
-    minPrice = 0,
-    maxPrice = 0,
-    condition = 'all',
-    availableOnly = 'false',
-    keyword = '',
-    negKeywords = '',
-    sort = 'date-desc-rank',
-    page = 1,
-    limit = 48
-  } = req.query;
+  try {
+    const {
+      timeWindow = 'all', // '1h', '2h', '6h', '12h', '24h', 'all'
+      storeType = 'both', // 'warehouse', 'normal', 'both'
+      category = 'all',
+      excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
+      priceErrorsOnly = 'false', // 'true' to show only 80%+ price errors / clearance glitches
+      minDiscount = 0,
+      maxDiscount = 100,
+      minPrice = 0,
+      maxPrice = 0,
+      condition = 'all',
+      availableOnly = 'false',
+      keyword = '',
+      negKeywords = '',
+      sort = 'date-desc-rank',
+      page = 1,
+      limit = 48
+    } = req.query;
 
-  const now = Date.now();
-  const allDeals = Object.values(db.crawledDeals || {});
+    const now = Date.now();
+    const allDeals = Object.values(db.crawledDeals || {});
 
-  // Excluded categories set with alias normalization
-  const excludedSet = new Set(
-    (excludeCategories || '')
-      .split(/[,;]/)
-      .map(s => s.trim().toLowerCase())
-      .filter(Boolean)
-  );
+    // Excluded categories set with alias normalization
+    const excludedSet = new Set(
+      (excludeCategories || '')
+        .split(/[,;]/)
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean)
+    );
 
-  const isCategoryExcluded = (cat, title, asin) => {
-    if (excludedSet.size === 0) return false;
-    if ((excludedSet.has('books') || excludedSet.has('stripbooks')) && asin && /^\d{9}[\dX]$/i.test(asin)) {
-      return true;
-    }
-    if (cat) {
-      const c = cat.toLowerCase();
-      if (excludedSet.has(c)) return true;
-      if (excludedSet.has('books') && (c === 'stripbooks' || c === 'books')) return true;
-      if (excludedSet.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
-      if (excludedSet.has('toys') && (c === 'toys-and-games' || c === 'toys')) return true;
-      if (excludedSet.has('toys-and-games') && (c === 'toys-and-games' || c === 'toys')) return true;
-      if (excludedSet.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
-      if (excludedSet.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
-      if (excludedSet.has('music') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
-      if (excludedSet.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
-    }
-    if ((excludedSet.has('books') || excludedSet.has('stripbooks')) && title) {
-      if (/\b(paperback|hardcover|memoir|study\s+guide|bestseller|novel|thriller|biography|handbook)\b/i.test(title)) return true;
-    }
-    return false;
-  };
-
-  // Time window bounds in milliseconds
-  const timeWindows = {
-    '1h': 1 * 60 * 60 * 1000,
-    '2h': 2 * 60 * 60 * 1000,
-    '6h': 6 * 60 * 60 * 1000,
-    '12h': 12 * 60 * 60 * 1000,
-    '24h': 24 * 60 * 60 * 1000
-  };
-  const windowMs = timeWindows[timeWindow] || 0;
-
-  // Compute live stats for quick pill counts matching active store, category, exclusion, and discount filters
-  let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0, countPriceErrors = 0;
-  let totalWarehouse = 0, totalNormal = 0;
-  for (const d of allDeals) {
-    if (d.status === 'sold_out') continue;
-
-    // Require valid confirmed price (never include items with no price or 'See Options')
-    const np = d.numericPrice || 0;
-    if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') continue;
-
-    // Excluded category filter for stats
-    if (isCategoryExcluded(d.category, d.title, d.asin)) continue;
-
-    if (d.store === 'Normal Amazon') totalNormal++;
-    else totalWarehouse++;
-
-    // If store filter is active, only count matches for that store
-    if (storeType === 'warehouse' && d.store === 'Normal Amazon') continue;
-    if (storeType === 'normal' && d.store !== 'Normal Amazon') continue;
-
-    // Category filter for stats (when not all or sweep_all)
-    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') continue;
-
-    if (isValidPriceError(d)) countPriceErrors++;
-
-    // Discount filter for stats
-    if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) continue;
-
-    // In-stock filter for stats
-    if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) continue;
-
-    // Discovery / fresh deal timestamp: evaluates when product was first discovered or price-dropped
-    const dealTs = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || d.lastSeenAt || now;
-    const age = now - dealTs;
-    if (age <= 1 * 3600000) count1h++;
-    if (age <= 2 * 3600000) count2h++;
-    if (age <= 6 * 3600000) count6h++;
-    if (age <= 12 * 3600000) count12h++;
-    if (age <= 24 * 3600000) count24h++;
-  }
-
-  const negList = negKeywords ? negKeywords.split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean) : [];
-  const searchTerms = keyword ? keyword.toLowerCase().split(/\s+/).filter(Boolean) : [];
-
-  let filtered = allDeals.filter(d => {
-    if (d.status === 'sold_out') return false;
-
-    // Require valid confirmed price (never return items with no price or 'See Options')
-    const np = d.numericPrice || 0;
-    if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') return false;
-
-    // Excluded categories filter (e.g. books, pets)
-    if (isCategoryExcluded(d.category, d.title, d.asin)) return false;
-
-    // Available / In-stock filter
-    if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) {
+    const isCategoryExcluded = (cat, title, asin) => {
+      if (excludedSet.size === 0) return false;
+      if ((excludedSet.has('books') || excludedSet.has('stripbooks')) && asin && /^\d{9}[\dX]$/i.test(asin)) {
+        return true;
+      }
+      if (cat) {
+        const c = String(cat).toLowerCase();
+        if (excludedSet.has(c)) return true;
+        if (excludedSet.has('books') && (c === 'stripbooks' || c === 'books')) return true;
+        if (excludedSet.has('stripbooks') && (c === 'stripbooks' || c === 'books')) return true;
+        if (excludedSet.has('toys') && (c === 'toys-and-games' || c === 'toys')) return true;
+        if (excludedSet.has('toys-and-games') && (c === 'toys-and-games' || c === 'toys')) return true;
+        if (excludedSet.has('pets') && (c === 'pets' || c === 'pet-supplies')) return true;
+        if (excludedSet.has('pet-supplies') && (c === 'pets' || c === 'pet-supplies')) return true;
+        if (excludedSet.has('music') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+        if (excludedSet.has('mi') && (c === 'mi' || c === 'music' || c === 'musical-instruments')) return true;
+      }
+      if ((excludedSet.has('books') || excludedSet.has('stripbooks')) && title) {
+        if (/\b(paperback|hardcover|memoir|study\s+guide|bestseller|novel|thriller|biography|handbook)\b/i.test(String(title))) return true;
+      }
       return false;
-    }
+    };
 
-    // Store type filter (Warehouse vs Normal Amazon vs Both)
-    if (storeType === 'warehouse' && d.store === 'Normal Amazon') return false;
-    if (storeType === 'normal' && d.store !== 'Normal Amazon') return false;
+    // Time window bounds in milliseconds
+    const timeWindows = {
+      '1h': 1 * 60 * 60 * 1000,
+      '2h': 2 * 60 * 60 * 1000,
+      '6h': 6 * 60 * 60 * 1000,
+      '12h': 12 * 60 * 60 * 1000,
+      '24h': 24 * 60 * 60 * 1000
+    };
+    const windowMs = timeWindows[timeWindow] || 0;
 
-    // Time window filter: strictly evaluates when deal was first discovered or price-dropped
-    if (windowMs > 0) {
+    // Compute live stats for quick pill counts matching active store, category, exclusion, and discount filters
+    let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0, countPriceErrors = 0;
+    let totalWarehouse = 0, totalNormal = 0;
+    for (const d of allDeals) {
+      if (!d || d.status === 'sold_out') continue;
+
+      // Require valid confirmed price (never include items with no price or 'See Options')
+      const np = d.numericPrice || 0;
+      if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') continue;
+
+      // Excluded category filter for stats
+      if (isCategoryExcluded(d.category, d.title, d.asin)) continue;
+
+      if (d.store === 'Normal Amazon') totalNormal++;
+      else totalWarehouse++;
+
+      // If store filter is active, only count matches for that store
+      if (storeType === 'warehouse' && d.store === 'Normal Amazon') continue;
+      if (storeType === 'normal' && d.store !== 'Normal Amazon') continue;
+
+      // Category filter for stats (when not all or sweep_all)
+      if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') continue;
+
+      if (isValidPriceError(d)) countPriceErrors++;
+
+      // Discount filter for stats
+      const disc = parseInt(d.discountPercent, 10) || 0;
+      if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) continue;
+
+      // In-stock filter for stats
+      if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) continue;
+
+      // Discovery / fresh deal timestamp: evaluates when product was first discovered or price-dropped
       const dealTs = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || d.lastSeenAt || now;
       const age = now - dealTs;
-      if (age > windowMs) return false;
+      if (age <= 1 * 3600000) count1h++;
+      if (age <= 2 * 3600000) count2h++;
+      if (age <= 6 * 3600000) count6h++;
+      if (age <= 12 * 3600000) count12h++;
+      if (age <= 24 * 3600000) count24h++;
     }
 
-    // Category filter (allows all categories for 'all' and 'sweep_all')
-    if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') {
-      return false;
-    }
+    const negList = negKeywords ? negKeywords.split(/[,;]/).map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+    const searchTerms = keyword ? keyword.toLowerCase().split(/\s+/).filter(Boolean) : [];
 
-    // Price Errors / Glitches filter (genuine high-value clearance or price errors)
-    if (priceErrorsOnly === 'true' || priceErrorsOnly === true) {
-      if (!isValidPriceError(d)) return false;
-    }
+    let filtered = allDeals.filter(d => {
+      if (!d || d.status === 'sold_out') return false;
 
-    // Discount filter
-    const disc = parseInt(d.discountPercent, 10) || 0;
-    if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) {
-      return false;
-    }
+      // Require valid confirmed price (never return items with no price or 'See Options')
+      const np = d.numericPrice || 0;
+      if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') return false;
 
-    // Price filter
-    const minP = parseFloat(minPrice) || 0;
-    const maxP = parseFloat(maxPrice) || 0;
-    if (minP > 0 && np < minP) return false;
-    if (maxP > 0 && np > maxP) return false;
+      // Excluded categories filter (e.g. books, pets)
+      if (isCategoryExcluded(d.category, d.title, d.asin)) return false;
 
-    // Condition filter (normalized comparison)
-    if (condition && condition !== 'all') {
-      const c = (d.condition || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-      const targetCond = condition.toLowerCase().replace(/[^a-z0-9]/g, '');
-      if (!c.includes(targetCond)) return false;
-    }
+      // Available / In-stock filter
+      if ((availableOnly === 'true' || availableOnly === true) && d.inStock === false) {
+        return false;
+      }
 
-    // Excluded keywords
-    if (negList.length > 0) {
-      const text = `${d.title} ${d.condition || ''}`.toLowerCase();
-      if (negList.some(neg => text.includes(neg))) return false;
-    }
+      // Store type filter (Warehouse vs Normal Amazon vs Both)
+      if (storeType === 'warehouse' && d.store === 'Normal Amazon') return false;
+      if (storeType === 'normal' && d.store !== 'Normal Amazon') return false;
 
-    // Keyword search
-    if (searchTerms.length > 0) {
-      const text = `${d.title} ${d.asin}`.toLowerCase();
-      if (!searchTerms.every(t => text.includes(t))) return false;
-    }
+      // Time window filter: strictly evaluates when deal was first discovered or price-dropped
+      if (windowMs > 0) {
+        const dealTs = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || d.lastSeenAt || now;
+        const age = now - dealTs;
+        if (age > windowMs) return false;
+      }
 
-    return true;
-  });
+      // Category filter (allows all categories for 'all' and 'sweep_all')
+      if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') {
+        return false;
+      }
 
-  // Sorting
-  filtered.sort((a, b) => {
-    switch (sort) {
-      case 'date-desc-rank':
-        return (Math.max(b.firstSeenAt || 0, b.priceDropAt || 0)) - (Math.max(a.firstSeenAt || 0, a.priceDropAt || 0));
-      case 'price-asc-rank':
-        return (a.numericPrice || 0) - (b.numericPrice || 0);
-      case 'price-desc-rank':
-        return (b.numericPrice || 0) - (a.numericPrice || 0);
-      case 'discount-desc-rank':
-        return (parseInt(b.discountPercent, 10) || 0) - (parseInt(a.discountPercent, 10) || 0);
-      case 'review-rank':
-        return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
-      default:
-        return (Math.max(b.firstSeenAt || 0, b.priceDropAt || 0)) - (Math.max(a.firstSeenAt || 0, a.priceDropAt || 0));
-    }
-  });
+      // Price Errors / Glitches filter (genuine high-value clearance or price errors)
+      if (priceErrorsOnly === 'true' || priceErrorsOnly === true) {
+        if (!isValidPriceError(d)) return false;
+      }
 
-  const p = Math.max(1, parseInt(page, 10) || 1);
-  const lim = Math.max(1, parseInt(limit, 10) || 48);
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / lim) || 1;
-  const products = filtered.slice((p - 1) * lim, p * lim);
+      // Discount filter
+      const disc = parseInt(d.discountPercent, 10) || 0;
+      if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) {
+        return false;
+      }
 
-  res.json({
-    total,
-    page: p,
-    totalPages,
-    products,
-    stats: {
-      totalInDb: allDeals.length,
-      warehouseDeals: totalWarehouse,
-      normalDeals: totalNormal,
-      priceErrors: countPriceErrors,
-      last1h: count1h,
-      last2h: count2h,
-      last6h: count6h,
-      last12h: count12h,
-      last24h: count24h,
-      lastCrawlerRun: db.crawler ? db.crawler.lastRunAt : null,
-      nextCrawlerRun: db.crawler ? db.crawler.nextRunAt : null,
-      isRunning: db.crawler ? db.crawler.isRunning : false,
-      currentStep: db.crawler ? db.crawler.currentStep : ''
-    }
-  });
+      // Price filter
+      const minP = parseFloat(minPrice) || 0;
+      const maxP = parseFloat(maxPrice) || 0;
+      if (minP > 0 && np < minP) return false;
+      if (maxP > 0 && np > maxP) return false;
+
+      // Condition filter (normalized comparison)
+      if (condition && condition !== 'all') {
+        const c = String(d.condition || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const targetCond = condition.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (!c.includes(targetCond)) return false;
+      }
+
+      // Excluded keywords
+      if (negList.length > 0) {
+        const text = `${d.title || ''} ${d.condition || ''}`.toLowerCase();
+        if (negList.some(neg => text.includes(neg))) return false;
+      }
+
+      // Keyword search
+      if (searchTerms.length > 0) {
+        const text = `${d.title || ''} ${d.asin || ''}`.toLowerCase();
+        if (!searchTerms.every(t => text.includes(t))) return false;
+      }
+
+      return true;
+    });
+
+    // Sorting
+    filtered.sort((a, b) => {
+      switch (sort) {
+        case 'date-desc-rank':
+          return (Math.max(b.firstSeenAt || 0, b.priceDropAt || 0)) - (Math.max(a.firstSeenAt || 0, a.priceDropAt || 0));
+        case 'price-asc-rank':
+          return (a.numericPrice || 0) - (b.numericPrice || 0);
+        case 'price-desc-rank':
+          return (b.numericPrice || 0) - (a.numericPrice || 0);
+        case 'discount-desc-rank':
+          return (parseInt(b.discountPercent, 10) || 0) - (parseInt(a.discountPercent, 10) || 0);
+        case 'review-rank':
+          return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
+        default:
+          return (Math.max(b.firstSeenAt || 0, b.priceDropAt || 0)) - (Math.max(a.firstSeenAt || 0, a.priceDropAt || 0));
+      }
+    });
+
+    const p = Math.max(1, parseInt(page, 10) || 1);
+    const lim = Math.max(1, parseInt(limit, 10) || 48);
+    const total = filtered.length;
+    const totalPages = Math.ceil(total / lim) || 1;
+    const products = filtered.slice((p - 1) * lim, p * lim);
+
+    res.json({
+      total,
+      page: p,
+      totalPages,
+      products,
+      stats: {
+        totalInDb: allDeals.length,
+        warehouseDeals: totalWarehouse,
+        normalDeals: totalNormal,
+        priceErrors: countPriceErrors,
+        last1h: count1h,
+        last2h: count2h,
+        last6h: count6h,
+        last12h: count12h,
+        last24h: count24h,
+        lastCrawlerRun: db.crawler ? db.crawler.lastRunAt : null,
+        nextCrawlerRun: db.crawler ? db.crawler.nextRunAt : null,
+        isRunning: db.crawler ? db.crawler.isRunning : false,
+        currentStep: db.crawler ? db.crawler.currentStep : ''
+      }
+    });
+  } catch (err) {
+    console.error('[API /api/db/deals] Critical query error:', err);
+    res.status(500).json({ error: 'Failed to query database deals: ' + err.message, stack: err.stack });
+  }
 });
 
 // Crawler Status Endpoint
