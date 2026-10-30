@@ -82,52 +82,131 @@ const DEFAULT_DB = {
   }
 };
 
-// Price Error & Spam Quality Filters
-const SPAM_REGEX = /\b(shorts|hot\s*pants|mini\s*short|bermuda|chafing|booty|leggings|panties|thong|underwear|bra\b|bikini|swimwear|lingerie|boxer\s*briefs)\b/i;
+// -------------------------------------------------------------
+// INTELLIGENT BRAND RECOGNITION & JUNK QUALITY FILTERS
+// -------------------------------------------------------------
+const TOP_DESIRABLE_BRANDS = [
+  'sony', 'bose', 'sennheiser', 'samsung', 'nintendo', 'playstation', 'xbox',
+  'asus', 'lenovo', 'dell', 'hp', 'lg', 'anker', 'jbl', 'sonos', 'logitech',
+  'garmin', 'gopro', 'dji', 'sandisk', 'western digital', 'wd', 'crucial', 'corsair',
+  'steelseries', 'razer', 'dyson', 'philips', 'breville', 'delonghi', 'nespresso',
+  'ninja', 'kitchenaid', 'irobot', 'roborock', 'oral-b', 'braun', 'makita', 'bosch',
+  'dewalt', 'milwaukee', 'karcher', 'lego', 'beats', 'jabra', 'belkin', 'ugreen',
+  'tp-link', 'netgear', 'msi', 'amd', 'intel', 'nvidia', 'seagate',
+  'marshall', 'fitbit', 'soundcore', 'panasonic', 'canon', 'nikon',
+  'fujifilm', 'kindle', 'blink', 'ecobee', 'instant pot',
+  'shure', 'audio-technica', 'rode', 'yamaha', 'keychron',
+  'hyperx', 'kingston', 'tefal', 'stanley', 'ryobi'
+];
+
+// Accessories & replacement parts (NOT genuine standalone devices)
+const ACCESSORY_REPLACEMENT_REGEX = /\b(case\s*for|cover\s*for|sleeve\s*for|screen\s*protector|tempered\s*glass|replacement\s*(ear\s*pads|cushion|cables|cord|port|board|battery|remote|strap|band)|wall\s*mount\s*bracket|mounting\s*bracket|speaker\s*mount|remote\s*control\s*cover|(watch|sport)\s*(band|strap)|(phone|tablet|frame)\s*cover|protective\s*case|folio\s*case|skin\s*decal|stylus\s*pen\s*tips)\b/i;
+
+// Dropshipper junk, raw materials, cheap trinkets, costumes & clothing spam
+const JUNK_TRASH_REGEX = /\b(mug\b|mugs\b|cup\b|cups\b|ceramic\s*cup|water\s*bottle|tumbler|sheet\s*roll|brass\s*thin|copper\s*sheet|metal\s*strip|ear\s*plugs|sleep\s*earplugs|breath\s*spray|propolis|bracelet|necklace|pendant|keychain|lanyard|silicone\s*cover|cable\s*ties|adapter\s*ring|filter\s*ring|dust\s*cover|sticker\s*pack|decal|costume|cosplay|mannequin|shorts|hot\s*pants|mini\s*short|bermuda|chafing|booty|leggings|panties|thong|underwear|bra\b|bikini|swimwear|lingerie|boxer\s*briefs)\b/i;
+
+function detectBrandName(title) {
+  if (!title) return null;
+  const t = title.toLowerCase();
+
+  // Context-aware brand detection to avoid false positives (e.g. green apple air freshener vs Apple device)
+  if (/\bapple\s+(iphone|ipad|macbook|watch|airpods|pencil|magic|tv|vision|silicon|m1|m2|m3|m4|earpods|lightning)\b/i.test(t) ||
+      /\b(macbook|iphone|ipad|airpods)\b/i.test(t)) {
+    return 'Apple';
+  }
+  if (/\bgoogle\s+(pixel|nest|chromecast|tensor)\b/i.test(t) || /\bpixel\s+(7|8|9|10|fold|pro|watch|buds)\b/i.test(t)) {
+    return 'Google';
+  }
+  if (/\bring\s+(video|doorbell|floodlight|spotlight|chime|camera|stick|alarm)\b/i.test(t)) {
+    return 'Ring';
+  }
+
+  for (const b of TOP_DESIRABLE_BRANDS) {
+    if (new RegExp(`\\b${b}\\b`, 'i').test(t)) {
+      // Exclude if it's merely a cheap case/cover FOR that brand
+      if (ACCESSORY_REPLACEMENT_REGEX.test(t)) return null;
+      return b.charAt(0).toUpperCase() + b.slice(1);
+    }
+  }
+  return null;
+}
 
 function isValidPriceError(item) {
   if (!item) return false;
   const np = item.numericPrice || parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
-  if (np <= 0) return false;
-  const title = String(item.title || '').toLowerCase();
+  if (np < 8.0) return false; // Filter out cheap $1-$7 trinkets
 
-  // Reject cheap clothing spam miscategorized across non-apparel categories
-  if (np <= 5.0 && SPAM_REGEX.test(title)) return false;
+  const title = String(item.title || '');
+  if (JUNK_TRASH_REGEX.test(title)) return false;
+  if (ACCESSORY_REPLACEMENT_REGEX.test(title)) return false;
 
   const disc = parseInt(item.discountPercent, 10) || 0;
   const origPrice = parseFloat(String(item.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
   const savings = origPrice > np ? (origPrice - np) : 0;
+  const brand = detectBrandName(title);
 
-  // Genuine price error / glitch criteria:
-  // 1. Extreme 80%+ discount with verified significant savings (at least $15 saved) or price >= $5
-  if (disc >= 80 && (savings >= 15 || np >= 5)) return true;
-  // 2. High absolute dollar savings (saves $50+ on clearance) with at least 65% discount
-  if (disc >= 65 && savings >= 50) return true;
-  // 3. Obvious pricing glitch (saves $150+ regardless)
-  if (savings >= 150 && disc >= 50) return true;
+  // Reject dropshipper fake MSRP inflation: savings > $250 on non-brand item with claim of 85%+ discount unless highly reviewed
+  if (!brand && disc >= 85 && savings >= 250) {
+    const rev = parseInt(item.reviews, 10) || 0;
+    if (rev < 30) return false;
+  }
+
+  // Tier 1: Recognized Top Brand with real price cut
+  if (brand) {
+    if (disc >= 70) return true;
+    if (disc >= 45 && savings >= 30) return true;
+    if (disc >= 35 && savings >= 50) return true;
+    if (savings >= 100) return true;
+  }
+
+  // Tier 2: High Dollar Major Glitch on rated/reviewed products or Amazon Warehouse
+  if (savings >= 80 && disc >= 60) {
+    const rev = parseInt(item.reviews, 10) || 0;
+    const rating = parseFloat(item.rating) || 0;
+    if (rev >= 5 || rating >= 3.8 || item.store === 'Amazon Warehouse') {
+      return true;
+    }
+  }
+
+  // Tier 3: Verified Price Drop from previous crawl
+  if (item.previousPrice && disc >= 40 && savings >= 30) {
+    const prevPrice = parseFloat(String(item.previousPrice).replace(/[^0-9.]/g, '')) || 0;
+    if (prevPrice > np && ((prevPrice - np) / prevPrice) >= 0.35) {
+      return true;
+    }
+  }
 
   return false;
 }
 
 function pruneSpamDeals(dbObj) {
   if (!dbObj || !dbObj.crawledDeals) return 0;
-  let removed = 0;
+  let reclassified = 0;
+  let purgedCount = 0;
+
   for (const asin in dbObj.crawledDeals) {
     const d = dbObj.crawledDeals[asin];
     if (!d) continue;
+    const title = String(d.title || '');
+    const brand = detectBrandName(title);
+    d.brand = brand;
+    d.isBrandDeal = !!brand;
+
+    // Re-evaluate price error status with smart rules
+    const wasPriceError = !!d.isPriceError;
+    d.isPriceError = isValidPriceError(d);
+    if (wasPriceError && !d.isPriceError) {
+      reclassified++;
+    }
+
+    // Purge extreme junk and spam items completely from database
     const np = d.numericPrice || 0;
-    const title = String(d.title || '').toLowerCase();
-    const orig = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
-    const savings = orig - np;
-    if (np <= 5.0 && SPAM_REGEX.test(title)) {
+    if (np <= 6.0 && (JUNK_TRASH_REGEX.test(title) || ACCESSORY_REPLACEMENT_REGEX.test(title))) {
       delete dbObj.crawledDeals[asin];
-      removed++;
-    } else if (d.isPriceError && np < 5.0 && savings < 15 && SPAM_REGEX.test(title)) {
-      delete dbObj.crawledDeals[asin];
-      removed++;
+      purgedCount++;
     }
   }
-  return removed;
+  return { reclassified, purgedCount };
 }
 
 // Thread-safe / Atomic JSON Database Loader & Saver
@@ -137,9 +216,9 @@ function loadDb() {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       const loaded = JSON.parse(raw);
       if (!loaded.crawledDeals) loaded.crawledDeals = {};
-      const purged = pruneSpamDeals(loaded);
-      if (purged > 0) {
-        console.log(`[DB] 🧹 Purged ${purged} junk/spam miscategorized items from database.`);
+      const cleanup = pruneSpamDeals(loaded);
+      if (cleanup.reclassified > 0 || cleanup.purgedCount > 0) {
+        console.log(`[DB] 🧹 Smart Cleansing: reclassified ${cleanup.reclassified} fake price errors, purged ${cleanup.purgedCount} junk items.`);
       }
       if (!loaded.settings) loaded.settings = { ...DEFAULT_DB.settings };
       if (!loaded.settings.scanIntervalMinutes || loaded.settings.scanIntervalMinutes === 10) {
@@ -611,19 +690,13 @@ async function scrapeAmazonStore(opts) {
       }
     }
 
-    // If query was a pct-off search on retail (e.g. pct-off=20-99), items returned by Amazon are already guaranteed 20%+ off.
-    // If no strike-through was on the card, default to minimum query discount (20%) so it is not discarded.
+    // Enforce verified discount: Never synthesize fake discounts!
+    // If Amazon didn't render an actual strike-through MSRP or a saving badge, do not invent a fake discount.
     const requiredMinDiscount = parseInt(minDiscount, 10) || 0;
-    if (storeType !== 'warehouse' && discountPercent === 0 && requiredMinDiscount > 0) {
-      discountPercent = requiredMinDiscount;
-      if (!originalPrice || originalPrice <= price) {
-        originalPrice = Math.round((price / (1 - (requiredMinDiscount / 100))) * 100) / 100;
+    if (storeType !== 'warehouse' && requiredMinDiscount > 0) {
+      if (discountPercent === 0 || discountPercent < requiredMinDiscount) {
+        return; // Skip items without confirmed verified discount meeting threshold!
       }
-    }
-
-    // Enforce minimum discount requirement
-    if (storeType !== 'warehouse' && requiredMinDiscount > 0 && discountPercent < requiredMinDiscount) {
-      return; // Skip items that do not meet the minimum verified discount!
     }
 
     // Savings
@@ -660,9 +733,13 @@ async function scrapeAmazonStore(opts) {
     const isPrime = $(el).find('.a-icon-prime').length > 0;
     const inStock = !cardText.toLowerCase().includes('currently unavailable');
 
+    const detectedBrand = detectBrandName(title);
+
     items.push({
       asin,
       title,
+      brand: detectedBrand,
+      isBrandDeal: !!detectedBrand,
       price: price > 0 ? `${currencySymbol}${price.toFixed(2)}` : 'See Options',
       originalPrice: originalPrice > 0 ? `${currencySymbol}${originalPrice.toFixed(2)}` : '',
       discountPercent: `${discountPercent}%`,
@@ -984,6 +1061,8 @@ app.get('/api/db/deals', (req, res) => {
       category = 'all',
       excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
       priceErrorsOnly = 'false', // 'true' to show only 80%+ price errors / clearance glitches
+      brandsOnly = 'false', // 'true' to show only recognized top brand bargains
+      hideAccessories = 'true', // 'true' to auto-hide cases, covers, screen protectors, raw metal sheets
       minDiscount = 0,
       maxDiscount = 100,
       minPrice = 0,
@@ -1042,7 +1121,7 @@ app.get('/api/db/deals', (req, res) => {
     const windowMs = timeWindows[timeWindow] || 0;
 
     // Compute live stats for quick pill counts matching active store, category, exclusion, and discount filters
-    let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0, countPriceErrors = 0;
+    let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0, countPriceErrors = 0, countTopBrands = 0;
     let totalWarehouse = 0, totalNormal = 0;
     for (const d of allDeals) {
       if (!d || d.status === 'sold_out') continue;
@@ -1065,6 +1144,7 @@ app.get('/api/db/deals', (req, res) => {
       if (category && category !== 'all' && category !== 'sweep_all' && d.category !== category && d.category !== 'all') continue;
 
       if (isValidPriceError(d)) countPriceErrors++;
+      if (d.isBrandDeal || d.brand) countTopBrands++;
 
       // Discount filter for stats
       const disc = parseInt(d.discountPercent, 10) || 0;
@@ -1120,6 +1200,19 @@ app.get('/api/db/deals', (req, res) => {
       // Price Errors / Glitches filter (genuine high-value clearance or price errors)
       if (priceErrorsOnly === 'true' || priceErrorsOnly === true) {
         if (!isValidPriceError(d)) return false;
+      }
+
+      // Top Brands Only filter
+      if (brandsOnly === 'true' || brandsOnly === true) {
+        if (!d.isBrandDeal && !d.brand) return false;
+      }
+
+      // Auto-hide cheap accessories / parts / dropshipper junk
+      if (hideAccessories === 'true' || hideAccessories === true) {
+        const title = String(d.title || '');
+        if (ACCESSORY_REPLACEMENT_REGEX.test(title) || JUNK_TRASH_REGEX.test(title)) {
+          return false;
+        }
       }
 
       // Discount filter
@@ -1190,6 +1283,7 @@ app.get('/api/db/deals', (req, res) => {
         warehouseDeals: totalWarehouse,
         normalDeals: totalNormal,
         priceErrors: countPriceErrors,
+        topBrands: countTopBrands,
         last1h: count1h,
         last2h: count2h,
         last6h: count6h,
@@ -1956,16 +2050,21 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
     }
     saveDb(db);
 
-    // 2. Dedicated Amazon Warehouse Brand Bargain Sniper (High-demand brands)
-    const WAREHOUSE_SNIPER_BRANDS = [
+    // 2. Dedicated Amazon Warehouse & Clearance Premier Brand Bargain Sniper (35+ Top Brands)
+    const PREMIER_SNIPER_BRANDS = [
       'apple', 'sony', 'bose', 'dyson', 'nintendo', 'playstation', 
-      'xbox', 'logitech', 'samsung', 'garmin', 'ninja', 'dewalt', 'asus'
+      'xbox', 'logitech', 'samsung', 'garmin', 'ninja', 'dewalt', 'asus',
+      'sennheiser', 'lenovo', 'dell', 'hp', 'lg', 'anker', 'jbl', 'sonos',
+      'gopro', 'dji', 'sandisk', 'crucial', 'corsair', 'steelseries', 'razer',
+      'philips', 'breville', 'delonghi', 'kitchenaid', 'roborock', 'oral-b',
+      'braun', 'makita', 'bosch', 'lego', 'beats'
     ];
-    console.log(`[CRAWLER] 🎯 Scanning Amazon Warehouse for top in-demand brand bargains across ${WAREHOUSE_SNIPER_BRANDS.length} brands...`);
-    for (const brand of WAREHOUSE_SNIPER_BRANDS) {
-      db.crawler.currentStep = `📦 Warehouse Brand Sniper: ${brand.toUpperCase()}`;
+    console.log(`[CRAWLER] 🎯 Scanning Amazon Warehouse & Retail Clearance for top in-demand brand bargains across ${PREMIER_SNIPER_BRANDS.length} brands...`);
+    for (const brand of PREMIER_SNIPER_BRANDS) {
+      db.crawler.currentStep = `📦 Brand Sniper: ${brand.toUpperCase()} (Warehouse & Clearance)`;
       try {
         pagesScanned++;
+        // 1) Warehouse search
         const brandRes = await scrapeAmazonStore({
           storeType: 'warehouse',
           keyword: brand,
@@ -2011,7 +2110,55 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
             }
           }
         }
-        await new Promise(r => setTimeout(r, 1200));
+        await new Promise(r => setTimeout(r, 800));
+
+        // 2) Normal Amazon clearance (35%+ off)
+        const normalRes = await scrapeAmazonStore({
+          storeType: 'normal',
+          keyword: brand,
+          category: 'all',
+          minDiscount: 35,
+          domain,
+          sort: 'date-desc-rank',
+          page: 1,
+          availableOnly: true
+        });
+        const normalItems = normalRes.items || [];
+        totalScanned += normalItems.length;
+        for (const item of normalItems) {
+          item.isPriceError = isValidPriceError(item);
+          const numericPrice = parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
+          item.numericPrice = numericPrice;
+          item.domain = domain;
+          item.store = 'Normal Amazon';
+
+          if (!db.crawledDeals[item.asin]) {
+            item.firstSeenAt = Date.now();
+            item.lastSeenAt = Date.now();
+            item.status = 'active';
+            db.crawledDeals[item.asin] = item;
+            newAdded++;
+            if (item.isPriceError) {
+              console.log(`[BRAND SNIPER] 🚨 Clearance Price Error on ${brand}: ${item.title.substring(0, 50)} at ${item.price}!`);
+              await dispatchPriceErrorNotification(item);
+            }
+            await checkWatchlistMatch(item);
+          } else {
+            const existing = db.crawledDeals[item.asin];
+            existing.lastSeenAt = Date.now();
+            if (item.isPriceError) existing.isPriceError = true;
+            if (numericPrice > 0 && existing.numericPrice > 0 && numericPrice < existing.numericPrice) {
+              existing.previousPrice = existing.price;
+              existing.price = item.price;
+              existing.numericPrice = numericPrice;
+              existing.discountPercent = item.discountPercent;
+              existing.priceDropAt = Date.now();
+              priceDrops++;
+              if (existing.isPriceError) await dispatchPriceErrorNotification(existing);
+            }
+          }
+        }
+        await new Promise(r => setTimeout(r, 800));
       } catch (brandErr) {
         console.warn(`[CRAWLER] Brand sweep error for ${brand}:`, brandErr.message);
       }

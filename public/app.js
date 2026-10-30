@@ -39,13 +39,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const scanBannerText = document.getElementById('scanBannerText');
   const stopScanBtn = document.getElementById('stopScanBtn');
   const tabAllDeals = document.getElementById('tabAllDeals');
+  const tabTopBrands = document.getElementById('tabTopBrands');
   const tabJustListed = document.getElementById('tabJustListed');
   const tabSnipedDeals = document.getElementById('tabSnipedDeals');
   const tabPriceErrors = document.getElementById('tabPriceErrors');
   const countAllDeals = document.getElementById('countAllDeals');
+  const countTopBrands = document.getElementById('countTopBrands');
   const countJustListed = document.getElementById('countJustListed');
   const countSnipedDeals = document.getElementById('countSnipedDeals');
   const countPriceErrors = document.getElementById('countPriceErrors');
+  const hideAccessoriesToggleBtn = document.getElementById('hideAccessoriesToggleBtn');
+  const hideAccessoriesLabel = document.getElementById('hideAccessoriesLabel');
+  let hideAccessories = true;
 
   // New Filters
   const minPriceInput = document.getElementById('minPriceInput');
@@ -405,16 +410,47 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetToAllDealsTab() {
     activeFilterTab = 'all';
     if (tabAllDeals) tabAllDeals.classList.add('active');
+    if (tabTopBrands) tabTopBrands.classList.remove('active');
     if (tabJustListed) tabJustListed.classList.remove('active');
     if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
     if (tabPriceErrors) tabPriceErrors.classList.remove('active');
     if (timeFilterRow) timeFilterRow.style.display = 'none';
   }
 
-  // Filter Tabs (All Deals vs Just Listed vs Sniped Deals vs Price Errors)
+  // Filter Tabs (All Deals vs Top Brands vs Just Listed vs Sniped Deals vs Price Errors)
   if (tabAllDeals) {
     tabAllDeals.addEventListener('click', () => {
       resetToAllDealsTab();
+      loadDatabaseDeals(false);
+    });
+  }
+
+  if (tabTopBrands) {
+    tabTopBrands.addEventListener('click', () => {
+      activeFilterTab = 'top_brands';
+      tabTopBrands.classList.add('active');
+      if (tabAllDeals) tabAllDeals.classList.remove('active');
+      if (tabJustListed) tabJustListed.classList.remove('active');
+      if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (tabPriceErrors) tabPriceErrors.classList.remove('active');
+      if (timeFilterRow) timeFilterRow.style.display = 'none';
+
+      loadDatabaseDeals(true);
+    });
+  }
+
+  if (hideAccessoriesToggleBtn) {
+    hideAccessoriesToggleBtn.addEventListener('click', () => {
+      hideAccessories = !hideAccessories;
+      if (hideAccessories) {
+        hideAccessoriesToggleBtn.classList.add('active');
+        if (hideAccessoriesLabel) hideAccessoriesLabel.textContent = 'Clean Feed (No Cases/Parts)';
+        showToast('🛡️ Clean Feed enabled: Cases, covers, & replacement parts hidden');
+      } else {
+        hideAccessoriesToggleBtn.classList.remove('active');
+        if (hideAccessoriesLabel) hideAccessoriesLabel.textContent = 'Show All (Including Parts)';
+        showToast('🔓 Clean Feed disabled: Showing all items');
+      }
       loadDatabaseDeals(false);
     });
   }
@@ -424,6 +460,7 @@ document.addEventListener('DOMContentLoaded', () => {
       activeFilterTab = 'price_errors';
       tabPriceErrors.classList.add('active');
       if (tabAllDeals) tabAllDeals.classList.remove('active');
+      if (tabTopBrands) tabTopBrands.classList.remove('active');
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
@@ -447,7 +484,9 @@ document.addEventListener('DOMContentLoaded', () => {
       activeFilterTab = 'just_listed';
       tabJustListed.classList.add('active');
       if (tabAllDeals) tabAllDeals.classList.remove('active');
+      if (tabTopBrands) tabTopBrands.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (tabPriceErrors) tabPriceErrors.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'flex';
 
       // Smart selection: if the currently selected window has 0 deals, auto-select a window that has deals
@@ -481,7 +520,9 @@ document.addEventListener('DOMContentLoaded', () => {
       activeFilterTab = 'sniped';
       tabSnipedDeals.classList.add('active');
       if (tabAllDeals) tabAllDeals.classList.remove('active');
+      if (tabTopBrands) tabTopBrands.classList.remove('active');
       if (tabJustListed) tabJustListed.classList.remove('active');
+      if (tabPriceErrors) tabPriceErrors.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
       // Always fetch fresh sniped matches from backend and merge
@@ -1704,11 +1745,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count12h) count12h.textContent = stats.last12h || 0;
       if (count24h) count24h.textContent = stats.last24h || 0;
       if (countPriceErrors) countPriceErrors.textContent = stats.priceErrors !== undefined ? stats.priceErrors : 0;
+      if (countTopBrands) countTopBrands.textContent = stats.topBrands !== undefined ? stats.topBrands.toLocaleString() : 0;
       if (countJustListed) countJustListed.textContent = stats.last24h || stats.last6h || 0;
       if (countAllDeals) countAllDeals.textContent = (stats.totalInDb ? (storeType === 'warehouse' ? stats.warehouseDeals : (storeType === 'normal' ? stats.normalDeals : stats.totalInDb)).toLocaleString() : (totalMatches ? totalMatches.toLocaleString() : items.length.toLocaleString()));
     } else {
-      let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0, cPriceErrors = 0;
+      let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0, cPriceErrors = 0, cTopBrands = 0;
       for (const d of items) {
+        if (d.isBrandDeal || d.brand) cTopBrands++;
         const disc = parseInt(d.discountPercent, 10) || 0;
         if (disc >= 80 || d.isPriceError) cPriceErrors++;
         const ts = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || dealHistory[d.asin] || 0;
@@ -1729,6 +1772,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count12h) count12h.textContent = c12h;
       if (count24h) count24h.textContent = c24h;
       if (countPriceErrors) countPriceErrors.textContent = cPriceErrors;
+      if (countTopBrands) countTopBrands.textContent = cTopBrands.toLocaleString();
       if (countJustListed) countJustListed.textContent = c24h;
       if (countAllDeals) countAllDeals.textContent = items.length.toLocaleString();
     }
@@ -1753,6 +1797,8 @@ document.addEventListener('DOMContentLoaded', () => {
       displayedItems = snipedDeals;
     } else if (activeFilterTab === 'price_errors') {
       displayedItems = items.filter(d => (parseInt(d.discountPercent, 10) || 0) >= 80 || d.isPriceError);
+    } else if (activeFilterTab === 'top_brands') {
+      displayedItems = items.filter(d => d.isBrandDeal || d.brand);
     }
 
     const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
@@ -1764,6 +1810,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (activeFilterTab === 'price_errors') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Price Errors & Glitches (80%+ Off)`;
       filterSummaryBadge.textContent = `🔥 Price Errors & Glitches • ${storeLabel}`;
+    } else if (activeFilterTab === 'top_brands') {
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Premier Brand Deals (Apple, Sony, Bose, etc.)`;
+      filterSummaryBadge.textContent = `⭐ Premier Brand Deals • ${storeLabel}`;
     } else {
       const matchTotal = totalMatches || dbTotalMatches || items.length;
       let countExtraHtml = '';
@@ -1807,6 +1856,23 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
       document.getElementById('exitGlitchEmptyBtn')?.addEventListener('click', () => {
+        tabAllDeals?.click();
+      });
+      return;
+    }
+
+    if (displayedItems.length === 0 && activeFilterTab === 'top_brands') {
+      dealsGrid.innerHTML = `
+        <div class="empty-state card" style="grid-column: 1 / -1;">
+          <div class="empty-icon">⭐</div>
+          <h3>No Premier Brand Deals Found For Current Filter</h3>
+          <p>We're actively indexing deals for Sony, Apple, Bose, Dyson, Nintendo, ASUS, and 30+ top brands. Try clearing category or price restrictions, or click below to view all deals.</p>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="exitBrandsEmptyBtn" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none;">Show All Deals (${items.length})</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('exitBrandsEmptyBtn')?.addEventListener('click', () => {
         tabAllDeals?.click();
       });
       return;
@@ -1955,6 +2021,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </a>
           </div>
           <div class="card-body">
+            ${item.brand ? `<div class="card-brand-header"><span class="badge-brand">⭐ ${escapeHtml(item.brand.toUpperCase())}</span></div>` : ''}
             <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="card-title" title="${escapeHtml(item.title)}" style="text-decoration: none;">
               ${escapeHtml(item.title)}
             </a>
@@ -2414,6 +2481,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (activeFilterTab === 'price_errors') {
         queryParams.set('priceErrorsOnly', 'true');
         queryParams.set('minDiscount', Math.max(80, parseInt(minDisc, 10) || 80).toString());
+      } else if (activeFilterTab === 'top_brands') {
+        queryParams.set('brandsOnly', 'true');
+      }
+
+      if (hideAccessories) {
+        queryParams.set('hideAccessories', 'true');
       }
 
       const res = await fetch(`/api/db/deals?${queryParams.toString()}`);
@@ -2467,6 +2540,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (count6h) count6h.textContent = data.stats.last6h || 0;
             if (count12h) count12h.textContent = data.stats.last12h || 0;
             if (count24h) count24h.textContent = data.stats.last24h || 0;
+            if (countPriceErrors) countPriceErrors.textContent = data.stats.priceErrors !== undefined ? data.stats.priceErrors : 0;
+            if (countTopBrands) countTopBrands.textContent = (data.stats.topBrands || 0).toLocaleString();
             if (countJustListed) countJustListed.textContent = data.stats.last24h || data.stats.last6h || 0;
             if (countAllDeals) countAllDeals.textContent = (storeType === 'warehouse' ? data.stats.warehouseDeals : (storeType === 'normal' ? data.stats.normalDeals : data.stats.totalInDb)) || 0;
           }

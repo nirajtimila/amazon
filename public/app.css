@@ -1153,6 +1153,48 @@ select {
   color: #fda4af;
 }
 
+.tab-pill-brands.active {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.tab-pill-brands.active .tab-badge {
+  background: rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+}
+
+.smart-quality-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.accessory-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #6ee7b7;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.accessory-filter-toggle:hover {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.accessory-filter-toggle:not(.active) {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
+}
+
 /* Time Filter Row */
 .time-filter-row {
   display: flex;
@@ -1362,6 +1404,26 @@ select {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.card-brand-header {
+  margin-bottom: 2px;
+}
+
+.badge-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .card-title {
