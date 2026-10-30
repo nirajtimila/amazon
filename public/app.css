@@ -377,6 +377,91 @@ select option {
 }
 
 /* ========================================================
+   TOP NAVIGATION BAR HIGHLIGHT & TABS (.nav-link)
+   ======================================================== */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  position: relative;
+  height: 64px;
+  padding: 0 4px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #475569;
+  background: transparent;
+  border: none;
+  border-bottom: 2.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  color: #006948;
+}
+
+.nav-link.active {
+  color: #006948 !important;
+  font-weight: 700 !important;
+  border-bottom-color: #006948 !important;
+}
+
+.nav-link.nav-link-glitch:hover {
+  color: #a73a00;
+}
+
+.nav-link.nav-link-glitch.active {
+  color: #a73a00 !important;
+  font-weight: 700 !important;
+  border-bottom-color: #a73a00 !important;
+}
+
+/* Mobile sub-navigation bar */
+.nav-link-mobile {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 13px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.18s ease;
+}
+
+.nav-link-mobile:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.nav-link-mobile.active {
+  background: #006948 !important;
+  color: #ffffff !important;
+  border-color: #006948 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 3px rgba(0, 105, 72, 0.25);
+}
+
+.nav-link-mobile.nav-link-glitch.active {
+  background: #a73a00 !important;
+  color: #ffffff !important;
+  border-color: #a73a00 !important;
+  box-shadow: 0 1px 3px rgba(167, 58, 0, 0.25);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ========================================================
    RESULTS FILTER TABS (.filter-tab-pill)
    ======================================================== */
 .filter-tab-pill {

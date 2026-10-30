@@ -80,7 +80,7 @@
   </script>
 
   <!-- Custom Styles for Modals, Sliders, Animations, and Drawers -->
-  <link rel="stylesheet" href="app.css?v=13.0"/>
+  <link rel="stylesheet" href="app.css?v=14.0"/>
 </head>
 <body class="bg-background text-on-surface min-h-screen flex flex-col font-body text-sm antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
 
@@ -103,12 +103,12 @@
         </div>
       </div>
 
-      <!-- Navigation links (Desktop) -->
-      <nav class="hidden lg:flex items-center gap-5">
-        <a class="text-primary font-bold border-b-2 border-primary py-2 text-sm transition-colors cursor-pointer" id="navExploreDeals">Explore Deals</a>
-        <a class="text-on-surface-variant hover:text-primary py-2 text-sm transition-colors cursor-pointer" id="navWarehouseDeals">Warehouse Open-Box</a>
-        <a class="text-on-surface-variant hover:text-secondary py-2 text-sm transition-colors cursor-pointer" id="navPriceGlitches">Price Glitches</a>
-        <a class="text-on-surface-variant hover:text-primary py-2 text-sm transition-colors cursor-pointer" id="navWatchlist">Watchlist</a>
+      <!-- Navigation links (Desktop & Tablet) -->
+      <nav class="hidden md:flex items-center gap-5 lg:gap-7 h-16" id="topNav">
+        <button type="button" class="nav-link active" id="navExploreDeals" data-nav="explore">Explore Deals</button>
+        <button type="button" class="nav-link" id="navWarehouseDeals" data-nav="warehouse">Warehouse Open-Box</button>
+        <button type="button" class="nav-link nav-link-glitch" id="navPriceGlitches" data-nav="glitches">Price Glitches</button>
+        <button type="button" class="nav-link" id="navWatchlist" data-nav="watchlist">Watchlist</button>
       </nav>
 
       <!-- Trailing Actions & Controls -->
@@ -157,6 +157,14 @@
           <span class="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-secondary text-on-secondary text-[10px] font-extrabold" id="savedCount">0</span>
         </button>
       </div>
+    </div>
+
+    <!-- Mobile Sub-Navigation Bar (Horizontal scrolling pill row for small screens) -->
+    <div class="md:hidden flex items-center gap-2 px-4 py-2 bg-surface-container-lowest border-t border-outline-variant/20 overflow-x-auto no-scrollbar" id="mobileNav">
+      <button type="button" class="nav-link-mobile active" id="mobileNavExploreDeals" data-nav="explore">Explore Deals</button>
+      <button type="button" class="nav-link-mobile" id="mobileNavWarehouseDeals" data-nav="warehouse">Warehouse Open-Box</button>
+      <button type="button" class="nav-link-mobile nav-link-glitch" id="mobileNavPriceGlitches" data-nav="glitches">Price Glitches</button>
+      <button type="button" class="nav-link-mobile" id="mobileNavWatchlist" data-nav="watchlist">Watchlist</button>
     </div>
   </header>
 
@@ -986,6 +994,6 @@
   <!-- Notification Toast -->
   <div class="fixed bottom-5 right-5 z-50 bg-on-surface text-surface py-2.5 px-4 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 pointer-events-none opacity-0 transition-opacity duration-200" id="toast"></div>
 
-  <script src="app.js?v=13.0"></script>
+  <script src="app.js?v=14.0"></script>
 </body>
 </html>

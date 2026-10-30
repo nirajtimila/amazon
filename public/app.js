@@ -415,6 +415,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
     if (tabPriceErrors) tabPriceErrors.classList.remove('active');
     if (timeFilterRow) timeFilterRow.style.display = 'none';
+    if (typeof setActiveNavLink === 'function' && currentNavTab !== 'watchlist') {
+      setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+    }
   }
 
   // Filter Tabs (All Deals vs Top Brands vs Just Listed vs Sniped Deals vs Price Errors)
@@ -422,6 +425,9 @@ document.addEventListener('DOMContentLoaded', () => {
     tabAllDeals.addEventListener('click', () => {
       resetToAllDealsTab();
       loadDatabaseDeals(false);
+      if (typeof setActiveNavLink === 'function') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   }
 
@@ -436,6 +442,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
       loadDatabaseDeals(true);
+      if (typeof setActiveNavLink === 'function') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   }
 
@@ -466,6 +475,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
       loadDatabaseDeals(true);
+      if (typeof setActiveNavLink === 'function') {
+        setActiveNavLink('glitches');
+      }
     });
   }
 
@@ -502,6 +514,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       loadDatabaseDeals(true);
+      if (typeof setActiveNavLink === 'function') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   }
 
@@ -514,6 +529,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (tabPriceErrors) tabPriceErrors.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
+      if (typeof setActiveNavLink === 'function') {
+        setActiveNavLink('watchlist');
+      }
 
       // Always fetch fresh sniped matches from backend and merge
       try {
@@ -688,10 +706,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function openWatchlistModal() {
     if (watchlistModal) watchlistModal.style.display = 'flex';
     updateWatchlistUI();
+    if (typeof setActiveNavLink === 'function') setActiveNavLink('watchlist');
   }
 
   function closeWatchlistModal() {
     if (watchlistModal) watchlistModal.style.display = 'none';
+    if (typeof setActiveNavLink === 'function') {
+      if (activeFilterTab === 'price_errors') {
+        setActiveNavLink('glitches');
+      } else if (activeFilterTab === 'sniped') {
+        setActiveNavLink('watchlist');
+      } else {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
+    }
   }
 
   if (watchlistModalBtn) watchlistModalBtn.addEventListener('click', openWatchlistModal);
@@ -1014,6 +1042,9 @@ document.addEventListener('DOMContentLoaded', () => {
       deals = [];
       resetToAllDealsTab();
       loadDatabaseDeals();
+      if (typeof setActiveNavLink === 'function' && activeFilterTab !== 'price_errors' && activeFilterTab !== 'sniped') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   }
 
@@ -1054,6 +1085,9 @@ document.addEventListener('DOMContentLoaded', () => {
       deals = [];
       resetToAllDealsTab();
       loadDatabaseDeals();
+      if (typeof setActiveNavLink === 'function' && activeFilterTab !== 'price_errors' && activeFilterTab !== 'sniped') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   });
 
@@ -1104,6 +1138,9 @@ document.addEventListener('DOMContentLoaded', () => {
       deals = [];
       resetToAllDealsTab();
       loadDatabaseDeals();
+      if (typeof setActiveNavLink === 'function' && activeFilterTab !== 'price_errors' && activeFilterTab !== 'sniped') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   }
   if (negKeywordsInput) {
@@ -1140,6 +1177,9 @@ document.addEventListener('DOMContentLoaded', () => {
       deals = [];
       resetToAllDealsTab();
       loadDatabaseDeals();
+      if (typeof setActiveNavLink === 'function' && activeFilterTab !== 'price_errors' && activeFilterTab !== 'sniped') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   });
 
@@ -1275,6 +1315,9 @@ document.addEventListener('DOMContentLoaded', () => {
       deals = [];
       resetToAllDealsTab();
       loadDatabaseDeals();
+      if (typeof setActiveNavLink === 'function' && activeFilterTab !== 'price_errors' && activeFilterTab !== 'sniped') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
     });
   });
 
@@ -3122,29 +3165,88 @@ document.addEventListener('DOMContentLoaded', () => {
     closeAnalyticsBtn.addEventListener('click', () => toggleAnalyticsDashboard(false));
   }
 
-  // Poll database status every 15 seconds
-  setInterval(updateDatabaseStatus, 15000);
-});
+  // ========================================================
+  // TOP NAVIGATION BAR HIGHLIGHT & ROUTING
+  // ========================================================
+  let currentNavTab = 'explore'; // 'explore' | 'warehouse' | 'glitches' | 'watchlist'
 
+  function setActiveNavLink(navKey) {
+    if (!navKey) return;
+    currentNavTab = navKey;
 
-    // Stitch Top Navigation Links Wiring
-    document.getElementById('navExploreDeals')?.addEventListener('click', () => {
-      tabAllDeals?.click();
-      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
+    const navItems = document.querySelectorAll('#topNav .nav-link, #mobileNav .nav-link-mobile');
+    navItems.forEach(item => {
+      const isTarget = item.getAttribute('data-nav') === navKey;
+      item.classList.toggle('active', isTarget);
     });
-    document.getElementById('navWarehouseDeals')?.addEventListener('click', () => {
-      document.querySelector('[data-store="warehouse"]')?.click();
-      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
-    });
-    document.getElementById('navPriceGlitches')?.addEventListener('click', () => {
+  }
+
+  function handleNavSelection(navKey) {
+    setActiveNavLink(navKey);
+
+    if (navKey === 'explore') {
+      storeType = 'both';
+      storePills.forEach(p => {
+        if (p.getAttribute('data-store') === 'both') p.classList.add('active');
+        else p.classList.remove('active');
+      });
+      resetToAllDealsTab();
+      updateTargetUrl();
+      currentPage = 1;
+      deals = [];
+      loadDatabaseDeals(false);
+      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (navKey === 'warehouse') {
+      storeType = 'warehouse';
+      storePills.forEach(p => {
+        if (p.getAttribute('data-store') === 'warehouse') p.classList.add('active');
+        else p.classList.remove('active');
+      });
+      resetToAllDealsTab();
+      updateTargetUrl();
+      currentPage = 1;
+      deals = [];
+      loadDatabaseDeals(false);
+      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (navKey === 'glitches') {
       tabPriceErrors?.click();
-      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
-    });
-    document.getElementById('navWatchlist')?.addEventListener('click', () => {
-      watchlistModalBtn?.click();
+      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (navKey === 'watchlist') {
+      openWatchlistModal();
+    }
+  }
+
+  function initTopNavigation() {
+    const navItems = document.querySelectorAll('#topNav .nav-link, #mobileNav .nav-link-mobile');
+    navItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const navKey = e.currentTarget.getAttribute('data-nav');
+        if (navKey) handleNavSelection(navKey);
+      });
     });
 
-    // Stitch Category Quick Chips Wiring
+    const brandLogo = document.getElementById('brandLogo');
+    if (brandLogo) {
+      brandLogo.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleNavSelection('explore');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+    }
+
+    // Modal backdrops & dismiss buttons
+    document.getElementById('closePriceHistoryModalBackdrop')?.addEventListener('click', () => {
+      if (priceHistoryModal) priceHistoryModal.style.display = 'none';
+    });
+    document.getElementById('closePriceModalDismissBtn')?.addEventListener('click', () => {
+      if (priceHistoryModal) priceHistoryModal.style.display = 'none';
+    });
+    document.getElementById('closeWatchlistModalBackdrop')?.addEventListener('click', () => {
+      closeWatchlistModal();
+    });
+
+    // Category Quick Chips
     document.querySelectorAll('.cat-chip').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const cat = e.currentTarget.getAttribute('data-cat');
@@ -3157,13 +3259,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    // Stitch Modal Close Listeners
-    document.getElementById('closePriceHistoryModalBackdrop')?.addEventListener('click', () => {
-      if (priceHistoryModal) priceHistoryModal.style.display = 'none';
-    });
-    document.getElementById('closePriceModalDismissBtn')?.addEventListener('click', () => {
-      if (priceHistoryModal) priceHistoryModal.style.display = 'none';
-    });
-    document.getElementById('closeWatchlistModalBackdrop')?.addEventListener('click', () => {
-      if (watchlistModal) watchlistModal.style.display = 'none';
-    });
+    // Initialize highlight on load
+    setActiveNavLink('explore');
+  }
+
+  initTopNavigation();
+
+  // Poll database status every 15 seconds
+  setInterval(updateDatabaseStatus, 15000);
+});
