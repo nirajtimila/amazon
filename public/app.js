@@ -465,16 +465,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
-      // Set min discount slider to 80%
-      if (minDiscountSlider) {
-        minDiscountSlider.value = 80;
-        syncDiscountUI();
-      }
-      presetPills.forEach(p => {
-        if (p.getAttribute('data-min') === '80') p.classList.add('active');
-        else p.classList.remove('active');
-      });
-
       loadDatabaseDeals(true);
     });
   }
@@ -1799,7 +1789,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (activeFilterTab === 'sniped') {
       displayedItems = snipedDeals;
     } else if (activeFilterTab === 'price_errors') {
-      displayedItems = items.filter(d => (parseInt(d.discountPercent, 10) || 0) >= 80 || d.isPriceError);
+      displayedItems = items.filter(d => d.isPriceError || (parseInt(d.discountPercent, 10) || 0) >= 70);
     } else if (activeFilterTab === 'top_brands') {
       displayedItems = items.filter(d => d.isBrandDeal || d.brand);
     }
@@ -1811,7 +1801,7 @@ document.addEventListener('DOMContentLoaded', () => {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Watchlist Sniped Matches`;
       filterSummaryBadge.textContent = '🎯 Watchlist Sniper Target Hits';
     } else if (activeFilterTab === 'price_errors') {
-      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Price Errors & Glitches (80%+ Off)`;
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Verified Price Errors & Clearance Glitches`;
       filterSummaryBadge.textContent = `🔥 Price Errors & Glitches • ${storeLabel}`;
     } else if (activeFilterTab === 'top_brands') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Premier Brand Deals (Apple, Sony, Bose, etc.)`;
@@ -2478,7 +2468,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (activeFilterTab === 'price_errors') {
         queryParams.set('priceErrorsOnly', 'true');
-        queryParams.set('minDiscount', Math.max(80, parseInt(minDisc, 10) || 80).toString());
+        queryParams.set('minDiscount', '0');
       } else if (activeFilterTab === 'top_brands') {
         queryParams.set('brandsOnly', 'true');
       }

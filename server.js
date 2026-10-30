@@ -134,7 +134,7 @@ function detectBrandName(title) {
 function isValidPriceError(item) {
   if (!item) return false;
   const np = item.numericPrice || parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
-  if (np < 8.0) return false; // Filter out cheap $1-$7 trinkets
+  if (np < 8.0) return false; // Filter out cheap trinkets
 
   const title = String(item.title || '');
   if (JUNK_TRASH_REGEX.test(title)) return false;
@@ -143,35 +143,48 @@ function isValidPriceError(item) {
   const disc = parseInt(item.discountPercent, 10) || 0;
   const origPrice = parseFloat(String(item.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
   const savings = origPrice > np ? (origPrice - np) : 0;
-  const brand = detectBrandName(title);
+  const brand = item.brand || detectBrandName(title);
+  const rev = parseInt(item.reviews, 10) || 0;
+  const rating = parseFloat(item.rating) || 0;
+  const isWh = item.store === 'Amazon Warehouse';
 
-  // Reject dropshipper fake MSRP inflation: savings > $250 on non-brand item with claim of 85%+ discount unless highly reviewed
-  if (!brand && disc >= 85 && savings >= 250) {
-    const rev = parseInt(item.reviews, 10) || 0;
-    if (rev < 30) return false;
-  }
+  // Reject dropshipper fake MSRP inflation
+  if (!brand && disc >= 85 && savings >= 200 && rev < 20) return false;
+  if (!brand && origPrice >= 800 && rev === 0 && !isWh) return false;
 
   // Tier 1: Recognized Top Brand with real price cut
   if (brand) {
-    if (disc >= 70) return true;
-    if (disc >= 45 && savings >= 30) return true;
-    if (disc >= 35 && savings >= 50) return true;
-    if (savings >= 100) return true;
+    if (disc >= 60) return true;
+    if (disc >= 40 && savings >= 25) return true;
+    if (disc >= 30 && savings >= 40) return true;
+    if (savings >= 80) return true;
   }
 
-  // Tier 2: High Dollar Major Glitch on rated/reviewed products or Amazon Warehouse
-  if (savings >= 80 && disc >= 60) {
-    const rev = parseInt(item.reviews, 10) || 0;
-    const rating = parseFloat(item.rating) || 0;
-    if (rev >= 5 || rating >= 3.8 || item.store === 'Amazon Warehouse') {
-      return true;
-    }
+  // Tier 2: Genuine High Percentage Bargain (75%+ off with meaningful dollar savings)
+  if (disc >= 75 && savings >= 25 && (rev >= 3 || rating >= 3.5 || isWh)) {
+    return true;
+  }
+  if (disc >= 80 && savings >= 20 && (rev >= 2 || rating >= 3.5 || isWh)) {
+    return true;
   }
 
-  // Tier 3: Verified Price Drop from previous crawl
-  if (item.previousPrice && disc >= 40 && savings >= 30) {
+  // Tier 3: High Dollar Glitch (saving $60+ with 50%+ discount)
+  if (savings >= 60 && disc >= 50 && (rev >= 5 || rating >= 3.8 || isWh)) {
+    return true;
+  }
+  if (savings >= 100 && disc >= 40 && (rev >= 5 || rating >= 3.5 || isWh)) {
+    return true;
+  }
+
+  // Tier 4: Amazon Warehouse Deep Clearance
+  if (isWh && disc >= 50 && savings >= 25) {
+    return true;
+  }
+
+  // Tier 5: Verified Price Drop from previous crawl
+  if (item.previousPrice && disc >= 35 && savings >= 25) {
     const prevPrice = parseFloat(String(item.previousPrice).replace(/[^0-9.]/g, '')) || 0;
-    if (prevPrice > np && ((prevPrice - np) / prevPrice) >= 0.35) {
+    if (prevPrice > np && ((prevPrice - np) / prevPrice) >= 0.30) {
       return true;
     }
   }
@@ -1217,8 +1230,14 @@ app.get('/api/db/deals', (req, res) => {
 
       // Discount filter
       const disc = parseInt(d.discountPercent, 10) || 0;
-      if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) {
-        return false;
+      const minD = parseInt(minDiscount, 10) || 0;
+      const maxD = parseInt(maxDiscount, 10) || 100;
+      if (priceErrorsOnly === 'true' || priceErrorsOnly === true) {
+        // Valid price errors already satisfy smart threshold; only filter if user specifically set minDiscount > 20
+        if (minD > 20 && disc < minD) return false;
+        if (disc > maxD) return false;
+      } else {
+        if (disc < minD || disc > maxD) return false;
       }
 
       // Price filter
