@@ -131,6 +131,62 @@ function detectBrandName(title) {
   return null;
 }
 
+const SMART_PRODUCT_FALLBACKS = {
+  luggage: 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
+  suitcase: 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
+  'carry on': 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
+  backpack: 'https://m.media-amazon.com/images/I/811-bFJOKzL._AC_UL320_.jpg',
+  screwdriver: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
+  drill: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
+  tool: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
+  soundbar: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
+  audio: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
+  speaker: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
+  earbuds: 'https://m.media-amazon.com/images/I/61VqKW18HhL._AC_UL320_.jpg',
+  headphones: 'https://m.media-amazon.com/images/I/61VqKW18HhL._AC_UL320_.jpg',
+  keyboard: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
+  mouse: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
+  ipad: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
+  fountain: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+  cat: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+  dog: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+  pet: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+  vitamins: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
+  capsules: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
+  health: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
+  teeth: 'https://m.media-amazon.com/images/I/81Id+1n68+L._AC_UY218_.jpg',
+  whitening: 'https://m.media-amazon.com/images/I/81Id+1n68+L._AC_UY218_.jpg',
+  toys: 'https://m.media-amazon.com/images/I/81xMZaR2DvL._AC_UL320_.jpg',
+  dinosaur: 'https://m.media-amazon.com/images/I/81xMZaR2DvL._AC_UL320_.jpg',
+  vacuum: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
+  car: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
+  fanttik: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
+  gaming: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
+  videogames: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
+  nintendo: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
+  beauty: 'https://m.media-amazon.com/images/I/71EQF0lSRuL._AC_UL320_.jpg',
+  sport: 'https://m.media-amazon.com/images/I/91LTr5PZtgL._AC_UL320_.jpg',
+  kitchen: 'https://m.media-amazon.com/images/I/81yU7zUzXuL._AC_UL320_.jpg',
+  cook: 'https://m.media-amazon.com/images/I/81yU7zUzXuL._AC_UL320_.jpg',
+  pc: 'https://m.media-amazon.com/images/I/711d8pl1y-L._AC_UL320_.jpg',
+  laptop: 'https://m.media-amazon.com/images/I/711d8pl1y-L._AC_UL320_.jpg',
+  electronics: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg',
+  power: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg',
+  books: 'https://m.media-amazon.com/images/I/813qvpy7heL._AC_UY218_.jpg',
+  stripbooks: 'https://m.media-amazon.com/images/I/813qvpy7heL._AC_UY218_.jpg',
+  default: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg'
+};
+
+function getSmartProductFallback(title = '', category = '') {
+  const t = String(title || '').toLowerCase();
+  for (const [k, url] of Object.entries(SMART_PRODUCT_FALLBACKS)) {
+    if (t.includes(k)) return url;
+  }
+  const c = String(category || '').toLowerCase();
+  if (SMART_PRODUCT_FALLBACKS[c]) return SMART_PRODUCT_FALLBACKS[c];
+  return SMART_PRODUCT_FALLBACKS.default;
+}
+
 function isValidPriceError(item) {
   if (!item) return false;
   const np = item.numericPrice || parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
@@ -569,8 +625,15 @@ async function scrapeAmazonStore(opts) {
       link += (link.includes('?') ? '&' : '?') + 'aod=1';
     }
 
-    // Image
-    let image = $(el).find('img.s-image').first().attr('src') || '';
+    // Image: robust multi-attribute extraction + smart authentic product fallback
+    let image = $(el).find('img.s-image').first().attr('src') ||
+                $(el).find('img.s-image').first().attr('data-src') ||
+                $(el).find('img.s-image').first().attr('data-image-load') ||
+                $(el).find('.s-product-image-container img, .s-image-tall-aspect img, [data-component-type="s-product-image"] img').first().attr('src') ||
+                '';
+    if (!image || image.includes('placeholder') || image.startsWith('data:')) {
+      image = getSmartProductFallback(title, category);
+    }
 
     // Robust Price Extraction (handles Warehouse used offers, More Buying Choices, & normal retail)
     let price = 0;

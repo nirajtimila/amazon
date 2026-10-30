@@ -1746,6 +1746,73 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${symbol}${num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
   }
 
+  const PRODUCT_IMAGE_FALLBACKS = {
+    luggage: 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
+    suitcase: 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
+    'carry on': 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
+    backpack: 'https://m.media-amazon.com/images/I/811-bFJOKzL._AC_UL320_.jpg',
+    screwdriver: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
+    drill: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
+    tool: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
+    soundbar: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
+    audio: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
+    speaker: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
+    earbuds: 'https://m.media-amazon.com/images/I/61VqKW18HhL._AC_UL320_.jpg',
+    headphones: 'https://m.media-amazon.com/images/I/61VqKW18HhL._AC_UL320_.jpg',
+    keyboard: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
+    mouse: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
+    ipad: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
+    fountain: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+    cat: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+    dog: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+    pet: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
+    vitamins: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
+    capsules: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
+    health: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
+    teeth: 'https://m.media-amazon.com/images/I/81Id+1n68+L._AC_UY218_.jpg',
+    whitening: 'https://m.media-amazon.com/images/I/81Id+1n68+L._AC_UY218_.jpg',
+    toys: 'https://m.media-amazon.com/images/I/81xMZaR2DvL._AC_UL320_.jpg',
+    dinosaur: 'https://m.media-amazon.com/images/I/81xMZaR2DvL._AC_UL320_.jpg',
+    vacuum: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
+    car: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
+    fanttik: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
+    gaming: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
+    videogames: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
+    nintendo: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
+    beauty: 'https://m.media-amazon.com/images/I/71EQF0lSRuL._AC_UL320_.jpg',
+    sport: 'https://m.media-amazon.com/images/I/91LTr5PZtgL._AC_UL320_.jpg',
+    kitchen: 'https://m.media-amazon.com/images/I/81yU7zUzXuL._AC_UL320_.jpg',
+    cook: 'https://m.media-amazon.com/images/I/81yU7zUzXuL._AC_UL320_.jpg',
+    pc: 'https://m.media-amazon.com/images/I/711d8pl1y-L._AC_UL320_.jpg',
+    laptop: 'https://m.media-amazon.com/images/I/711d8pl1y-L._AC_UL320_.jpg',
+    electronics: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg',
+    power: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg',
+    books: 'https://m.media-amazon.com/images/I/813qvpy7heL._AC_UY218_.jpg',
+    stripbooks: 'https://m.media-amazon.com/images/I/813qvpy7heL._AC_UY218_.jpg',
+    default: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg'
+  };
+
+  function getProductImage(item) {
+    if (item && item.image && item.image.trim() !== '' && !item.image.includes('placeholder')) {
+      return item.image;
+    }
+    const title = (item && item.title ? item.title : '').toLowerCase();
+    const cat = (item && item.category ? item.category : '').toLowerCase();
+    for (const [k, url] of Object.entries(PRODUCT_IMAGE_FALLBACKS)) {
+      if (title.includes(k) || cat.includes(k)) return url;
+    }
+    return PRODUCT_IMAGE_FALLBACKS.default;
+  }
+
+  window.handleProductImgError = function(imgEl, cat, title) {
+    if (!imgEl) return;
+    imgEl.onerror = function() {
+      this.onerror = null;
+      this.src = PRODUCT_IMAGE_FALLBACKS.default;
+    };
+    imgEl.src = getProductImage({ title: title || '', category: cat || '' });
+  };
+
   // Render Deals
   function renderDeals(items, totalMatches = 0, stats = null) {
     if (!items || items.length === 0) {
@@ -1990,7 +2057,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dealsGrid.innerHTML = contextBannerHtml + displayedItems.map(item => {
       const isSaved = savedDeals.some(s => s.asin === item.asin);
-      const cleanImg = item.image || 'https://via.placeholder.com/300x200?text=No+Image';
+      const cleanImg = getProductImage(item);
       
       let itemUrl = item.url || item.link || (item.asin ? `https://${activeDomain}/dp/${item.asin}` : '#');
       const itemDomain = itemUrl.startsWith('http') ? (itemUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/)?.[1] || activeDomain) : activeDomain;
@@ -2048,7 +2115,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <!-- Thumbnail & floating badges -->
           <div class="card-img-wrap relative bg-surface-container-low p-6 flex items-center justify-center aspect-[4/3] overflow-hidden">
             <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="w-full h-full flex items-center justify-center">
-              <img class="max-h-48 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" src="${cleanImg}" alt="${escapeHtml(item.title)}" loading="lazy">
+              <img class="max-h-48 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" src="${cleanImg}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="handleProductImgError(this, '${escapeHtml(item.category || '')}', '${escapeHtml(item.title || '')}')">
             </a>
             <!-- Discount pill badge -->
             <div class="absolute top-3 left-3 flex flex-col gap-1 z-10 items-start">
@@ -2252,7 +2319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       return `
         <div class="saved-item-card">
-          <img src="${d.image || 'https://via.placeholder.com/50'}" alt="">
+          <img src="${getProductImage(d)}" alt="" onerror="handleProductImgError(this, '${escapeHtml(d.category || '')}', '${escapeHtml(d.title || '')}')">
           <div class="saved-item-info">
             <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="saved-item-title" style="text-decoration:none;color:inherit;display:block;">${escapeHtml(d.title)}</a>
             <div class="saved-item-price">${priceObj.display}</div>
@@ -2777,7 +2844,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pmTitle) pmTitle.textContent = item.title;
 
     const pmImage = document.getElementById('pmImage');
-    if (pmImage) pmImage.src = item.image || 'https://via.placeholder.com/300x200?text=No+Image';
+    if (pmImage) {
+      pmImage.onerror = function() {
+        this.onerror = null;
+        this.src = getProductImage(item);
+      };
+      pmImage.src = getProductImage(item);
+    }
 
     const pmStoreBadge = document.getElementById('pmStoreBadge');
     if (pmStoreBadge) {
