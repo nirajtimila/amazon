@@ -1660,6 +1660,14 @@ document.addEventListener('DOMContentLoaded', () => {
     `).join('');
   }
 
+  function formatCurrencyAmount(num, targetCurrency) {
+    if (num === null || num === undefined || isNaN(num)) return '';
+    const curr = targetCurrency || (currencySelect ? currencySelect.value : 'AUD');
+    const symbol = CURRENCY_SYMBOLS[curr] || '$';
+    const decimals = (curr === 'JPY') ? 0 : 2;
+    return `${symbol}${num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+  }
+
   // Render Deals
   function renderDeals(items, totalMatches = 0, stats = null) {
     if (!items || items.length === 0) {
@@ -1921,12 +1929,21 @@ document.addEventListener('DOMContentLoaded', () => {
         priceDropHtml = `<div class="deal-price-drop-badge">🔥 Price cut from ${escapeHtml(item.previousPrice)}</div>`;
       }
 
+      const discNum = parseInt(item.discountPercent, 10) || 0;
+      const isGlitch = discNum >= 80 || item.isPriceError;
+
+      // Dollar savings calculation
+      let savingsFormatted = item.savings;
+      if (!savingsFormatted && priceObj.numVal && listPriceObj.numVal && listPriceObj.numVal > priceObj.numVal) {
+        savingsFormatted = formatCurrencyAmount(listPriceObj.numVal - priceObj.numVal, activeCurrency);
+      }
+
       return `
-        <div class="deal-card" data-asin="${item.asin}">
+        <div class="deal-card ${isGlitch ? 'is-glitch' : ''}" data-asin="${item.asin}">
           <div class="card-img-wrap">
             <span class="discount-badge">${item.discountPercent || item.discount || (minDiscountSlider.value + '%+ OFF')}</span>
             <span class="store-badge ${storeBadgeClass}">${storeBadgeText}</span>
-            ${(parseInt(item.discountPercent, 10) || 0) >= 80 || item.isPriceError ? '<span class="badge-glitch-error">🔥 PRICE ERROR</span>' : ''}
+            ${isGlitch ? '<span class="badge-glitch-error">🔥 PRICE ERROR</span>' : ''}
             ${item.isJustListed ? '<span class="just-listed-badge">✨ JUST LISTED</span>' : ''}
             ${item.snipedFromTarget ? `<span class="sniper-match-badge" title="Matched Watchlist: ${escapeHtml(item.snipedFromTarget)}">🎯 ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
             ${item.page ? `<span class="page-badge" style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #cbd5e1; font-size: 0.68rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">Pg ${item.page}</span>` : ''}
@@ -1941,10 +1958,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="card-title" title="${escapeHtml(item.title)}" style="text-decoration: none;">
               ${escapeHtml(item.title)}
             </a>
-            ${item.condition ? `<div style="margin: 2px 0 6px 0;"><span class="condition-badge">📦 ${escapeHtml(item.condition)}</span></div>` : ''}
+            ${item.condition ? `<div><span class="condition-badge">📦 ${escapeHtml(item.condition)}</span></div>` : ''}
             ${isWarehouse ? `<div class="warehouse-direct-hint" title="Amazon defaults to the brand-new Buy Box. Clicking opens the used/warehouse offers panel.">📦 Direct Link to Warehouse Offer</div>` : ''}
-            ${timeBadgeHtml ? `<div style="margin-bottom: 4px;">${timeBadgeHtml}</div>` : ''}
-            ${priceDropHtml ? `<div style="margin-bottom: 4px;">${priceDropHtml}</div>` : ''}
+            ${timeBadgeHtml ? `<div>${timeBadgeHtml}</div>` : ''}
+            ${priceDropHtml ? `<div>${priceDropHtml}</div>` : ''}
             ${item.rating ? `
               <div class="card-rating">
                 <span>★ ${item.rating}</span>
@@ -1952,33 +1969,63 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             ` : '<div style="height: 18px;"></div>'}
             
-            <div class="card-pricing">
-              ${(!priceObj.numVal || priceObj.display === 'See Options' || priceObj.display === 'Check Site') ? `
-                <span class="price-options-pill" title="Amazon requires selecting your variant, size, or used buying option on the listing page to see the exact price.">⚡ See Options on Amazon</span>
-              ` : `
-                <span class="price-current">${priceObj.display}</span>
-                ${listPriceObj.display && listPriceObj.display !== 'See Options' && listPriceObj.display !== priceObj.display ? `<span class="price-original" title="Original Amazon store price">${listPriceObj.display}</span>` : ''}
-              `}
-              <span class="savings-label">${savingsLabelText}</span>
+            <!-- Hero Pricing Block with Dynamic Slashing Gauge -->
+            <div class="card-pricing-block">
+              <div class="card-price-row">
+                ${(!priceObj.numVal || priceObj.display === 'See Options' || priceObj.display === 'Check Site') ? `
+                  <span class="price-options-pill" title="Amazon requires selecting your variant, size, or used buying option on the listing page to see the exact price.">⚡ See Options on Amazon</span>
+                ` : `
+                  <span class="price-current">${priceObj.display}</span>
+                  <div class="price-original-wrap">
+                    ${listPriceObj.display && listPriceObj.display !== 'See Options' && listPriceObj.display !== priceObj.display ? `
+                      <span class="price-retail-strike">${listPriceObj.display}</span>
+                    ` : ''}
+                    ${savingsFormatted ? `<span class="price-save-tag">Save ${savingsFormatted}</span>` : ''}
+                  </div>
+                `}
+              </div>
+
+              <!-- Visual Discount Slashing Gauge -->
+              ${(discNum > 0 && priceObj.numVal > 0) ? `
+                <div class="card-discount-meter" title="${discNum}% Off Retail • Save ${savingsFormatted || ''}">
+                  <div class="meter-bar-track">
+                    <div class="meter-bar-fill ${discNum >= 80 ? 'glitch-glow' : (discNum >= 50 ? 'deep-glow' : '')}" style="width: ${Math.min(100, Math.max(10, discNum))}%;"></div>
+                  </div>
+                  <div class="meter-bar-labels">
+                    <span class="meter-save">${savingsFormatted ? `Save ${savingsFormatted}` : savingsLabelText}</span>
+                    <span class="meter-pct">${discNum}% OFF</span>
+                  </div>
+                </div>
+              ` : ''}
             </div>
 
-            <!-- Verification Badges (CamelCamelCamel, Keepa, OzBargain) -->
-            <div class="card-verification-row">
-              <a href="${getCamelUrl(item.asin, itemDomain)}" target="_blank" rel="noopener noreferrer" class="verify-pill camel-pill" title="Check price history on CamelCamelCamel">
-                📉 Camel³
-              </a>
-              <a href="${getKeepaUrl(item.asin, itemDomain)}" target="_blank" rel="noopener noreferrer" class="verify-pill keepa-pill" title="View Keepa price tracking graph">
-                📊 Keepa
-              </a>
-              <a href="${getOzBargainUrl(item.title)}" target="_blank" rel="noopener noreferrer" class="verify-pill ozb-pill" title="Search community deals & reviews on OzBargain">
-                🦘 OzBargain
-              </a>
+            <!-- Price History Trigger Row -->
+            <div class="card-chart-trigger-row">
+              <button type="button" class="btn-inspect-chart" data-asin="${item.asin}" title="Inspect Keepa Price History Graph & Historic Lows">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+                <span>Price History Graph</span>
+              </button>
+              <div class="card-verifiers-inline">
+                <a href="${getKeepaUrl(item.asin, itemDomain)}" target="_blank" rel="noopener noreferrer" class="micro-verify-link" title="Open Keepa">Keepa ↗</a>
+                <a href="${getCamelUrl(item.asin, itemDomain)}" target="_blank" rel="noopener noreferrer" class="micro-verify-link" title="Open CamelCamelCamel">Camel³ ↗</a>
+              </div>
             </div>
 
             <div class="card-actions">
-              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-primary" style="text-decoration: none; flex: 1;">
-                View on Amazon ↗
+              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-deal-cta" style="text-decoration: none; flex: 1;">
+                <span>View Deal on Amazon ↗</span>
               </a>
+              <button type="button" class="btn-card-chart-icon" data-asin="${item.asin}" title="Open Keepa Price History Chart">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"></line>
+                  <line x1="12" y1="20" x2="12" y2="4"></line>
+                  <line x1="6" y1="20" x2="6" y2="14"></line>
+                </svg>
+              </button>
               ${activeFilterTab === 'sniped' ? `
                 <button type="button" class="btn btn-sm btn-ghost remove-sniped-btn" data-asin="${item.asin}" title="Dismiss deal from sniped matches" style="color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 7px 12px;">
                   ✕
@@ -2006,6 +2053,15 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
         const asin = e.currentTarget.getAttribute('data-asin');
         toggleSaveDeal(asin);
+      });
+    });
+
+    // Attach inspect price chart listeners
+    document.querySelectorAll('.btn-inspect-chart, .btn-card-chart-icon').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const asin = e.currentTarget.getAttribute('data-asin');
+        openPriceHistoryModal(asin);
       });
     });
 
@@ -2560,6 +2616,432 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Error triggering scan');
       }
     });
+  }
+
+  // ========================================================
+  // 📈 PRICE HISTORY & KEEPA TRACKER MODAL
+  // ========================================================
+  const priceHistoryModal = document.getElementById('priceHistoryModal');
+  const closePriceHistoryModalBtn = document.getElementById('closePriceHistoryModalBtn');
+
+  function openPriceHistoryModal(asin) {
+    if (!asin) return;
+    const item = (deals || []).find(d => d.asin === asin) ||
+                 (snipedDeals || []).find(d => d.asin === asin) ||
+                 (savedDeals || []).find(d => d.asin === asin);
+    if (!item || !priceHistoryModal) return;
+
+    const activeDomain = domainSelect ? domainSelect.value : 'amazon.com.au';
+    const activeCurrency = currencySelect ? currencySelect.value : 'AUD';
+    let itemUrl = item.url || item.link || (item.asin ? `https://${activeDomain}/dp/${item.asin}` : '#');
+    const itemDomain = itemUrl.startsWith('http') ? (itemUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/)?.[1] || activeDomain) : activeDomain;
+
+    const priceObj = formatPriceWithCurrency(item.price, itemDomain, activeCurrency);
+    const listPriceObj = formatPriceWithCurrency(item.originalPrice || item.listPrice, itemDomain, activeCurrency);
+    const discNum = parseInt(item.discountPercent, 10) || 0;
+
+    let savingsText = item.savings;
+    if (!savingsText && priceObj.numVal && listPriceObj.numVal && listPriceObj.numVal > priceObj.numVal) {
+      savingsText = formatCurrencyAmount(listPriceObj.numVal - priceObj.numVal, activeCurrency);
+    }
+
+    const isUsed = item.condition && /used|open box|like new/i.test(item.condition);
+    const isWarehouse = (item.store !== 'Normal Amazon') || isUsed;
+    if (isWarehouse && item.asin && !itemUrl.includes('aod=1')) {
+      itemUrl += (itemUrl.includes('?') ? '&' : '?') + 'aod=1';
+    }
+
+    // Populate modal DOM
+    const pmTitle = document.getElementById('pmTitle');
+    if (pmTitle) pmTitle.textContent = item.title;
+
+    const pmImage = document.getElementById('pmImage');
+    if (pmImage) pmImage.src = item.image || 'https://via.placeholder.com/300x200?text=No+Image';
+
+    const pmStoreBadge = document.getElementById('pmStoreBadge');
+    if (pmStoreBadge) {
+      pmStoreBadge.textContent = isWarehouse ? '📦 Amazon Warehouse' : '🛒 Normal Amazon';
+      pmStoreBadge.className = `pm-badge ${isWarehouse ? 'warehouse' : 'normal'}`;
+    }
+
+    const pmConditionBadge = document.getElementById('pmConditionBadge');
+    if (pmConditionBadge) {
+      pmConditionBadge.textContent = item.condition || (isWarehouse ? 'Open-Box / Used' : 'Brand New Clearance');
+    }
+
+    const pmDiscountBadge = document.getElementById('pmDiscountBadge');
+    if (pmDiscountBadge) {
+      pmDiscountBadge.textContent = discNum > 0 ? `${discNum}% OFF` : (item.discountPercent || 'DEAL');
+    }
+
+    const pmPrice = document.getElementById('pmPrice');
+    if (pmPrice) pmPrice.textContent = priceObj.display;
+
+    const pmRetail = document.getElementById('pmRetail');
+    if (pmRetail) pmRetail.textContent = (listPriceObj.display && listPriceObj.display !== 'See Options') ? listPriceObj.display : 'Unknown Retail';
+
+    const pmSavings = document.getElementById('pmSavings');
+    if (pmSavings) pmSavings.textContent = savingsText ? `Save ${savingsText}` : (discNum > 0 ? `${discNum}% Slashed` : 'Clearance Deal');
+
+    const pmGaugeBar = document.getElementById('pmGaugeBar');
+    if (pmGaugeBar) pmGaugeBar.style.width = `${Math.min(100, Math.max(10, discNum))}%`;
+
+    const pmGaugeText = document.getElementById('pmGaugeText');
+    if (pmGaugeText) pmGaugeText.textContent = `${discNum}% Slashed Below Retail ${savingsText ? `• Save ${savingsText}` : ''}`;
+
+    // Keepa graph
+    const tldMap = {
+      'amazon.com.au': 'com.au',
+      'amazon.com': 'com',
+      'amazon.co.uk': 'co.uk',
+      'amazon.de': 'de',
+      'amazon.ca': 'ca',
+      'amazon.co.jp': 'co.jp'
+    };
+    const tld = tldMap[itemDomain] || 'com.au';
+    const keepaGraphUrl = `https://graph.keepa.com/pricehistory.png?asin=${item.asin}&domain=${tld}&amazon=1&new=1&used=1`;
+
+    const pmKeepaGraph = document.getElementById('pmKeepaGraph');
+    const pmGraphLoader = document.getElementById('pmGraphLoader');
+    const pmGraphFallback = document.getElementById('pmGraphFallback');
+
+    if (pmGraphFallback) pmGraphFallback.style.display = 'none';
+    if (pmGraphLoader) pmGraphLoader.style.display = 'flex';
+    if (pmKeepaGraph) {
+      pmKeepaGraph.style.display = 'none';
+      pmKeepaGraph.onload = () => {
+        if (pmGraphLoader) pmGraphLoader.style.display = 'none';
+        pmKeepaGraph.style.display = 'block';
+      };
+      pmKeepaGraph.onerror = () => {
+        if (pmGraphLoader) pmGraphLoader.style.display = 'none';
+        if (pmGraphFallback) pmGraphFallback.style.display = 'block';
+      };
+      pmKeepaGraph.src = keepaGraphUrl;
+    }
+
+    // Verifiers
+    const pmCamelLink = document.getElementById('pmCamelLink');
+    if (pmCamelLink) pmCamelLink.href = getCamelUrl(item.asin, itemDomain);
+
+    const pmKeepaLink = document.getElementById('pmKeepaLink');
+    if (pmKeepaLink) pmKeepaLink.href = getKeepaUrl(item.asin, itemDomain);
+
+    const pmOzBargainLink = document.getElementById('pmOzBargainLink');
+    if (pmOzBargainLink) pmOzBargainLink.href = getOzBargainUrl(item.title);
+
+    const pmAmazonDirectBtn = document.getElementById('pmAmazonDirectBtn');
+    if (pmAmazonDirectBtn) pmAmazonDirectBtn.href = itemUrl;
+
+    priceHistoryModal.style.display = 'flex';
+  }
+
+  function closePriceHistoryModal() {
+    if (priceHistoryModal) priceHistoryModal.style.display = 'none';
+  }
+
+  if (closePriceHistoryModalBtn) {
+    closePriceHistoryModalBtn.addEventListener('click', closePriceHistoryModal);
+  }
+
+  if (priceHistoryModal) {
+    priceHistoryModal.addEventListener('click', (e) => {
+      if (e.target === priceHistoryModal) closePriceHistoryModal();
+    });
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closePriceHistoryModal();
+      const analyticsPanel = document.getElementById('analyticsDashboard');
+      if (analyticsPanel && analyticsPanel.style.display !== 'none') {
+        analyticsPanel.style.display = 'none';
+      }
+    }
+  });
+
+  // ========================================================
+  // 📊 MARKET INTELLIGENCE & CHARTS DASHBOARD
+  // ========================================================
+  let marketAnalyticsData = null;
+  let discountChartInstance = null;
+  let categoryChartInstance = null;
+  let storeSplitChartInstance = null;
+
+  async function fetchMarketAnalytics() {
+    try {
+      const res = await fetch('/api/db/analytics');
+      if (!res.ok) return null;
+      marketAnalyticsData = await res.json();
+      return marketAnalyticsData;
+    } catch (e) {
+      console.warn('[Analytics] Error:', e);
+      return null;
+    }
+  }
+
+  function updateKpiCards(data) {
+    if (!data) return;
+    const kpiTotalDeals = document.getElementById('kpiTotalDeals');
+    const kpiStoreSplit = document.getElementById('kpiStoreSplit');
+    const kpiAvgDiscount = document.getElementById('kpiAvgDiscount');
+    const kpiPriceErrors = document.getElementById('kpiPriceErrors');
+    const kpiMaxSavings = document.getElementById('kpiMaxSavings');
+    const kpiMaxSavingsSub = document.getElementById('kpiMaxSavingsSub');
+
+    if (kpiTotalDeals) kpiTotalDeals.textContent = (data.totalDeals || 0).toLocaleString();
+    if (kpiStoreSplit) kpiStoreSplit.textContent = `${(data.warehouseDeals || 0).toLocaleString()} Warehouse • ${(data.normalDeals || 0).toLocaleString()} Normal`;
+    if (kpiAvgDiscount) kpiAvgDiscount.textContent = `${data.avgDiscount || 0}% OFF`;
+    if (kpiPriceErrors) kpiPriceErrors.textContent = `${data.priceErrors || 0} Glitches`;
+    if (kpiMaxSavings) kpiMaxSavings.textContent = `$${(data.maxSavings || 0).toLocaleString()}`;
+    if (kpiMaxSavingsSub && data.maxSavingsDeal) {
+      kpiMaxSavingsSub.textContent = `On ${data.maxSavingsDeal.title.substring(0, 32)}...`;
+    }
+  }
+
+  function renderAnalyticsCharts(data) {
+    if (!data) return;
+    updateKpiCards(data);
+
+    if (typeof Chart === 'undefined') {
+      console.warn('[Chart.js] Chart library not loaded yet');
+      return;
+    }
+
+    // 1. Discount Depth Histogram
+    const discountCanvas = document.getElementById('discountChart');
+    if (discountCanvas) {
+      const tiers = data.discountTiers || {};
+      const labels = Object.keys(tiers);
+      const counts = Object.values(tiers);
+
+      if (discountChartInstance) discountChartInstance.destroy();
+
+      const ctx = discountCanvas.getContext('2d');
+      const gradEmerald = ctx.createLinearGradient(0, 0, 0, 200);
+      gradEmerald.addColorStop(0, '#10b981');
+      gradEmerald.addColorStop(1, '#059669');
+
+      const gradAmber = ctx.createLinearGradient(0, 0, 0, 200);
+      gradAmber.addColorStop(0, '#f59e0b');
+      gradAmber.addColorStop(1, '#d97706');
+
+      const gradOrange = ctx.createLinearGradient(0, 0, 0, 200);
+      gradOrange.addColorStop(0, '#ea580c');
+      gradOrange.addColorStop(1, '#c2410c');
+
+      const gradRed = ctx.createLinearGradient(0, 0, 0, 200);
+      gradRed.addColorStop(0, '#f43f5e');
+      gradRed.addColorStop(1, '#be123c');
+
+      discountChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Deals Count',
+            data: counts,
+            backgroundColor: [gradEmerald, gradAmber, gradOrange, gradRed],
+            borderRadius: 6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              borderColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              titleFont: { family: "'Plus Jakarta Sans', sans-serif", weight: 'bold' },
+              bodyFont: { family: "'JetBrains Mono', monospace" },
+              callbacks: {
+                label: (item) => ` ${item.formattedValue} deals available (Click to filter)`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { family: "'Plus Jakarta Sans', sans-serif", weight: '600' } }
+            },
+            y: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#64748b', font: { family: "'JetBrains Mono', monospace" } }
+            }
+          },
+          onClick: (evt, elements) => {
+            if (!elements || elements.length === 0) return;
+            const idx = elements[0].index;
+            const clickedLabel = labels[idx];
+            if (clickedLabel.includes('20-39')) {
+              minDiscountSlider.value = 20;
+              maxDiscountSlider.value = 39;
+            } else if (clickedLabel.includes('40-59')) {
+              minDiscountSlider.value = 40;
+              maxDiscountSlider.value = 59;
+            } else if (clickedLabel.includes('60-79')) {
+              minDiscountSlider.value = 60;
+              maxDiscountSlider.value = 79;
+            } else if (clickedLabel.includes('80%+')) {
+              tabPriceErrors?.click();
+              return;
+            }
+            syncDiscountUI();
+            resetToAllDealsTab();
+            loadDatabaseDeals(true);
+            document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
+          }
+        }
+      });
+    }
+
+    // 2. Top Clearance Departments
+    const categoryCanvas = document.getElementById('categoryChart');
+    if (categoryCanvas) {
+      const cats = data.categories || {};
+      const sortedCats = Object.entries(cats)
+        .filter(([k]) => k !== 'all' && k !== 'sweep_all')
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 7);
+
+      const catLabels = sortedCats.map(([k]) => {
+        const opt = Array.from(categorySelect.options).find(o => o.value === k);
+        return opt ? opt.text.replace(/\s*\(.*?\)/, '').trim() : k;
+      });
+      const catKeys = sortedCats.map(([k]) => k);
+      const catCounts = sortedCats.map(([, v]) => v);
+
+      if (categoryChartInstance) categoryChartInstance.destroy();
+
+      const ctx = categoryCanvas.getContext('2d');
+      categoryChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: catLabels,
+          datasets: [{
+            data: catCounts,
+            backgroundColor: 'rgba(59, 130, 246, 0.8)',
+            hoverBackgroundColor: '#60a5fa',
+            borderRadius: 4
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              borderColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              titleFont: { family: "'Plus Jakarta Sans', sans-serif" },
+              bodyFont: { family: "'JetBrains Mono', monospace" },
+              callbacks: {
+                label: (item) => ` ${item.formattedValue} deals in department (Click to select)`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: { color: '#64748b', font: { family: "'JetBrains Mono', monospace" } }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#cbd5e1', font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '600' } }
+            }
+          },
+          onClick: (evt, elements) => {
+            if (!elements || elements.length === 0) return;
+            const idx = elements[0].index;
+            const clickedKey = catKeys[idx];
+            if (clickedKey && categorySelect) {
+              categorySelect.value = clickedKey;
+              syncFormStateToUrl();
+              resetToAllDealsTab();
+              loadDatabaseDeals(true);
+              document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
+            }
+          }
+        }
+      });
+    }
+
+    // 3. Store Split Chart (Donut)
+    const storeCanvas = document.getElementById('storeSplitChart');
+    if (storeCanvas) {
+      if (storeSplitChartInstance) storeSplitChartInstance.destroy();
+
+      const ctx = storeCanvas.getContext('2d');
+      storeSplitChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Warehouse (Open-Box)', 'Normal Amazon (Clearance)'],
+          datasets: [{
+            data: [data.warehouseDeals || 0, data.normalDeals || 0],
+            backgroundColor: ['#10b981', '#8b5cf6'],
+            hoverBackgroundColor: ['#34d399', '#a78bfa'],
+            borderWidth: 2,
+            borderColor: '#0e1320'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '70%',
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { color: '#cbd5e1', font: { family: "'Plus Jakarta Sans', sans-serif", size: 11, weight: '600' }, boxWidth: 12 }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              borderColor: 'rgba(255,255,255,0.1)',
+              borderWidth: 1,
+              callbacks: {
+                label: (item) => ` ${item.label}: ${item.formattedValue} deals`
+              }
+            }
+          }
+        }
+      });
+    }
+  }
+
+  async function toggleAnalyticsDashboard(forceOpen = null) {
+    const panel = document.getElementById('analyticsDashboard');
+    if (!panel) return;
+    const isCurrentlyOpen = panel.style.display !== 'none';
+    const shouldOpen = forceOpen !== null ? forceOpen : !isCurrentlyOpen;
+
+    if (shouldOpen) {
+      panel.style.display = 'block';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      const data = await fetchMarketAnalytics();
+      if (data) renderAnalyticsCharts(data);
+    } else {
+      panel.style.display = 'none';
+    }
+  }
+
+  // Attach Analytics Toggles
+  const toggleAnalyticsBtn = document.getElementById('toggleAnalyticsBtn');
+  if (toggleAnalyticsBtn) {
+    toggleAnalyticsBtn.addEventListener('click', () => toggleAnalyticsDashboard());
+  }
+
+  const dbAnalyticsBtn = document.getElementById('dbAnalyticsBtn');
+  if (dbAnalyticsBtn) {
+    dbAnalyticsBtn.addEventListener('click', () => toggleAnalyticsDashboard(true));
+  }
+
+  const closeAnalyticsBtn = document.getElementById('closeAnalyticsBtn');
+  if (closeAnalyticsBtn) {
+    closeAnalyticsBtn.addEventListener('click', () => toggleAnalyticsDashboard(false));
   }
 
   // Poll database status every 15 seconds

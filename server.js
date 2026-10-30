@@ -1229,6 +1229,107 @@ app.get('/api/db/status', (req, res) => {
   });
 });
 
+// Live Market Analytics & Price Distribution Endpoint
+app.get('/api/db/analytics', (req, res) => {
+  try {
+    const all = Object.values(db.crawledDeals || {});
+    let whCount = 0, normCount = 0, priceErrors = 0;
+    let totalDiscount = 0, countWithDiscount = 0;
+    let maxSavings = 0;
+    let maxSavingsDeal = null;
+
+    const discountTiers = {
+      '20-39%': 0,
+      '40-59%': 0,
+      '60-79%': 0,
+      '80%+ (Glitch)': 0
+    };
+
+    const categories = {};
+    const conditionStats = {
+      'Brand New': 0,
+      'Like New': 0,
+      'Very Good': 0,
+      'Good': 0,
+      'Acceptable': 0
+    };
+
+    const now = Date.now();
+    let fresh1h = 0, fresh24h = 0;
+
+    for (const d of all) {
+      if (!d || d.status === 'sold_out') continue;
+      const np = d.numericPrice || 0;
+      if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') continue;
+
+      if (d.store === 'Normal Amazon') normCount++;
+      else whCount++;
+
+      const disc = parseInt(d.discountPercent, 10) || 0;
+      if (disc > 0) {
+        totalDiscount += disc;
+        countWithDiscount++;
+        if (disc < 40) discountTiers['20-39%']++;
+        else if (disc < 60) discountTiers['40-59%']++;
+        else if (disc < 80) discountTiers['60-79%']++;
+        else discountTiers['80%+ (Glitch)']++;
+      }
+
+      if (isValidPriceError(d)) priceErrors++;
+
+      const origPrice = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+      if (origPrice > np) {
+        const sav = origPrice - np;
+        if (sav > maxSavings) {
+          maxSavings = sav;
+          maxSavingsDeal = {
+            title: d.title,
+            asin: d.asin,
+            price: d.price,
+            originalPrice: d.originalPrice,
+            savings: sav,
+            discountPercent: d.discountPercent
+          };
+        }
+      }
+
+      // Department/category distribution
+      const cat = d.category || 'other';
+      categories[cat] = (categories[cat] || 0) + 1;
+
+      // Condition distribution
+      const cond = String(d.condition || '').toLowerCase();
+      if (cond.includes('like new')) conditionStats['Like New']++;
+      else if (cond.includes('very good')) conditionStats['Very Good']++;
+      else if (cond.includes('good')) conditionStats['Good']++;
+      else if (cond.includes('acceptable')) conditionStats['Acceptable']++;
+      else conditionStats['Brand New']++;
+
+      const dealTs = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || d.lastSeenAt || 0;
+      if (dealTs && (now - dealTs <= 3600000)) fresh1h++;
+      if (dealTs && (now - dealTs <= 86400000)) fresh24h++;
+    }
+
+    res.json({
+      totalDeals: all.length,
+      warehouseDeals: whCount,
+      normalDeals: normCount,
+      priceErrors,
+      fresh1h,
+      fresh24h,
+      avgDiscount: countWithDiscount > 0 ? Math.round(totalDiscount / countWithDiscount) : 0,
+      maxSavings: Math.round(maxSavings),
+      maxSavingsDeal,
+      discountTiers,
+      categories,
+      conditionStats
+    });
+  } catch (err) {
+    console.error('[API /api/db/analytics] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Force-Reset Crawler State Endpoint
 app.post('/api/db/reset-crawler', (req, res) => {
   crawlerRunning = false;
