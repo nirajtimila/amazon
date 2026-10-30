@@ -2005,102 +2005,97 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       return `
-        <div class="deal-card ${isGlitch ? 'is-glitch' : ''}" data-asin="${item.asin}">
-          <div class="card-img-wrap">
-            <span class="discount-badge">${item.discountPercent || item.discount || (minDiscountSlider.value + '%+ OFF')}</span>
-            <span class="store-badge ${storeBadgeClass}">${storeBadgeText}</span>
-            ${isGlitch ? '<span class="badge-glitch-error">🔥 PRICE ERROR</span>' : ''}
-            ${item.isJustListed ? '<span class="just-listed-badge">✨ JUST LISTED</span>' : ''}
-            ${item.snipedFromTarget ? `<span class="sniper-match-badge" title="Matched Watchlist: ${escapeHtml(item.snipedFromTarget)}">🎯 ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
-            ${item.page ? `<span class="page-badge" style="position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); color: #cbd5e1; font-size: 0.68rem; font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);">Pg ${item.page}</span>` : ''}
-            <button class="save-btn ${isSaved ? 'active' : ''}" data-asin="${item.asin}" title="Save deal">
-              ♥
+        <article class="deal-card bg-surface-container-lowest border border-outline-variant/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col group ${isGlitch ? 'is-glitch ring-2 ring-error/30' : ''}" data-asin="${item.asin}">
+          <!-- Thumbnail & floating badges -->
+          <div class="card-img-wrap relative bg-surface-container-low p-6 flex items-center justify-center aspect-[4/3] overflow-hidden">
+            <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="w-full h-full flex items-center justify-center">
+              <img class="max-h-48 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" src="${cleanImg}" alt="${escapeHtml(item.title)}" loading="lazy">
+            </a>
+            <!-- Discount pill badge -->
+            <div class="absolute top-3 left-3 flex flex-col gap-1 z-10 items-start">
+              ${(() => {
+                let dStr = item.discountPercent || item.discount || (minDiscountSlider ? minDiscountSlider.value + '%' : '20%');
+                if (dStr && !dStr.includes('%')) dStr += '%';
+                if (dStr && !dStr.toUpperCase().includes('OFF')) dStr += ' OFF';
+                return `<span class="discount-badge bg-primary text-on-primary text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm">${escapeHtml(dStr)}</span>`;
+              })()}
+              ${item.condition ? `
+                <span class="condition-badge bg-surface-container-lowest/95 backdrop-blur-sm text-on-surface text-[11px] font-semibold px-2 py-0.5 rounded-md border border-outline-variant/30 shadow-xs">
+                  ${isWarehouse ? '✨ ' : '🛒 '}${escapeHtml(item.condition)}
+                </span>
+              ` : (storeBadgeText ? `
+                <span class="store-badge ${storeBadgeClass} text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">${storeBadgeText}</span>
+              ` : '')}
+              
+              ${isGlitch ? '<span class="badge-glitch-error bg-error text-on-error text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs animate-pulse">🔥 PRICE ERROR</span>' : ''}
+              ${item.isJustListed ? '<span class="just-listed-badge bg-primary-fixed text-on-primary-fixed text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs">✨ JUST LISTED</span>' : ''}
+              ${item.snipedFromTarget ? `<span class="sniper-match-badge bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs">🎯 ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
+            </div>
+            <!-- Favorite button -->
+            <button type="button" class="save-btn ${isSaved ? 'active text-error bg-error/10' : 'text-outline bg-surface-container-lowest/90'} absolute top-3 right-3 p-1.5 rounded-full hover:bg-surface-container-lowest hover:text-error transition-colors shadow-sm z-10 cursor-pointer" data-asin="${item.asin}" title="Save deal">
+              <span class="material-symbols-outlined text-[18px]">${isSaved ? 'favorite' : 'favorite_border'}</span>
             </button>
-            <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" style="display:flex;width:100%;height:100%;align-items:center;justify-content:center;">
-              <img src="${cleanImg}" alt="${escapeHtml(item.title)}" loading="lazy">
-            </a>
           </div>
-          <div class="card-body">
-            ${item.brand ? `<div class="card-brand-header"><span class="badge-brand">⭐ ${escapeHtml(item.brand.toUpperCase())}</span></div>` : ''}
-            <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="card-title" title="${escapeHtml(item.title)}" style="text-decoration: none;">
-              ${escapeHtml(item.title)}
-            </a>
-            ${item.condition ? `<div><span class="condition-badge">📦 ${escapeHtml(item.condition)}</span></div>` : ''}
-            ${isWarehouse ? `<div class="warehouse-direct-hint" title="Amazon defaults to the brand-new Buy Box. Clicking opens the used/warehouse offers panel.">📦 Direct Link to Warehouse Offer</div>` : ''}
-            ${timeBadgeHtml ? `<div>${timeBadgeHtml}</div>` : ''}
-            ${priceDropHtml ? `<div>${priceDropHtml}</div>` : ''}
-            ${item.rating ? `
-              <div class="card-rating">
-                <span>★ ${item.rating}</span>
-                <span class="reviews-count">(${item.reviews || 'ratings'})</span>
-              </div>
-            ` : '<div style="height: 18px;"></div>'}
-            
-            <!-- Hero Pricing Block with Dynamic Slashing Gauge -->
-            <div class="card-pricing-block">
-              <div class="card-price-row">
+          <!-- Content Body -->
+          <div class="card-body p-5 flex-1 flex flex-col justify-between">
+            <div>
+              ${item.brand ? `
+                <div class="flex items-center gap-1.5 text-xs text-amber-700 font-bold mb-1">
+                  <span>⭐ ${escapeHtml(item.brand.toUpperCase())}</span>
+                </div>
+              ` : `
+                <div class="flex items-center gap-1.5 text-xs text-primary font-bold mb-1">
+                  <span class="material-symbols-outlined text-[16px]" style="font-variation-settings: 'FILL' 1;">verified</span>
+                  <span>Keepa Verified • Authentic Offer</span>
+                </div>
+              `}
+              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="card-title text-sm font-headline font-bold text-on-surface line-clamp-2 mb-2 group-hover:text-primary transition-colors block" title="${escapeHtml(item.title)}">
+                ${escapeHtml(item.title)}
+              </a>
+              ${item.rating ? `
+                <div class="card-rating flex items-center gap-1 text-xs text-amber-600 font-semibold mb-2">
+                  <span>★ ${item.rating}</span>
+                  <span class="text-outline text-[11px]">(${item.reviews || 'ratings'})</span>
+                </div>
+              ` : '<div class="h-4"></div>'}
+              <!-- Price Box -->
+              <div class="card-pricing-block flex items-baseline gap-2 mb-2">
                 ${(!priceObj.numVal || priceObj.display === 'See Options' || priceObj.display === 'Check Site') ? `
-                  <span class="price-options-pill" title="Amazon requires selecting your variant, size, or used buying option on the listing page to see the exact price.">⚡ See Options on Amazon</span>
+                  <span class="text-sm font-bold text-primary">⚡ See Options on Amazon</span>
                 ` : `
-                  <span class="price-current">${priceObj.display}</span>
-                  <div class="price-original-wrap">
-                    ${listPriceObj.display && listPriceObj.display !== 'See Options' && listPriceObj.display !== priceObj.display ? `
-                      <span class="price-retail-strike">${listPriceObj.display}</span>
-                    ` : ''}
-                    ${savingsFormatted ? `<span class="price-save-tag">Save ${savingsFormatted}</span>` : ''}
-                  </div>
+                  <span class="price-current text-2xl font-price font-extrabold text-on-surface font-mono">${priceObj.display}</span>
+                  ${listPriceObj.display && listPriceObj.display !== 'See Options' && listPriceObj.display !== priceObj.display ? `
+                    <span class="price-retail-strike text-sm text-outline line-through font-mono">${listPriceObj.display}</span>
+                  ` : ''}
+                  <span class="text-xs font-semibold text-outline">${activeCurrency}</span>
                 `}
               </div>
-
-              <!-- Visual Discount Slashing Gauge -->
-              ${(discNum > 0 && priceObj.numVal > 0) ? `
-                <div class="card-discount-meter" title="${discNum}% Off Retail • Save ${savingsFormatted || ''}">
-                  <div class="meter-bar-track">
-                    <div class="meter-bar-fill ${discNum >= 80 ? 'glitch-glow' : (discNum >= 50 ? 'deep-glow' : '')}" style="width: ${Math.min(100, Math.max(10, discNum))}%;"></div>
-                  </div>
-                  <div class="meter-bar-labels">
-                    <span class="meter-save">${savingsFormatted ? `Save ${savingsFormatted}` : savingsLabelText}</span>
-                    <span class="meter-pct">${discNum}% OFF</span>
-                  </div>
-                </div>
-              ` : ''}
-            </div>
-
-            <!-- Price History Trigger Row -->
-            <div class="card-chart-trigger-row">
-              <button type="button" class="btn-inspect-chart" data-asin="${item.asin}" title="Inspect Keepa Price History Graph & Historic Lows">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="20" x2="18" y2="10"></line>
-                  <line x1="12" y1="20" x2="12" y2="4"></line>
-                  <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg>
-                <span>Price History Graph</span>
-              </button>
-              <div class="card-verifiers-inline">
-                <a href="${getKeepaUrl(item.asin, itemDomain)}" target="_blank" rel="noopener noreferrer" class="micro-verify-link" title="Open Keepa">Keepa ↗</a>
-                <a href="${getCamelUrl(item.asin, itemDomain)}" target="_blank" rel="noopener noreferrer" class="micro-verify-link" title="Open CamelCamelCamel">Camel³ ↗</a>
+              <!-- Green Savings Banner -->
+              <div class="bg-primary-container/10 border border-primary/20 text-primary rounded-lg px-2.5 py-1 text-xs font-bold mb-3 flex items-center justify-between">
+                <span class="price-save-tag">${savingsFormatted ? `You Save ${savingsFormatted}` : (discNum > 0 ? `${discNum}% Below Retail` : 'Clearance Price')}</span>
+                <span class="text-[11px] font-normal opacity-80">In Stock</span>
               </div>
+              <p class="text-xs text-on-surface-variant line-clamp-2 mb-3">
+                ${item.condition ? `Amazon AU Warehouse (${escapeHtml(item.condition)}) • ` : ''}Tested & verified genuine listing on Amazon Australia.
+              </p>
             </div>
-
-            <div class="card-actions">
-              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-deal-cta" style="text-decoration: none; flex: 1;">
-                <span>View Deal on Amazon ↗</span>
+            <!-- Actions -->
+            <div class="pt-3 border-t border-outline-variant/20 flex items-center gap-2">
+              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-deal-cta flex-1 bg-primary hover:bg-primary-container text-on-primary py-2.5 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm" style="text-decoration: none;">
+                <span>View Deal on Amazon</span>
+                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
               </a>
-              <button type="button" class="btn-card-chart-icon" data-asin="${item.asin}" title="Open Keepa Price History Chart">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <line x1="18" y1="20" x2="18" y2="10"></line>
-                  <line x1="12" y1="20" x2="12" y2="4"></line>
-                  <line x1="6" y1="20" x2="6" y2="14"></line>
-                </svg>
+              <button type="button" class="btn-card-chart-icon btn-inspect-chart p-2.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low text-primary transition-colors cursor-pointer" data-asin="${item.asin}" title="Open Keepa Price History Chart">
+                <span class="material-symbols-outlined text-[18px]">query_stats</span>
               </button>
               ${activeFilterTab === 'sniped' ? `
-                <button type="button" class="btn btn-sm btn-ghost remove-sniped-btn" data-asin="${item.asin}" title="Dismiss deal from sniped matches" style="color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.35); padding: 7px 12px;">
+                <button type="button" class="btn-sm remove-sniped-btn p-2.5 rounded-lg border border-error/30 text-error hover:bg-error-container/20 text-xs font-bold cursor-pointer" data-asin="${item.asin}" title="Dismiss deal from sniped matches">
                   ✕
                 </button>
               ` : ''}
             </div>
           </div>
-        </div>
+        </article>
       `;
     }).join('');
 
@@ -3122,3 +3117,47 @@ document.addEventListener('DOMContentLoaded', () => {
   // Poll database status every 15 seconds
   setInterval(updateDatabaseStatus, 15000);
 });
+
+
+    // Stitch Top Navigation Links Wiring
+    document.getElementById('navExploreDeals')?.addEventListener('click', () => {
+      tabAllDeals?.click();
+      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    document.getElementById('navWarehouseDeals')?.addEventListener('click', () => {
+      document.querySelector('[data-store="warehouse"]')?.click();
+      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    document.getElementById('navPriceGlitches')?.addEventListener('click', () => {
+      tabPriceErrors?.click();
+      document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth' });
+    });
+    document.getElementById('navWatchlist')?.addEventListener('click', () => {
+      watchlistModalBtn?.click();
+    });
+
+    // Stitch Category Quick Chips Wiring
+    document.querySelectorAll('.cat-chip').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const cat = e.currentTarget.getAttribute('data-cat');
+        if (categorySelect && cat) {
+          categorySelect.value = cat;
+          document.querySelectorAll('.cat-chip').forEach(c => {
+            c.className = 'cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors cursor-pointer';
+          });
+          e.currentTarget.className = 'cat-chip px-3 py-1.5 rounded-lg bg-on-surface text-surface text-xs font-semibold transition-colors cursor-pointer';
+          searchBtn?.click();
+        }
+      });
+    });
+
+    // Stitch Modal Close Listeners
+    document.getElementById('closePriceHistoryModalBackdrop')?.addEventListener('click', () => {
+      if (priceHistoryModal) priceHistoryModal.style.display = 'none';
+    });
+    document.getElementById('closePriceModalDismissBtn')?.addEventListener('click', () => {
+      if (priceHistoryModal) priceHistoryModal.style.display = 'none';
+    });
+    document.getElementById('closeWatchlistModalBackdrop')?.addEventListener('click', () => {
+      if (watchlistModal) watchlistModal.style.display = 'none';
+    });

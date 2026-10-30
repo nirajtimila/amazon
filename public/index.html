@@ -1,115 +1,250 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Amazon Warehouse Deal Hunter</title>
-  <link rel="stylesheet" href="app.css?v=7.0">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+  <title>WarehouseHunter | Amazon Resale & Clearance Deals</title>
+  
+  <!-- Google Fonts: Plus Jakarta Sans (Headings/Display), Inter (Body), JetBrains Mono (Prices/Data) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet"/>
+  
+  <!-- Material Symbols Outlined Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+
+  <!-- Chart.js for Live Market Analytics -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+  <!-- Tailwind CSS CDN with Plugins -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- Tailwind Configuration Token Injection (Google Stitch Design System) -->
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "primary": "#006948",
+            "primary-container": "#00855d",
+            "on-primary": "#ffffff",
+            "primary-fixed": "#85f8c4",
+            "primary-fixed-dim": "#68dba9",
+            "on-primary-fixed": "#002114",
+            "on-primary-fixed-variant": "#005137",
+            "secondary": "#a73a00",
+            "secondary-container": "#fd651e",
+            "on-secondary": "#ffffff",
+            "secondary-fixed": "#ffdbce",
+            "secondary-fixed-dim": "#ffb599",
+            "on-secondary-fixed": "#370e00",
+            "tertiary": "#006194",
+            "tertiary-container": "#007bb9",
+            "tertiary-fixed": "#cce5ff",
+            "tertiary-fixed-dim": "#93ccff",
+            "surface": "#faf8ff",
+            "surface-dim": "#d2d9f4",
+            "surface-bright": "#faf8ff",
+            "surface-container-lowest": "#ffffff",
+            "surface-container-low": "#f2f3ff",
+            "surface-container": "#eaedff",
+            "surface-container-high": "#e2e7ff",
+            "surface-container-highest": "#dae2fd",
+            "on-surface": "#131b2e",
+            "on-surface-variant": "#3d4a42",
+            "outline": "#6d7a72",
+            "outline-variant": "#bccac0",
+            "error": "#ba1a1a",
+            "error-container": "#ffdad6",
+            "on-error": "#ffffff",
+            "background": "#faf8ff",
+            "on-background": "#131b2e"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "2xl": "1rem",
+            "full": "9999px"
+          },
+          "fontFamily": {
+            "display": ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+            "headline": ["Plus Jakarta Sans", "system-ui", "sans-serif"],
+            "body": ["Inter", "system-ui", "sans-serif"],
+            "mono": ["JetBrains Mono", "monospace"]
+          }
+        }
+      }
+    };
+  </script>
+
+  <!-- Custom Styles for Modals, Sliders, Animations, and Drawers -->
+  <link rel="stylesheet" href="app.css?v=8.0"/>
 </head>
-<body>
-  <div class="app-layout">
-    <!-- Top Navigation Header -->
-    <header class="app-header">
-      <div class="logo-area">
-        <div class="logo-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-            <line x1="12" y1="22.08" x2="12" y2="12"></line>
-          </svg>
-        </div>
-        <div>
-          <div class="brand-title">Warehouse<span class="highlight">Hunter</span></div>
-          <div class="brand-tagline">Amazon Resale & Deep Discount Scanner</div>
+<body class="bg-background text-on-surface min-h-screen flex flex-col font-body text-sm antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
+
+  <!-- ================= TOP NAVIGATION HEADER (Google Stitch Shared Component) ================= -->
+  <header class="bg-surface-container-lowest sticky top-0 z-50 shadow-sm border-b border-outline-variant/30">
+    <div class="w-full max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16 gap-3">
+      <!-- Brand & Global Search -->
+      <div class="flex items-center gap-5 flex-1 max-w-2xl">
+        <a class="flex items-center gap-2.5 group cursor-pointer" href="#" id="brandLogo">
+          <div class="w-9 h-9 rounded-lg bg-primary text-on-primary flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+            <span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">radar</span>
+          </div>
+          <span class="text-xl font-headline font-extrabold text-primary tracking-tight">Warehouse<span class="text-on-surface">Hunter</span></span>
+        </a>
+        
+        <!-- Header Search Bar -->
+        <div class="hidden sm:flex items-center flex-1 relative">
+          <span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
+          <input type="text" id="keywordInput" class="w-full pl-9 pr-4 py-2 bg-surface-container-low border border-outline-variant/40 rounded-lg text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all" placeholder="Search 18,000+ discounted open-box & clearance items..."/>
         </div>
       </div>
 
-      <div class="header-actions">
-        <div class="status-indicator online" id="serverStatus">
+      <!-- Navigation links (Desktop) -->
+      <nav class="hidden lg:flex items-center gap-5">
+        <a class="text-primary font-bold border-b-2 border-primary py-2 text-sm transition-colors cursor-pointer" id="navExploreDeals">Explore Deals</a>
+        <a class="text-on-surface-variant hover:text-primary py-2 text-sm transition-colors cursor-pointer" id="navWarehouseDeals">Warehouse Open-Box</a>
+        <a class="text-on-surface-variant hover:text-secondary py-2 text-sm transition-colors cursor-pointer" id="navPriceGlitches">Price Glitches</a>
+        <a class="text-on-surface-variant hover:text-primary py-2 text-sm transition-colors cursor-pointer" id="navWatchlist">Watchlist</a>
+      </nav>
+
+      <!-- Trailing Actions & Controls -->
+      <div class="flex items-center gap-2 sm:gap-2.5">
+        <!-- Market Domain Select -->
+        <div class="relative flex items-center">
+          <select id="domainSelect" class="bg-surface-container-low border border-outline-variant/40 rounded-lg py-1.5 pl-2.5 pr-7 text-xs font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer">
+            <option value="amazon.com.au" selected>🇦🇺 Amazon AU</option>
+            <option value="amazon.com">🇺🇸 Amazon US</option>
+            <option value="amazon.co.uk">🇬🇧 Amazon UK</option>
+            <option value="amazon.co.jp">🇯🇵 Amazon JP</option>
+            <option value="amazon.ca">🇨🇦 Amazon CA</option>
+            <option value="amazon.de">🇩🇪 Amazon DE</option>
+          </select>
+        </div>
+
+        <!-- Currency Selector -->
+        <div class="relative hidden sm:flex items-center">
+          <select id="currencySelect" class="bg-surface-container-low border border-outline-variant/40 rounded-lg py-1.5 pl-2.5 pr-7 text-xs font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer">
+            <option value="AUD" selected>AUD ($)</option>
+            <option value="USD">USD ($)</option>
+            <option value="JPY">JPY (¥)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="CAD">CAD ($)</option>
+            <option value="ORIGINAL">Original</option>
+          </select>
+        </div>
+
+        <!-- Market Charts Analytics Toggle -->
+        <button type="button" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-bold transition-colors" id="toggleAnalyticsBtn" title="Toggle Live Market Intelligence & Price Distribution Charts">
+          <span class="material-symbols-outlined text-[16px] text-primary">query_stats</span>
+          <span class="hidden md:inline">Market Charts</span>
+        </button>
+
+        <!-- Watchlist Sniper Button -->
+        <button type="button" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container-low hover:bg-surface-container text-primary border border-primary/20 text-xs font-bold transition-colors" id="watchlistModalBtn" title="Open 24/7 Watchlist Sniper">
+          <span class="material-symbols-outlined text-[16px] text-primary">notifications_active</span>
+          <span class="hidden md:inline">Watchlist</span>
+          <span class="px-1.5 py-0.2 rounded-full bg-primary text-on-primary text-[10px] font-extrabold" id="watchlistCountBadge">0</span>
+        </button>
+
+        <!-- Saved Deals Drawer Trigger -->
+        <button type="button" class="p-2 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low text-on-surface transition-colors relative" id="savedDrawerBtn" title="Saved Deals">
+          <span class="material-symbols-outlined text-[20px] text-secondary">favorite</span>
+          <span class="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-secondary text-on-secondary text-[10px] font-extrabold" id="savedCount">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= HERO & LIVE RADAR BANNER ================= -->
+  <section class="w-full bg-gradient-to-b from-surface-container-lowest to-surface-container-low py-8 md:py-10 border-b border-outline-variant/20">
+    <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+      <!-- Status Badge & Main Headlines -->
+      <div class="text-center max-w-3xl mx-auto mb-6">
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-fixed/40 border border-primary/30 text-on-primary-fixed-variant text-xs font-bold mb-3 shadow-xs" id="dbStatusBar">
+          <span class="w-2 h-2 rounded-full bg-primary animate-pulse" id="dbPulseDot"></span>
+          <span>Radar Online:</span>
+          <strong id="dbTotalDealsCount" class="text-primary font-mono">18,581</strong>
+          <span>Inspected Deals</span>
+          <span class="opacity-40">•</span>
+          <span id="dbLastScanText" class="opacity-90">Auto-scan active</span>
+          <span class="opacity-40">•</span>
+          <span id="dbNextScanText" class="opacity-90">Next in 60m</span>
+        </div>
+        <div class="status-indicator online" id="serverStatus" style="display: none;">
           <span class="status-dot"></span>
           <span id="serverStatusText">Radar Online</span>
         </div>
-        <button class="btn btn-secondary header-analytics-btn" id="toggleAnalyticsBtn" title="Toggle Live Market Intelligence & Price Distribution Charts">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="20" x2="18" y2="10"></line>
-            <line x1="12" y1="20" x2="12" y2="4"></line>
-            <line x1="6" y1="20" x2="6" y2="14"></line>
-          </svg>
-          <span>Market Charts</span>
-        </button>
-        <button class="btn btn-primary" id="watchlistModalBtn" style="display: flex; align-items: center; gap: 6px;">
-          <span>🎯 Watchlist Sniper</span>
-          <span class="badge-pill" id="watchlistCountBadge" style="background: rgba(0,0,0,0.3); padding: 2px 7px; border-radius: 12px; font-size: 0.75rem; font-weight: 800;">3</span>
-        </button>
-        <button class="btn btn-secondary" id="savedDrawerBtn">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-          </svg>
-          Saved Deals (<span id="savedCount">0</span>)
-        </button>
+        
+        <h1 class="text-3xl md:text-4xl font-headline font-extrabold text-on-surface tracking-tight mb-2">
+          Find Hidden Amazon Warehouse & Open-Box Bargains
+        </h1>
+        <p class="text-sm md:text-base text-on-surface-variant max-w-2xl mx-auto">
+          We scan Amazon Australia 24/7 for massive clearance price drops, open-box returns, and mispriced liquidation items.
+        </p>
+
+        <!-- Crawler Controls Bar -->
+        <div class="flex items-center justify-center gap-2.5 mt-4 flex-wrap">
+          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/50 bg-surface-container-lowest hover:bg-surface-container-low text-xs font-bold text-on-surface transition-all shadow-xs" id="dbScanNowBtn" title="Run standard background sweep">
+            <span id="dbScanIcon" class="material-symbols-outlined text-[16px]">sync</span>
+            <span id="dbScanLabel">Quick Scan (50+ Pgs)</span>
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-xs font-extrabold transition-all shadow-sm" id="dbDeepScanBtn" title="Deep scan all 18 departments up to 8 pages each">
+            <span class="material-symbols-outlined text-[16px]">bolt</span>
+            <span id="dbDeepScanLabel">Deep Search to Database (150+ Pages)</span>
+          </button>
+          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-outline-variant/50 bg-surface-container-lowest hover:bg-surface-container-low text-xs font-bold text-on-surface transition-all shadow-xs" id="dbAnalyticsBtn" title="Live market distribution charts">
+            <span class="material-symbols-outlined text-[16px] text-tertiary">bar_chart</span>
+            <span>Market Charts</span>
+          </button>
+        </div>
       </div>
-    </header>
 
-    <!-- Main Container -->
-    <main class="main-content">
-      <!-- Control / Filter Card -->
-      <section class="control-panel card">
-        <div class="panel-header">
-          <h2>Hunt Deep Amazon & Warehouse Discounts</h2>
-          <p>Instant radar scanning across Amazon Warehouse (open-box) & Normal Amazon (brand new clearance)</p>
-        </div>
-
-        <!-- Store Selection Segmented Control -->
-        <div class="store-selector-group">
-          <label class="section-label">1. Choose Store Source:</label>
-          <div class="segmented-store-pills" id="storeSelector">
-            <div class="store-pill active" data-store="both">
-              <span class="pill-icon">⚡</span>
-              <div class="pill-text">
-                <strong>Both Stores (All Deals) <span class="badge-store-count" id="countStoreBoth" style="font-size: 0.85em; opacity: 0.85;"></span></strong>
-                <small>Warehouse & Normal Combined</small>
-              </div>
-            </div>
-            <div class="store-pill" data-store="warehouse">
-              <span class="pill-icon">📦</span>
-              <div class="pill-text">
-                <strong>Amazon Warehouse <span class="badge-store-count" id="countStoreWarehouse" style="font-size: 0.85em; opacity: 0.85;"></span></strong>
-                <small>Open-Box & Pre-owned Deals</small>
-              </div>
-            </div>
-            <div class="store-pill" data-store="normal">
-              <span class="pill-icon">🛒</span>
-              <div class="pill-text">
-                <strong>Normal Amazon <span class="badge-store-count" id="countStoreNormal" style="font-size: 0.85em; opacity: 0.85;"></span></strong>
-                <small>Brand New Deep Discounts</small>
-              </div>
-            </div>
+      <!-- ================= SEARCH & FILTER COMMAND DECK (Bento Card) ================= -->
+      <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl shadow-sm p-5 md:p-6 mb-2">
+        <!-- 1. Store Source Switcher -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-5 border-b border-outline-variant/20">
+          <label class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">1. Choose Store Source:</label>
+          <div class="inline-flex p-1 bg-surface-container-low rounded-xl border border-outline-variant/30 gap-1 w-full sm:w-auto" id="storeSelector">
+            <button type="button" class="store-pill active flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-surface-container-lowest shadow-xs text-primary font-bold text-xs border border-outline-variant/20 transition-all cursor-pointer" data-store="both">
+              <span class="material-symbols-outlined text-[16px] text-primary">bolt</span>
+              <span>All Deals <strong class="badge-store-count" id="countStoreBoth"></strong></span>
+            </button>
+            <button type="button" class="store-pill flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer" data-store="warehouse">
+              <span class="material-symbols-outlined text-[16px]">inventory_2</span>
+              <span>Amazon Warehouse (Open-Box) <strong class="badge-store-count" id="countStoreWarehouse"></strong></span>
+            </button>
+            <button type="button" class="store-pill flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer" data-store="normal">
+              <span class="material-symbols-outlined text-[16px]">shopping_cart</span>
+              <span>Amazon Clearance (Brand New) <strong class="badge-store-count" id="countStoreNormal"></strong></span>
+            </button>
           </div>
         </div>
 
-        <div class="form-grid">
-          <!-- Keyword input -->
-          <div class="form-group">
-            <label for="keywordInput">Keyword / Product (Optional)</label>
-            <div class="input-with-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-              </svg>
-              <input type="text" id="keywordInput" placeholder="e.g. Headphones, Monitor, Apple...">
+        <!-- 2. Filter Controls Bento Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-4 pt-5 items-end">
+          <!-- Quick Categories & Dropdown (Span 7) -->
+          <div class="md:col-span-7 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Department / Category:</span>
+              <span class="text-xs text-outline">Select category</span>
             </div>
-          </div>
-
-          <!-- Category -->
-          <div class="form-group">
-            <label for="categorySelect">Department / Category</label>
-            <select id="categorySelect">
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-on-surface text-surface text-xs font-semibold transition-colors" data-cat="sweep_all">⚡ Deep Sweep</button>
+              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="electronics">🎧 Electronics</button>
+              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="pc">💻 Computers</button>
+              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="kitchen">☕ Kitchen</button>
+              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="videogames">🎮 Video Games</button>
+              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="hi">🛠️ Tools</button>
+            </div>
+            <!-- Full Category Select Dropdown -->
+            <select id="categorySelect" class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg py-1.5 px-3 text-xs font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary mt-1">
               <option value="sweep_all" selected>⚡ Deep Sweep (All Categories Combined - Scans All Pages)</option>
-              <option value="all">Single Broad Search (Amazon search engine cap: ~14 pages / ~300 items)</option>
+              <option value="all">Single Broad Search (~14 pages / ~300 items)</option>
               <option value="electronics">Electronics (TV, Audio, Camera)</option>
               <option value="pc">Computers & Tablets</option>
               <option value="kitchen">Home & Kitchen</option>
@@ -130,135 +265,250 @@
             </select>
           </div>
 
-          <!-- Amazon Region / Domain -->
-          <div class="form-group">
-            <label for="domainSelect">Amazon Marketplace</label>
-            <select id="domainSelect">
-              <option value="amazon.com.au" selected>🇦🇺 Amazon Australia (AUD $)</option>
-              <option value="amazon.co.jp">🇯🇵 Amazon Japan (JPY ¥)</option>
-              <option value="amazon.com">🇺🇸 Amazon US (USD $)</option>
-              <option value="amazon.co.uk">🇬🇧 Amazon UK (GBP £)</option>
-              <option value="amazon.ca">🇨🇦 Amazon Canada (CAD $)</option>
-              <option value="amazon.de">🇩🇪 Amazon Germany (EUR €)</option>
-            </select>
-          </div>
-
-          <!-- Display Currency -->
-          <div class="form-group">
-            <label for="currencySelect">Display Currency</label>
-            <select id="currencySelect">
-              <option value="AUD" selected>🇦🇺 AUD ($) - Australian Dollar</option>
-              <option value="USD">🇺🇸 USD ($) - US Dollar</option>
-              <option value="JPY">🇯🇵 JPY (¥) - Japanese Yen</option>
-              <option value="GBP">🇬🇧 GBP (£) - British Pound</option>
-              <option value="EUR">🇪🇺 EUR (€) - Euro</option>
-              <option value="CAD">🇨🇦 CAD ($) - Canadian Dollar</option>
-              <option value="ORIGINAL">🌐 Store Default Currency</option>
-            </select>
-          </div>
-
-          <!-- Exclude Categories from Deep Sweep & Database Radar -->
-          <div class="form-group span-4 exclude-categories-panel" id="excludeCategoriesPanel">
-            <div class="exclude-panel-header">
-              <div class="exclude-title-area">
-                <span class="exclude-badge">🚫 Exclude Departments:</span>
-                <span class="exclude-subtitle">Click to exclude categories from live sweeps & database radar:</span>
-              </div>
-              <div class="exclude-quick-actions">
-                <button type="button" class="btn-preset-exclude" id="quickExcludeBooksPetsBtn" title="Exclude Books & Pet Supplies in one click">
-                  ⚡ Exclude Books & Pets
-                </button>
-                <button type="button" class="btn-preset-reset" id="resetExcludedCatsBtn" title="Reset and include all departments">
-                  Reset (Include All)
-                </button>
-              </div>
-            </div>
-            <div class="exclude-pills-wrap" id="excludePillsWrap">
-              <!-- Dynamically injected via app.js -->
-            </div>
-          </div>
-
-          <!-- Discount Range Presets & Sliders -->
-          <div class="form-group span-2">
-            <div class="label-row">
-              <label>Discount Range: <span class="range-display" id="discountDisplay">20% – 99%</span></label>
-              <div class="presets-row">
-                <button type="button" class="preset-pill active" data-min="20" data-max="99">All Deals (20%+)</button>
-                <button type="button" class="preset-pill" data-min="30" data-max="99">30%+</button>
-                <button type="button" class="preset-pill" data-min="50" data-max="99">50%+</button>
-                <button type="button" class="preset-pill" data-min="70" data-max="99">70%+</button>
-                <button type="button" class="preset-pill preset-pill-fire" data-min="80" data-max="99">🔥 80%+ Glitch</button>
-              </div>
-            </div>
-
-            <div class="dual-range-container">
-              <input type="range" id="minDiscountSlider" min="10" max="99" value="20" step="5">
-              <input type="range" id="maxDiscountSlider" min="10" max="99" value="99" step="5">
-            </div>
-          </div>
-
-          <!-- Price Range Filter -->
-          <div class="form-group span-2">
-            <div class="label-row">
-              <label>Price Range (<span id="priceCurrencySymbol">AUD $</span>)</label>
-              <div class="presets-row">
-                <button type="button" class="price-preset-pill active" data-min="0" data-max="0">Any</button>
-                <button type="button" class="price-preset-pill" data-min="0" data-max="50">&lt; $50</button>
-                <button type="button" class="price-preset-pill" data-min="50" data-max="200">$50–$200</button>
-                <button type="button" class="price-preset-pill" data-min="200" data-max="800">$200–$800</button>
-              </div>
-            </div>
-            <div class="price-input-group">
-              <div class="price-field">
-                <span class="currency-tag" id="minCurrencyTag">$</span>
-                <input type="number" id="minPriceInput" placeholder="Min" min="0" step="1">
-                <span class="field-sublabel">MIN</span>
-              </div>
-              <div class="price-separator">
-                <span>to</span>
-              </div>
-              <div class="price-field">
-                <span class="currency-tag" id="maxCurrencyTag">$</span>
-                <input type="number" id="maxPriceInput" placeholder="Max" min="0" step="1">
-                <span class="field-sublabel">MAX</span>
-              </div>
-              <button type="button" class="price-clear-btn" id="priceClearBtn" title="Reset price filter">✕</button>
-            </div>
-          </div>
-
-          <!-- Warehouse Condition -->
-          <div class="form-group">
-            <label for="conditionSelect">Warehouse Condition</label>
-            <select id="conditionSelect">
-              <option value="all" selected>All Conditions</option>
-              <option value="brand-new">🛒 Brand New (Retail Clearance)</option>
-              <option value="like-new">✨ Like New (Open Box / Mint)</option>
-              <option value="very-good">👍 Very Good</option>
-              <option value="good">👌 Good</option>
+          <!-- Warehouse Condition (Span 5) -->
+          <div class="md:col-span-5 flex flex-col gap-2">
+            <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Warehouse Condition:</span>
+            <select id="conditionSelect" class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg py-2 px-3 text-xs font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
+              <option value="all" selected>Any Condition (Deepest Discounts)</option>
+              <option value="like-new">✨ Like New / Mint (Flawless condition)</option>
+              <option value="very-good">👍 Very Good (Minor cosmetic box flaw)</option>
+              <option value="good">👌 Good (Inspected & Verified)</option>
               <option value="acceptable">📦 Acceptable</option>
+              <option value="brand-new">🛒 Brand New (Clearance)</option>
             </select>
           </div>
 
-          <!-- Negative Keywords (Spam / Accessory Filter) -->
-          <div class="form-group span-2">
-            <div class="label-row">
-              <label for="negKeywordsInput">🚫 Exclude Keywords (Spam Filter)</label>
-              <button type="button" class="action-pill" id="junkBlockerToggleBtn">+ Auto-Block Junk Accessories</button>
+          <!-- Savings Depth & Presets (Span 7) -->
+          <div class="md:col-span-7 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Minimum Savings Depth:</span>
+              <span class="text-xs font-mono font-bold text-primary" id="discountDisplay">20% – 99%</span>
             </div>
-            <div class="input-with-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line>
-              </svg>
-              <input type="text" id="negKeywordsInput" placeholder="e.g. case, cover, strap, cable, protector, replacement, holder...">
+            <div class="flex flex-wrap gap-2">
+              <button type="button" class="preset-pill active px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-on-surface text-xs font-semibold transition-colors cursor-pointer" data-min="20" data-max="99">All Deals (20%+)</button>
+              <button type="button" class="preset-pill px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:border-primary text-on-surface text-xs font-semibold transition-colors cursor-pointer" data-min="30" data-max="99">30%+ Off</button>
+              <button type="button" class="preset-pill px-3 py-1.5 rounded-lg bg-primary-fixed/40 border border-primary/40 text-on-primary-fixed font-bold text-xs transition-colors cursor-pointer" data-min="50" data-max="99">50%+ Half Price</button>
+              <button type="button" class="preset-pill preset-pill-fire px-3 py-1.5 rounded-lg bg-secondary-fixed/40 border border-secondary/30 text-secondary font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer" data-min="70" data-max="99">
+                <span>🔥</span> 70%+ Crazy Deals
+              </button>
+            </div>
+            <!-- Dual Range Sliders -->
+            <div class="dual-range-container mt-1">
+              <input type="range" id="minDiscountSlider" min="10" max="99" value="20" step="5"/>
+              <input type="range" id="maxDiscountSlider" min="10" max="99" value="99" step="5"/>
             </div>
           </div>
 
-          <!-- Sort -->
-          <div class="form-group">
-            <label for="sortSelect">Sort Results</label>
-            <select id="sortSelect">
-              <option value="date-desc-rank" selected>✨ Newest Arrivals (Just Listed First)</option>
+          <!-- Price Ceiling & Clear (Span 5) -->
+          <div class="md:col-span-5 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Price Range (<span id="priceCurrencySymbol">AUD $</span>):</span>
+              <button type="button" class="text-xs text-outline hover:text-error" id="priceClearBtn">Reset</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="relative flex-1">
+                <span class="absolute left-2.5 top-1.5 text-xs text-outline" id="minCurrencyTag">$</span>
+                <input type="number" id="minPriceInput" placeholder="Min" min="0" step="1" class="w-full pl-6 pr-2 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs font-mono text-on-surface focus:outline-none focus:border-primary"/>
+              </div>
+              <span class="text-outline text-xs">to</span>
+              <div class="relative flex-1">
+                <span class="absolute left-2.5 top-1.5 text-xs text-outline" id="maxCurrencyTag">$</span>
+                <input type="number" id="maxPriceInput" placeholder="Max" min="0" step="1" class="w-full pl-6 pr-2 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs font-mono text-on-surface focus:outline-none focus:border-primary"/>
+              </div>
+              <div class="flex gap-1">
+                <button type="button" class="price-preset-pill active px-2 py-1 rounded border border-outline-variant/40 text-[11px] font-semibold" data-min="0" data-max="0">Any</button>
+                <button type="button" class="price-preset-pill px-2 py-1 rounded border border-outline-variant/40 text-[11px] font-semibold" data-min="0" data-max="50">&lt;$50</button>
+                <button type="button" class="price-preset-pill px-2 py-1 rounded border border-outline-variant/40 text-[11px] font-semibold" data-min="50" data-max="200">$50–$200</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Spam Exclude Keywords & Advanced Scan Options (Span 7) -->
+          <div class="md:col-span-7 flex flex-col gap-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Spam / Accessory Filter:</span>
+              <button type="button" class="text-xs font-bold text-primary hover:underline cursor-pointer" id="junkBlockerToggleBtn">+ Auto-Block Junk Accessories</button>
+            </div>
+            <div class="relative">
+              <span class="material-symbols-outlined absolute left-2.5 top-2 text-outline text-[16px]">block</span>
+              <input type="text" id="negKeywordsInput" placeholder="e.g. case, cover, strap, cable, protector, replacement, holder..." class="w-full pl-8 pr-3 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs text-on-surface placeholder:text-outline focus:outline-none focus:border-primary"/>
+            </div>
+          </div>
+
+          <!-- Action Buttons & In-Stock Switch (Span 5) -->
+          <div class="md:col-span-5 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input checked type="checkbox" id="inStockOnly" class="w-4 h-4 rounded text-primary focus:ring-primary/20 border-outline-variant/60 cursor-pointer"/>
+                <span class="text-xs font-semibold text-on-surface">In Stock Only</span>
+              </label>
+              <div class="flex items-center gap-1 text-xs text-outline" title="Auto-refresh interval">
+                <span>🔔</span>
+                <select id="autoRefreshSelect" class="bg-transparent text-xs text-on-surface border-none p-0 focus:ring-0 cursor-pointer">
+                  <option value="0" selected>Off</option>
+                  <option value="2">2m</option>
+                  <option value="5">5m</option>
+                  <option value="10">10m</option>
+                </select>
+              </div>
+              <select id="pagesSelect" style="display: none;">
+                <option value="all" selected>All Pages</option>
+              </select>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button type="button" id="searchBtn" class="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary-container text-on-primary py-2.5 px-5 rounded-lg font-bold text-xs shadow-sm transition-all active:scale-[0.98] cursor-pointer">
+                <span class="material-symbols-outlined text-[18px]">search</span>
+                <span>Hunt Deals</span>
+              </button>
+              <a href="https://www.amazon.com.au/s?i=aps&pct-off=20-99&rh=p_n_availability%3A4910513051" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1 border border-outline-variant/40 hover:bg-surface-container-low text-on-surface py-2.5 px-3.5 rounded-lg font-bold text-xs transition-colors" id="openDirectBtn" title="Directly opens the filtered Amazon search page">
+                <span>Amazon</span>
+                <span class="material-symbols-outlined text-[15px]">open_in_new</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Exclude Categories Panel -->
+        <div class="mt-4 pt-3 border-t border-outline-variant/20" id="excludeCategoriesPanel">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-error">🚫 Exclude Departments:</span>
+              <span class="text-xs text-on-surface-variant hidden sm:inline">Click to exclude from live sweeps & database radar:</span>
+            </div>
+            <div class="flex gap-2">
+              <button type="button" class="text-[11px] font-bold text-secondary hover:underline cursor-pointer" id="quickExcludeBooksPetsBtn">⚡ Exclude Books & Pets</button>
+              <button type="button" class="text-[11px] text-outline hover:text-on-surface cursor-pointer" id="resetExcludedCatsBtn">Reset (Include All)</button>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1" id="excludePillsWrap">
+            <!-- Dynamically injected via app.js -->
+          </div>
+        </div>
+
+        <!-- Target URL Preview Bar -->
+        <div class="mt-3 pt-2 border-t border-outline-variant/10 flex items-center justify-between text-[11px] text-outline">
+          <div class="flex items-center gap-2 truncate flex-1 mr-2">
+            <span class="font-bold uppercase tracking-wider text-[10px]">Filter Target:</span>
+            <span class="font-mono text-primary truncate" id="targetUrlText">https://www.amazon.com.au</span>
+          </div>
+          <button type="button" class="p-1 hover:text-on-surface" id="copyUrlBtn" title="Copy URL">
+            <span class="material-symbols-outlined text-[14px]">content_copy</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIVE MARKET ANALYTICS DASHBOARD (Chart.js) ================= -->
+  <section class="w-full bg-surface-container-lowest border-b border-outline-variant/20 py-6" id="analyticsDashboard" style="display: none;">
+    <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary-fixed/40 text-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-[24px]">insights</span>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2 py-0.5 rounded-full bg-primary-fixed/40 text-on-primary-fixed-variant text-[11px] font-bold uppercase tracking-wider">Live Market Intelligence</span>
+            </div>
+            <h3 class="text-xl font-headline font-bold text-on-surface">Price Distribution & Clearance Analytics</h3>
+          </div>
+        </div>
+        <button type="button" class="p-1.5 rounded-lg text-outline hover:text-on-surface hover:bg-surface-container-low cursor-pointer" id="closeAnalyticsBtn">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+
+      <!-- 4 KPI Highlight Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-lg bg-primary-fixed/40 text-primary flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-[22px]">inventory_2</span>
+          </div>
+          <div>
+            <span class="text-xs font-semibold text-outline">Active Catalogue</span>
+            <div class="text-xl font-headline font-bold text-on-surface" id="kpiTotalDeals">0</div>
+            <span class="text-[11px] text-primary font-semibold" id="kpiStoreSplit">Loading ratio...</span>
+          </div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-lg bg-secondary-fixed/40 text-secondary flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-[22px]">percent</span>
+          </div>
+          <div>
+            <span class="text-xs font-semibold text-outline">Average Discount</span>
+            <div class="text-xl font-headline font-bold text-on-surface" id="kpiAvgDiscount">0% OFF</div>
+            <span class="text-[11px] text-on-surface-variant font-medium">Across all tracked deals</span>
+          </div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-lg bg-error-container/40 text-error flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-[22px]">local_fire_department</span>
+          </div>
+          <div>
+            <span class="text-xs font-semibold text-outline">Price Errors (80%+)</span>
+            <div class="text-xl font-headline font-bold text-error" id="kpiPriceErrors">0</div>
+            <span class="text-[11px] text-error font-medium">Severe clearances & glitches</span>
+          </div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30 flex items-center gap-3.5">
+          <div class="w-11 h-11 rounded-lg bg-tertiary-fixed/40 text-tertiary flex items-center justify-center flex-shrink-0">
+            <span class="material-symbols-outlined text-[22px]">savings</span>
+          </div>
+          <div>
+            <span class="text-xs font-semibold text-outline">Max Dollar Savings</span>
+            <div class="text-xl font-headline font-bold text-on-surface" id="kpiMaxSavings">$0</div>
+            <span class="text-[11px] text-tertiary font-semibold" id="kpiMaxSavingsSub">Highest single cut</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30">
+          <h4 class="text-sm font-bold text-on-surface mb-1">Discount Depth Distribution</h4>
+          <span class="text-xs text-outline mb-3 block">Deals grouped by savings percentage</span>
+          <div class="h-64">
+            <canvas id="discountChart"></canvas>
+          </div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30">
+          <h4 class="text-sm font-bold text-on-surface mb-1">Top Clearance Departments</h4>
+          <span class="text-xs text-outline mb-3 block">Categories with deepest deal volume</span>
+          <div class="h-64">
+            <canvas id="categoryChart"></canvas>
+          </div>
+        </div>
+        <div class="p-4 rounded-xl bg-surface-container-low border border-outline-variant/30">
+          <h4 class="text-sm font-bold text-on-surface mb-1">Store & Condition Split</h4>
+          <span class="text-xs text-outline mb-3 block">Warehouse Open-Box vs Brand New</span>
+          <div class="h-64">
+            <canvas id="storeSplitChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= RESULTS STATS & FILTER TABS BAR ================= -->
+  <section class="w-full bg-surface border-b border-outline-variant/20 py-4" id="resultsMeta">
+    <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+      <!-- Top Row: Results count, active badges, sort & export -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-primary"></span>
+          <h3 class="text-sm font-bold text-on-surface" id="resultsCount">Showing 0 active deals</h3>
+          <span class="text-xs text-outline hidden sm:inline" id="filterSummaryBadge">• All prices in AUD ($)</span>
+          <span class="text-xs text-primary font-bold hidden sm:inline" id="inventoryNoteBadge"></span>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <!-- Sort Dropdown -->
+          <div class="flex items-center gap-1 text-xs text-outline">
+            <span>Sort:</span>
+            <select id="sortSelect" class="bg-surface-container-lowest border border-outline-variant/40 rounded-md py-1 px-2.5 text-xs font-semibold text-on-surface focus:outline-none focus:border-primary cursor-pointer">
+              <option value="date-desc-rank" selected>Newest Deals First (Just Spotted)</option>
               <option value="">Featured / Best Deals</option>
               <option value="price-asc-rank">Price: Low to High</option>
               <option value="price-desc-rank">Price: High to Low</option>
@@ -266,517 +516,455 @@
             </select>
           </div>
 
-          <!-- Scan Depth (Pages) -->
-          <div class="form-group">
-            <label for="pagesSelect">Pages to Scan</label>
-            <select id="pagesSelect">
-              <option value="all" selected>♾️ Scan All Pages (Scan Until End)</option>
-              <option value="1">1 Page (~24 deals)</option>
-              <option value="2">2 Pages (~50 deals)</option>
-              <option value="5">5 Pages (~120 deals)</option>
-              <option value="10">10 Pages (~250 deals)</option>
-              <option value="20">20 Pages (~500 deals)</option>
-              <option value="50">50 Pages (~1,200 deals)</option>
-            </select>
-          </div>
-
-          <!-- Inventory & Auto-Check Controls -->
-          <div class="form-group">
-            <label>Inventory & Refresh</label>
-            <div class="inventory-controls-box">
-              <label for="inStockOnly" class="checkbox-label" title="Only show products currently in stock">
-                <input type="checkbox" id="inStockOnly" checked>
-                <span>In Stock Only</span>
-              </label>
-              <div class="auto-refresh-inline" title="Periodic automatic check">
-                <span>🔔</span>
-                <select id="autoRefreshSelect">
-                  <option value="0" selected>Off</option>
-                  <option value="2">2 min</option>
-                  <option value="5">5 min</option>
-                  <option value="10">10 min</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- Action Buttons Group -->
-          <div class="form-group span-2 action-buttons-group">
-            <div class="btn-row" style="margin-top: auto;">
-              <button type="button" class="btn btn-primary" id="searchBtn" title="Hunt & filter deals directly from indexed database (Instant & Offline)">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-                </svg>
-                Hunt Deep Deals
-              </button>
-              <a href="https://www.amazon.com.au/s?i=aps&pct-off=20-99&rh=p_n_availability%3A4910513051" target="_blank" rel="noopener noreferrer" class="btn btn-outline" id="openDirectBtn" style="text-decoration: none;" title="Directly opens the filtered Amazon search page in a new tab">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-                Open in Amazon ↗
-              </a>
-            </div>
-          </div>
+          <!-- Export CSV Button -->
+          <button type="button" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-outline-variant/40 hover:bg-surface-container-low text-xs font-semibold text-on-surface transition-colors cursor-pointer" id="exportCsvBtn" title="Export current deals to CSV">
+            <span class="material-symbols-outlined text-[15px]">download</span>
+            <span>Export CSV</span>
+          </button>
         </div>
+      </div>
 
-        <!-- Generated URL preview pill -->
-        <div class="url-preview-bar">
-          <span class="preview-label">Live Filter Target:</span>
-          <span class="preview-url" id="targetUrlText">https://www.amazon.com.au/s?i=aps&pct-off=20-99&rh=p_n_availability%3A4910513051</span>
-          <button class="btn-icon" id="copyUrlBtn" title="Copy URL">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-            </svg>
+      <!-- Filter Tabs Row -->
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-outline-variant/10">
+        <div class="inline-flex p-1 bg-surface-container-low rounded-xl border border-outline-variant/30 gap-1 flex-wrap" id="filterTabsRow">
+          <button type="button" class="filter-tab-pill active px-3.5 py-1.5 rounded-lg bg-surface-container-lowest shadow-xs text-primary font-bold text-xs border border-outline-variant/20 transition-all cursor-pointer flex items-center gap-1.5" id="tabAllDeals">
+            <span>📦</span>
+            <span>All Deals</span>
+            <span class="px-1.5 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold" id="countAllDeals">0</span>
+          </button>
+          <button type="button" class="filter-tab-pill tab-pill-brands px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabTopBrands">
+            <span>⭐</span>
+            <span>Top Brands Only</span>
+            <span class="px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-700 text-[10px] font-bold" id="countTopBrands">0</span>
+          </button>
+          <button type="button" class="filter-tab-pill px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabJustListed">
+            <span>✨</span>
+            <span>Just Listed</span>
+            <span class="px-1.5 py-0.2 rounded-full bg-primary-fixed/40 text-on-primary-fixed text-[10px] font-bold" id="countJustListed">0</span>
+          </button>
+          <button type="button" class="filter-tab-pill px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabSnipedDeals">
+            <span>🎯</span>
+            <span>Sniped Matches</span>
+            <span class="px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-700 text-[10px] font-bold" id="countSnipedDeals">0</span>
+          </button>
+          <button type="button" class="filter-tab-pill tab-pill-fire px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-secondary text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabPriceErrors">
+            <span>🔥</span>
+            <span>Price Errors</span>
+            <span class="px-1.5 py-0.2 rounded-full bg-secondary-fixed/50 text-secondary text-[10px] font-bold" id="countPriceErrors">0</span>
           </button>
         </div>
 
-        <!-- ⚡ 24/7 Database & Automated Hourly Crawler Status Bar -->
-        <div class="db-status-bar" id="dbStatusBar">
-          <div class="db-status-info">
-            <span class="db-pulse-dot" id="dbPulseDot"></span>
-            <span class="db-title">Database Deal Radar:</span>
-            <strong id="dbTotalDealsCount">0</strong> deals indexed
-            <span class="db-divider">•</span>
-            <span id="dbLastScanText">Last Auto-Scan: loading...</span>
-            <span class="db-divider">•</span>
-            <span id="dbNextScanText">Next scan in: 60m</span>
-          </div>
-          <div class="db-status-actions" style="display: flex; gap: 8px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-sm btn-secondary db-analytics-btn" id="dbAnalyticsBtn" title="Explore live discount charts, price depth, and category analytics">
-              <span>📊 Market Charts</span>
-            </button>
-            <button type="button" class="btn btn-sm btn-outline db-scan-btn" id="dbScanNowBtn" title="Trigger a standard background sweep (50+ pages)">
-              <span id="dbScanIcon">🔄</span>
-              <span id="dbScanLabel">Quick Scan (50+ Pgs)</span>
-            </button>
-            <button type="button" class="btn btn-sm btn-primary db-deep-scan-btn" id="dbDeepScanBtn" style="font-weight: 800; background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" title="Deep scan all 18 departments up to 8 pages each (150+ total pages and 2,000+ deals into database)">
-              <span>⚡</span>
-              <span id="dbDeepScanLabel">Deep Search to Database (150+ Pages)</span>
-            </button>
-          </div>
+        <!-- Clean Feed Toggle -->
+        <div>
+          <button type="button" class="accessory-filter-toggle active inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/30 bg-primary-fixed/20 text-primary text-xs font-bold transition-all shadow-xs cursor-pointer" id="hideAccessoriesToggleBtn" title="Auto-hide phone cases, screen protectors, replacement ear cushions, and raw metal sheets">
+            <span class="material-symbols-outlined text-[16px]">shield</span>
+            <span id="hideAccessoriesLabel">Clean Feed (No Cases/Parts)</span>
+          </button>
         </div>
-      </section>
-
-      <!-- 📊 Live Market Analytics & Discount Charts Section -->
-      <section class="analytics-dashboard card" id="analyticsDashboard" style="display: none;">
-        <div class="analytics-header">
-          <div class="analytics-title-group">
-            <div class="analytics-badge-tag">
-              <span class="pulse-beacon"></span>
-              LIVE MARKET INTELLIGENCE
-            </div>
-            <h3>Price Distribution & Market Analytics</h3>
-            <p>Real-time statistical breakdown of active Amazon Warehouse and Clearance inventory</p>
-          </div>
-          <button type="button" class="btn-icon" id="closeAnalyticsBtn" title="Close Analytics">✕</button>
-        </div>
-
-        <!-- 4 KPI Highlight Cards -->
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap emerald">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                <line x1="12" y1="22.08" x2="12" y2="12"></line>
-              </svg>
-            </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Active Catalogue</span>
-              <h4 class="kpi-value" id="kpiTotalDeals">0</h4>
-              <span class="kpi-sub" id="kpiStoreSplit">Loading warehouse ratio...</span>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap amber">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
-                <line x1="7" y1="7" x2="7.01" y2="7"></line>
-              </svg>
-            </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Average Discount</span>
-              <h4 class="kpi-value" id="kpiAvgDiscount">0% OFF</h4>
-              <span class="kpi-sub">Across all tracked products</span>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap crimson">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-              </svg>
-            </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Price Errors (80%+ Off)</span>
-              <h4 class="kpi-value" id="kpiPriceErrors">0</h4>
-              <span class="kpi-sub">Severe clearances & glitches</span>
-            </div>
-          </div>
-          <div class="kpi-card">
-            <div class="kpi-icon-wrap sapphire">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="1" x2="12" y2="23"></line>
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-              </svg>
-            </div>
-            <div class="kpi-content">
-              <span class="kpi-label">Max Dollar Savings</span>
-              <h4 class="kpi-value" id="kpiMaxSavings">$0</h4>
-              <span class="kpi-sub" id="kpiMaxSavingsSub">Highest single-item cut</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Charts Grid (3 Interactive Charts) -->
-        <div class="charts-grid">
-          <!-- Chart 1: Discount Depth Histogram -->
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div>
-                <h4 class="chart-title">Discount Depth Distribution</h4>
-                <span class="chart-subtitle">Deals grouped by savings percentage (Click a bar to filter)</span>
-              </div>
-              <span class="chart-pill">Live Histogram</span>
-            </div>
-            <div class="chart-canvas-wrap">
-              <canvas id="discountChart"></canvas>
-            </div>
-          </div>
-
-          <!-- Chart 2: Top Clearance Categories -->
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div>
-                <h4 class="chart-title">Top Clearance Departments</h4>
-                <span class="chart-subtitle">Categories with deepest deal volume (Click to filter)</span>
-              </div>
-              <span class="chart-pill">Category Volume</span>
-            </div>
-            <div class="chart-canvas-wrap">
-              <canvas id="categoryChart"></canvas>
-            </div>
-          </div>
-
-          <!-- Chart 3: Store & Condition Composition -->
-          <div class="chart-card">
-            <div class="chart-card-header">
-              <div>
-                <h4 class="chart-title">Store & Condition Split</h4>
-                <span class="chart-subtitle">Warehouse Open-Box vs Brand New Clearance</span>
-              </div>
-              <span class="chart-pill">Composition</span>
-            </div>
-            <div class="chart-canvas-wrap">
-              <canvas id="storeSplitChart"></canvas>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Results Stats & Filter Bar -->
-      <section class="results-meta card" id="resultsMeta" style="display: none;">
-        <!-- Top Row: Result Counter, Summary Badges & Export CSV -->
-        <div class="results-meta-header">
-          <div class="results-headline-group">
-            <h3 class="results-count" id="resultsCount">Found 0 items</h3>
-            <div class="meta-badges-group">
-              <span class="meta-badge" id="filterSummaryBadge">Warehouse Deals (60-90% off)</span>
-              <span class="meta-badge inventory-badge" id="inventoryNoteBadge" style="display: none;"></span>
-            </div>
-          </div>
-          <div class="results-actions-group">
-            <button class="btn btn-sm btn-ghost export-csv-btn" id="exportCsvBtn" title="Export current deals to CSV">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              <span>Export CSV</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Middle Row: Segmented Filter Tabs -->
-        <div class="filter-tabs-wrapper">
-          <div class="filter-tabs-row" id="filterTabsRow">
-            <button type="button" class="filter-tab-pill active" id="tabAllDeals">
-              <span class="tab-icon">📦</span>
-              <span class="tab-title">All Deals</span>
-              <span class="tab-badge" id="countAllDeals">0</span>
-            </button>
-            <button type="button" class="filter-tab-pill tab-pill-brands" id="tabTopBrands">
-              <span class="tab-icon">⭐</span>
-              <span class="tab-title">Top Brands Only</span>
-              <span class="tab-badge" id="countTopBrands">0</span>
-            </button>
-            <button type="button" class="filter-tab-pill" id="tabJustListed">
-              <span class="tab-icon">✨</span>
-              <span class="tab-title">Just Listed</span>
-              <span class="tab-badge" id="countJustListed">0</span>
-            </button>
-            <button type="button" class="filter-tab-pill" id="tabSnipedDeals">
-              <span class="tab-icon">🎯</span>
-              <span class="tab-title">Sniped Matches</span>
-              <span class="tab-badge" id="countSnipedDeals">0</span>
-            </button>
-            <button type="button" class="filter-tab-pill tab-pill-fire" id="tabPriceErrors">
-              <span class="tab-icon">🔥</span>
-              <span class="tab-title">Price Errors</span>
-              <span class="tab-badge" id="countPriceErrors">0</span>
-            </button>
-          </div>
-          <div class="smart-quality-actions">
-            <button type="button" class="accessory-filter-toggle active" id="hideAccessoriesToggleBtn" title="Auto-hide phone cases, screen protectors, replacement ear cushions, and raw metal sheets">
-              <span class="toggle-icon">🛡️</span>
-              <span id="hideAccessoriesLabel">Clean Feed (No Cases/Parts)</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Bottom Row: 🕒 Just Listed Granular Time Filter Chips -->
-        <div class="time-filter-row" id="timeFilterRow" style="display: none;">
-          <div class="time-filter-heading">
-            <span class="time-filter-icon">🕒</span>
-            <span class="time-filter-label">Discovered:</span>
-          </div>
-          <div class="time-pills-track">
-            <button type="button" class="time-pill" data-time="1h">⏱️ Last 1h (<span id="count1h">0</span>)</button>
-            <button type="button" class="time-pill" data-time="2h">⏱️ Last 2h (<span id="count2h">0</span>)</button>
-            <button type="button" class="time-pill" data-time="6h">⏱️ Last 6h (<span id="count6h">0</span>)</button>
-            <button type="button" class="time-pill" data-time="12h">⏱️ Last 12h (<span id="count12h">0</span>)</button>
-            <button type="button" class="time-pill active" data-time="24h">⏱️ Last 24h (<span id="count24h">0</span>)</button>
-            <button type="button" class="time-pill" data-time="all">All Time</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Progressive Scan Progress Banner -->
-      <div class="scan-progress-banner" id="scanBanner" style="display: none;">
-        <span id="scanBannerText">🔄 Scanning Page 1... (Found 0 deals)</span>
-        <button type="button" class="stop-scan-btn" id="stopScanBtn">⏹️ Stop Scanning</button>
       </div>
 
+      <!-- Granular Time Filter Chips (Just Listed) -->
+      <div class="time-filter-row flex items-center gap-2 pt-3 mt-2 border-t border-outline-variant/10 flex-wrap" id="timeFilterRow" style="display: none;">
+        <span class="text-xs font-bold text-on-surface-variant">🕒 Discovered:</span>
+        <div class="time-pills-track flex items-center gap-1.5 flex-wrap">
+          <button type="button" class="time-pill px-2.5 py-1 rounded-md border border-outline-variant/40 text-xs font-mono font-medium hover:bg-surface-container-low" data-time="1h">Last 1h (<span id="count1h">0</span>)</button>
+          <button type="button" class="time-pill px-2.5 py-1 rounded-md border border-outline-variant/40 text-xs font-mono font-medium hover:bg-surface-container-low" data-time="2h">Last 2h (<span id="count2h">0</span>)</button>
+          <button type="button" class="time-pill px-2.5 py-1 rounded-md border border-outline-variant/40 text-xs font-mono font-medium hover:bg-surface-container-low" data-time="6h">Last 6h (<span id="count6h">0</span>)</button>
+          <button type="button" class="time-pill px-2.5 py-1 rounded-md border border-outline-variant/40 text-xs font-mono font-medium hover:bg-surface-container-low" data-time="12h">Last 12h (<span id="count12h">0</span>)</button>
+          <button type="button" class="time-pill active px-2.5 py-1 rounded-md border border-primary/40 bg-primary-fixed/40 text-primary font-mono text-xs font-bold" data-time="24h">Last 24h (<span id="count24h">0</span>)</button>
+          <button type="button" class="time-pill px-2.5 py-1 rounded-md border border-outline-variant/40 text-xs font-mono font-medium hover:bg-surface-container-low" data-time="all">All Time</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PROGRESSIVE SCAN PROGRESS BANNER ================= -->
+  <div class="scan-progress-banner max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 my-4" id="scanBanner" style="display: none;">
+    <div class="p-3.5 rounded-xl bg-primary-fixed/40 border border-primary/30 flex items-center justify-between text-xs font-bold text-on-primary-fixed-variant">
+      <div class="flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-primary animate-spin"></span>
+        <span id="scanBannerText">🔄 Scanning Page 1... (Found 0 deals)</span>
+      </div>
+      <button type="button" class="px-3 py-1 rounded-md bg-surface-container-lowest text-error font-bold border border-error/30 hover:bg-error-container/20 cursor-pointer" id="stopScanBtn">⏹️ Stop Scanning</button>
+    </div>
+  </div>
+
+  <!-- ================= MAIN DEALS CONTAINER ================= -->
+  <main class="flex-1 py-8 md:py-10">
+    <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+      
       <!-- Deals Grid Container -->
-      <section class="deals-grid" id="dealsGrid">
-        <!-- Default State: Quick Picks -->
-        <div class="empty-state card">
-          <div class="empty-icon">🏷️</div>
-          <h3>Ready to Hunt Deep Amazon Deals</h3>
-          <p>Select <strong>Both Stores</strong>, <strong>Amazon Warehouse</strong> or <strong>Normal Amazon</strong>, pick a category, and click <strong>"Hunt Deep Deals"</strong>. Or click <strong>"Open in Amazon"</strong> to jump directly into the live Amazon store.</p>
-          <div class="quick-keywords">
-            <span>Popular searches:</span>
-            <button class="keyword-chip" data-q="Headphones">🎧 Headphones</button>
-            <button class="keyword-chip" data-q="Monitor">🖥️ Monitors</button>
-            <button class="keyword-chip" data-q="Laptop">💻 Laptops</button>
-            <button class="keyword-chip" data-q="Vacuum">🧹 Vacuums</button>
-            <button class="keyword-chip" data-q="Tools">🔨 Power Tools</button>
-            <button class="keyword-chip" data-q="Apple">🍎 Apple</button>
-            <button class="keyword-chip" data-q="Coffee">☕ Coffee Makers</button>
+      <section class="deals-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="dealsGrid">
+        <!-- Default State: Quick Picks (Styled like Stitch prototype) -->
+        <div class="col-span-full empty-state bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-10 text-center max-w-2xl mx-auto shadow-sm">
+          <div class="w-16 h-16 rounded-2xl bg-primary-fixed/40 text-primary flex items-center justify-center mx-auto mb-4 text-2xl">
+            🏷️
+          </div>
+          <h3 class="text-xl font-headline font-bold text-on-surface mb-2">Ready to Hunt Deep Amazon Deals</h3>
+          <p class="text-sm text-on-surface-variant mb-6">
+            Select <strong>Both Stores</strong>, <strong>Amazon Warehouse</strong> or <strong>Amazon Clearance</strong>, pick a department, and click <strong>"Hunt Deals"</strong> to instantly scan thousands of indexed items.
+          </p>
+          <div class="flex items-center justify-center gap-2 flex-wrap">
+            <span class="text-xs text-outline">Popular searches:</span>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Headphones">🎧 Headphones</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Monitor">🖥️ Monitors</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Laptop">💻 Laptops</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Vacuum">🧹 Vacuums</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Tools">🔨 Tools</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Apple">🍎 Apple</button>
           </div>
         </div>
       </section>
 
       <!-- Load More Container -->
-      <div id="loadMoreContainer" style="display: none; margin-top: 1.5rem; gap: 12px; justify-content: center; align-items: center; flex-wrap: wrap;">
-        <button class="btn btn-primary" id="loadMoreBtn" style="min-width: 260px; padding: 12px 24px; font-weight: 700;">
-          ⬇️ Load More Deals
+      <div id="loadMoreContainer" class="mt-8 flex justify-center items-center gap-3 flex-wrap" style="display: none;">
+        <button type="button" class="inline-flex items-center gap-2 bg-primary hover:bg-primary-container text-on-primary py-3 px-6 rounded-xl font-bold text-sm shadow-sm transition-all cursor-pointer" id="loadMoreBtn">
+          <span class="material-symbols-outlined text-[18px]">expand_more</span>
+          <span>Load More Open-Box Deals</span>
         </button>
-        <button type="button" class="btn btn-secondary" id="loadAllDbDealsBtn" style="padding: 12px 20px; font-weight: 700;">
-          ⚡ Load All Deals Into View
+        <button type="button" class="inline-flex items-center gap-2 bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface py-3 px-5 rounded-xl font-bold text-sm transition-colors cursor-pointer" id="loadAllDbDealsBtn">
+          <span class="material-symbols-outlined text-[18px] text-primary">bolt</span>
+          <span>Load All Deals Into View</span>
         </button>
       </div>
-    </main>
+    </div>
+  </main>
 
-    <!-- Watchlist / Sniping Modal Dialog -->
-    <div class="modal-overlay" id="watchlistModal" style="display: none;">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>🎯 Persistent Watchlist & Sniping List</h3>
-          <button class="btn-icon" id="closeWatchlistModalBtn">✕</button>
-        </div>
-        <div class="modal-body">
-          <p style="color: var(--text-secondary); margin-bottom: 1.25rem; font-size: 0.9rem;">
-            Save high-value target items you want to hunt across Amazon. The autonomous <strong>Sniper Daemon</strong> scans all targets automatically every <strong>2 hours</strong> and alerts you when an item drops under your price!
+  <!-- ================= HOW AMAZON WAREHOUSE DEALS WORK (Stitch Educational Section) ================= -->
+  <section class="w-full bg-surface-container-low/60 border-t border-outline-variant/20 py-12 md:py-16">
+    <div class="max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-10">
+        <h2 class="text-2xl md:text-3xl font-headline font-bold text-on-surface mb-2">
+          How Amazon Warehouse Deals Work
+        </h2>
+        <p class="text-sm text-on-surface-variant">
+          Smart shoppers save hundreds on customer returns, opened packages, and overstocked warehouse goods.
+        </p>
+      </div>
+      
+      <!-- 3 Friendly Illustration / Bento Step Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-6 shadow-sm">
+          <div class="w-12 h-12 rounded-xl bg-primary-fixed/40 text-primary flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">fact_check</span>
+          </div>
+          <h3 class="text-base font-headline font-bold text-on-surface mb-2">1. Amazon Inspects & Grades</h3>
+          <p class="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+            Each returned item undergoes a multi-point inspection by Amazon technicians and is graded honestly from 'Like New' to 'Acceptable'.
           </p>
-
-          <!-- Add New Target Form -->
-          <div class="watchlist-add-form">
-            <h4>➕ Add Target Keyword to Watchlist</h4>
-            <div class="watchlist-grid-inputs">
-              <div>
-                <label style="font-size: 0.78rem;">Target Keyword</label>
-                <input type="text" id="watchKeywordInput" placeholder="e.g. Sony WH-1000XM5, RTX 4080...">
-              </div>
-              <div>
-                <label style="font-size: 0.78rem;">Category</label>
-                <select id="watchCategorySelect" style="font-size: 0.85rem;">
-                  <option value="all">All Categories</option>
-                  <option value="videogames">Video Games & Consoles</option>
-                  <option value="electronics">Electronics</option>
-                  <option value="pc">Computers & Tablets</option>
-                  <option value="kitchen">Home & Kitchen</option>
-                  <option value="hi">Tools</option>
-                  <option value="sporting">Sports & Outdoors</option>
-                  <option value="toys-and-games">Toys & Games</option>
-                  <option value="beauty">Beauty</option>
-                  <option value="automotive">Automotive</option>
-                  <option value="office-products">Office Products</option>
-                </select>
-              </div>
-              <div>
-                <label style="font-size: 0.78rem;">Max Price ($)</label>
-                <input type="number" id="watchMaxPriceInput" placeholder="e.g. 600 (Optional)" min="0">
-              </div>
-              <div>
-                <label style="font-size: 0.78rem;">Min Off (%) <span style="opacity: 0.7;">(0 = Any)</span></label>
-                <input type="number" id="watchMinDiscountInput" placeholder="0 (Any %)" min="0" max="95" value="0">
-              </div>
-              <button class="btn btn-primary" id="addWatchTargetBtn" style="padding: 9px 16px;">Add Target</button>
-            </div>
+        </div>
+        <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-6 shadow-sm">
+          <div class="w-12 h-12 rounded-xl bg-secondary-fixed/40 text-secondary flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">percent</span>
           </div>
-
-          <!-- Watchlist Items List -->
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 8px;">
-            <h4 style="font-size: 1rem;">Active Watchlist Targets (<span id="watchTargetCount">0</span>)</h4>
-            <button class="btn btn-primary" id="runSniperScanBtn" style="display: flex; align-items: center; gap: 6px;">
-              <span>🎯 Run Watchlist Sniper Scan</span>
-            </button>
+          <h3 class="text-base font-headline font-bold text-on-surface mb-2">2. Deep Cuts Up to 80% Off</h3>
+          <p class="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+            Because the box was opened, Amazon slashes prices by 20% to 80%+ below full retail, offering pristine products at liquidation rates.
+          </p>
+        </div>
+        <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-6 shadow-sm">
+          <div class="w-12 h-12 rounded-xl bg-tertiary-fixed/40 text-tertiary flex items-center justify-center mb-4">
+            <span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">verified_user</span>
           </div>
-          <div id="watchlistItemsContainer">
-            <!-- Dynamic targets rendered here -->
-          </div>
+          <h3 class="text-base font-headline font-bold text-on-surface mb-2">3. Full 30-Day Return Policy</h3>
+          <p class="text-xs md:text-sm text-on-surface-variant leading-relaxed">
+            All Amazon Warehouse purchases are backed by Amazon's hassle-free 30-day money-back guarantee with standard customer service.
+          </p>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Saved Deals Drawer Modal -->
-    <div class="drawer-backdrop" id="savedBackdrop">
-      <div class="drawer" id="savedDrawer">
-        <div class="drawer-header">
-          <h3>Saved Deals</h3>
-          <button class="btn-icon" id="closeDrawerBtn">✕</button>
+  <!-- ================= FOOTER ================= -->
+  <footer class="bg-surface-container-low border-t border-outline-variant/30">
+    <div class="w-full max-w-[1360px] mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div class="flex flex-col items-center md:items-start gap-1">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings: 'FILL' 1;">radar</span>
+          <span class="text-base font-headline font-bold text-primary">WarehouseHunter</span>
         </div>
-        <div class="drawer-content" id="savedList">
-          <div class="drawer-empty">No saved deals yet. Click the heart icon on any product to save it here!</div>
+        <p class="text-xs text-on-surface-variant text-center md:text-left">
+          © 2026 WarehouseHunter. Amazon Resale & Deep Discount Scanner. Unofficial community deal aggregator.
+        </p>
+      </div>
+      <div class="flex items-center gap-6 text-xs text-on-surface-variant">
+        <a href="#explore" class="hover:text-primary transition-colors">Explore Deals</a>
+        <a href="#warehouse" class="hover:text-primary transition-colors">Warehouse Open-Box</a>
+        <a href="#glitches" class="hover:text-secondary transition-colors">Price Errors</a>
+        <a href="https://www.amazon.com.au" target="_blank" rel="noopener noreferrer" class="hover:text-primary transition-colors">Amazon AU ↗</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================= KEEPA PRICE FLUCTUATIONS MODAL (Stitch Screen 2 Exact Design) ================= -->
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 md:p-6 overflow-y-auto" id="priceHistoryModal" style="display: none;" role="dialog" aria-modal="true">
+    <!-- Backdrop overlay -->
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300" id="closePriceHistoryModalBackdrop"></div>
+    
+    <!-- Modal Container Card -->
+    <div class="relative w-full max-w-4xl bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-2xl z-10 overflow-hidden my-auto max-h-[92vh] flex flex-col">
+      <!-- Modal Header -->
+      <div class="p-5 sm:p-6 border-b border-outline-variant/20 bg-surface-container-low/40 flex items-start justify-between gap-4">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-xl bg-primary-fixed/40 border border-primary/20 flex-shrink-0 flex items-center justify-center text-primary shadow-sm">
+            <span class="material-symbols-outlined text-[26px]" style="font-variation-settings: 'FILL' 1;">insights</span>
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <span class="bg-primary text-on-primary text-xs font-bold px-2 py-0.5 rounded-full" id="pmDiscountBadge">
+                82% OFF DEAL
+              </span>
+              <span class="bg-surface-container-lowest text-on-surface text-xs font-medium px-2 py-0.5 rounded-md border border-outline-variant/30" id="pmConditionBadge">
+                ✨ Like New (Open Box)
+              </span>
+              <span class="bg-surface-container-low text-outline font-mono text-xs px-2 py-0.5 rounded" id="pmStoreBadge">
+                Warehouse
+              </span>
+            </div>
+            <h2 class="text-base sm:text-lg font-headline font-bold text-on-surface leading-snug" id="pmTitle">
+              Product Title
+            </h2>
+            <p class="text-xs text-on-surface-variant flex items-center gap-1.5 mt-0.5">
+              <span class="material-symbols-outlined text-[15px] text-primary">schedule</span>
+              <span>Tracked continuously via Keepa API • Updated recently</span>
+            </p>
+          </div>
         </div>
-        <div class="drawer-footer">
-          <button class="btn btn-danger btn-sm" id="clearSavedBtn">Clear All Saved</button>
+        <button type="button" class="p-2 text-outline hover:text-on-surface hover:bg-surface-container-low rounded-lg transition-colors flex-shrink-0 cursor-pointer" id="closePriceHistoryModalBtn" title="Close modal">
+          <span class="material-symbols-outlined text-[22px]">close</span>
+        </button>
+      </div>
+
+      <!-- Modal Scrollable Content -->
+      <div class="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1">
+        <!-- Metric Highlights Bento Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+          <!-- Current Deal -->
+          <div class="bg-primary-container/10 border-2 border-primary/30 rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-primary font-bold uppercase tracking-wider flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+              Current Deal Price
+            </span>
+            <div class="mt-2 mb-1">
+              <div class="text-2xl font-price font-bold text-primary leading-tight font-mono" id="pmPrice">$0.00</div>
+              <div class="text-xs text-on-surface-variant font-medium">Deal Price</div>
+            </div>
+            <div class="inline-flex items-center gap-1 text-[11px] font-bold text-primary bg-primary-fixed/40 px-1.5 py-0.5 rounded w-fit" id="pmSavings">
+              Save $0.00
+            </div>
+          </div>
+
+          <!-- MSRP Retail -->
+          <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-on-surface-variant font-medium flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px] text-outline">sell</span>
+              Amazon Retail MSRP
+            </span>
+            <div class="mt-2 mb-1">
+              <div class="text-xl font-bold text-outline line-through leading-tight font-mono" id="pmRetail">$0.00</div>
+              <div class="text-xs text-outline">List Price</div>
+            </div>
+            <span class="text-secondary font-bold text-[11px]" id="pmGaugeText">Slashed Below Retail</span>
+          </div>
+
+          <!-- Verified Quality / Rating -->
+          <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-3.5 flex flex-col justify-between">
+            <span class="text-xs text-on-surface-variant font-medium flex items-center gap-1">
+              <span class="material-symbols-outlined text-[16px] text-tertiary">verified</span>
+              Grading & Verification
+            </span>
+            <div class="mt-2 mb-1">
+              <div class="text-lg font-bold text-on-surface leading-tight" id="pmGradingText">Amazon Verified</div>
+              <div class="text-xs text-on-surface-variant">Multi-point check passed</div>
+            </div>
+            <span class="text-outline text-[11px]">30-Day Money Back</span>
+          </div>
+
+          <!-- Product Image Thumbnail -->
+          <div class="bg-surface-container-low border border-outline-variant/30 rounded-xl p-2 flex items-center justify-center overflow-hidden">
+            <img id="pmImage" src="" alt="Product Image" class="max-h-20 max-w-full object-contain"/>
+          </div>
+        </div>
+
+        <!-- Dynamic Deal Slashing Gauge -->
+        <div class="p-3.5 rounded-xl bg-surface-container-low border border-outline-variant/30">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-on-surface">Deal Slashing Gauge</span>
+            <span class="text-xs font-mono font-bold text-primary" id="pmGaugeText2">75% Slashed Below Retail</span>
+          </div>
+          <div class="w-full h-2.5 bg-outline-variant/30 rounded-full overflow-hidden">
+            <div class="h-full bg-gradient-to-r from-primary to-primary-container rounded-full transition-all duration-500" id="pmGaugeBar" style="width: 75%;"></div>
+          </div>
+        </div>
+
+        <!-- Embedded Keepa Historical Chart -->
+        <div class="bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-4 sm:p-5 shadow-sm">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[20px] text-primary">query_stats</span>
+              <h3 class="text-sm font-headline font-bold text-on-surface">180-Day Price Fluctuations (Keepa Graph)</h3>
+            </div>
+            <span class="text-xs text-outline">Amazon • New • Used (Warehouse)</span>
+          </div>
+
+          <div class="pm-graph-container relative rounded-lg overflow-hidden border border-outline-variant/20 bg-surface-container-low min-h-[220px] flex items-center justify-center">
+            <div class="pm-graph-loading flex flex-col items-center gap-2 py-8 text-xs text-outline" id="pmGraphLoader">
+              <span class="w-6 h-6 rounded-full border-2 border-primary border-t-transparent animate-spin"></span>
+              <span>Loading Keepa price history graph...</span>
+            </div>
+            <img id="pmKeepaGraph" src="" alt="Keepa Price History Graph" class="w-full object-contain max-h-[300px]"/>
+            <div class="pm-graph-fallback p-6 text-center text-xs text-outline" id="pmGraphFallback" style="display: none;">
+              <p>Detailed chart preview is direct-only for this item.</p>
+              <p class="mt-1">Click below to inspect complete history on Keepa or CamelCamelCamel.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- External Verifier Shortcuts (Keepa, CamelCamelCamel, OzBargain) -->
+        <div>
+          <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider mb-2 block">External Deal Verifiers:</span>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <a href="#" id="pmKeepaLink" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 hover:border-primary flex items-center gap-2.5 transition-colors group">
+              <div class="w-8 h-8 rounded bg-primary-fixed/40 flex items-center justify-center text-primary font-bold text-xs">KP</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-on-surface group-hover:text-primary transition-colors flex items-center gap-1">
+                  <span>Keepa Interactive</span>
+                  <span class="material-symbols-outlined text-[13px]">north_east</span>
+                </div>
+                <div class="text-[11px] text-on-surface-variant truncate">Official drop history</div>
+              </div>
+            </a>
+            <a href="#" id="pmCamelLink" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 hover:border-primary flex items-center gap-2.5 transition-colors group">
+              <div class="w-8 h-8 rounded bg-secondary-fixed/40 flex items-center justify-center text-secondary font-bold text-xs">CCC</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-on-surface group-hover:text-primary transition-colors flex items-center gap-1">
+                  <span>CamelCamelCamel</span>
+                  <span class="material-symbols-outlined text-[13px]">north_east</span>
+                </div>
+                <div class="text-[11px] text-on-surface-variant truncate">3rd-party stats</div>
+              </div>
+            </a>
+            <a href="#" id="pmOzBargainLink" target="_blank" rel="noopener noreferrer" class="p-2.5 rounded-lg bg-surface-container-lowest border border-outline-variant/30 hover:border-primary flex items-center gap-2.5 transition-colors group">
+              <div class="w-8 h-8 rounded bg-tertiary-fixed/40 flex items-center justify-center text-tertiary font-bold text-xs">OB</div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-on-surface group-hover:text-primary transition-colors flex items-center gap-1">
+                  <span>OzBargain</span>
+                  <span class="material-symbols-outlined text-[13px]">north_east</span>
+                </div>
+                <div class="text-[11px] text-on-surface-variant truncate">Community votes</div>
+              </div>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer Actions -->
+      <div class="p-4 sm:p-5 border-t border-outline-variant/20 bg-surface-container-low/40 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2 text-xs text-outline">
+          <span class="material-symbols-outlined text-[16px] text-primary">inventory_2</span>
+          <span>Verified Amazon Australia stock</span>
+        </div>
+        <div class="flex items-center gap-2 w-full sm:w-auto">
+          <button type="button" class="px-4 py-2.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors cursor-pointer" id="closePriceModalDismissBtn">
+            Dismiss
+          </button>
+          <a href="#" id="pmAmazonDirectBtn" target="_blank" rel="noopener noreferrer" class="flex-1 sm:flex-none px-5 py-2.5 rounded-lg bg-primary hover:bg-primary-container text-on-primary text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm">
+            <span>View Deal on Amazon</span>
+            <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+          </a>
         </div>
       </div>
     </div>
-
-    <!-- Price History & Keepa Tracker Modal -->
-    <div class="modal-overlay" id="priceHistoryModal" style="display: none;">
-      <div class="modal-card price-modal-card">
-        <div class="modal-header">
-          <div class="pm-title-group">
-            <span class="pm-badge-kicker">PRICE INTELLIGENCE & TRACKING</span>
-            <h3 id="pmTitle">Price History & Keepa Tracker</h3>
-          </div>
-          <button class="btn-icon" id="closePriceHistoryModalBtn">✕</button>
-        </div>
-        <div class="modal-body price-modal-body">
-          <div class="pm-overview-card">
-            <div class="pm-img-wrap">
-              <img id="pmImage" src="" alt="Product Image">
-            </div>
-            <div class="pm-info-wrap">
-              <div class="pm-badges-row">
-                <span class="pm-badge" id="pmStoreBadge">Warehouse</span>
-                <span class="pm-badge" id="pmConditionBadge">Like New</span>
-                <span class="pm-badge discount" id="pmDiscountBadge">75% OFF</span>
-              </div>
-              <div class="pm-pricing-grid">
-                <div class="pm-price-box primary">
-                  <span class="pm-label">Current Deal Price</span>
-                  <div class="pm-val" id="pmPrice">$29.99</div>
-                </div>
-                <div class="pm-price-box">
-                  <span class="pm-label">Retail MSRP</span>
-                  <div class="pm-retail" id="pmRetail">$119.99</div>
-                </div>
-                <div class="pm-price-box savings">
-                  <span class="pm-label">Total Verified Savings</span>
-                  <div class="pm-savings" id="pmSavings">Save $90.00</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Dynamic Slashing Savings Gauge -->
-          <div class="pm-gauge-card">
-            <div class="pm-gauge-labels">
-              <span class="pm-gauge-title">Deal Slashing Gauge</span>
-              <span class="pm-gauge-sub" id="pmGaugeText">75% Slashed Below Retail</span>
-            </div>
-            <div class="pm-gauge-track">
-              <div class="pm-gauge-fill" id="pmGaugeBar" style="width: 75%;"></div>
-            </div>
-          </div>
-
-          <!-- Embedded Keepa Historical Chart -->
-          <div class="pm-chart-box">
-            <div class="pm-chart-bar">
-              <div class="pm-chart-heading">
-                <span>📉 Keepa Real-Time Historical Price Graph</span>
-                <span class="pm-tag">Amazon • New • Used (Warehouse)</span>
-              </div>
-              <span class="pm-chart-hint">Official Amazon Price History & Drops</span>
-            </div>
-            <div class="pm-graph-container">
-              <div class="pm-graph-loading" id="pmGraphLoader">
-                <div class="spinner"></div>
-                <span>Loading Keepa price history graph...</span>
-              </div>
-              <img id="pmKeepaGraph" src="" alt="Keepa Price History Graph" class="pm-graph-image">
-              <div class="pm-graph-fallback" id="pmGraphFallback" style="display: none;">
-                <p>Detailed image chart is direct-only for this item.</p>
-                <p>Click below to inspect complete history on Keepa or CamelCamelCamel.</p>
-              </div>
-            </div>
-          </div>
-
-          <!-- External Verifier Shortcuts -->
-          <div class="pm-external-grid">
-            <a href="#" id="pmCamelLink" target="_blank" rel="noopener noreferrer" class="pm-ext-btn camel">
-              <span class="ext-icon">📉</span>
-              <div class="ext-text">
-                <strong>CamelCamelCamel</strong>
-                <small>Full price history & drops</small>
-              </div>
-            </a>
-            <a href="#" id="pmKeepaLink" target="_blank" rel="noopener noreferrer" class="pm-ext-btn keepa">
-              <span class="ext-icon">📊</span>
-              <div class="ext-text">
-                <strong>Keepa Interactive</strong>
-                <small>Live tracking & stock charts</small>
-              </div>
-            </a>
-            <a href="#" id="pmOzBargainLink" target="_blank" rel="noopener noreferrer" class="pm-ext-btn ozb">
-              <span class="ext-icon">🦘</span>
-              <div class="ext-text">
-                <strong>OzBargain</strong>
-                <small>Community votes & reviews</small>
-              </div>
-            </a>
-          </div>
-
-          <div class="pm-footer">
-            <a href="#" id="pmAmazonDirectBtn" target="_blank" rel="noopener noreferrer" class="btn btn-primary pm-buy-btn">
-              <span>View Deal on Amazon ↗</span>
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Notification Toast -->
-    <div class="toast" id="toast"></div>
   </div>
 
-  <script src="app.js?v=7.0"></script>
+  <!-- ================= WATCHLIST SNIPER MODAL DIALOG ================= -->
+  <div class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto" id="watchlistModal" style="display: none;" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" id="closeWatchlistModalBackdrop"></div>
+    <div class="relative w-full max-w-2xl bg-surface-container-lowest border border-outline-variant/40 rounded-2xl shadow-2xl z-10 overflow-hidden my-auto p-6 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between pb-4 border-b border-outline-variant/20 mb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary-fixed/40 text-primary flex items-center justify-center">
+            <span class="material-symbols-outlined text-[24px]">notifications_active</span>
+          </div>
+          <div>
+            <h3 class="text-lg font-headline font-bold text-on-surface">24/7 Watchlist Sniper</h3>
+            <p class="text-xs text-on-surface-variant">Autonomous sniper daemon checks your target items every 2 hours</p>
+          </div>
+        </div>
+        <button type="button" class="p-2 text-outline hover:text-on-surface rounded-lg cursor-pointer" id="closeWatchlistModalBtn">✕</button>
+      </div>
+
+      <!-- Add Target Form -->
+      <div class="bg-surface-container-low rounded-xl p-4 border border-outline-variant/30 mb-5">
+        <h4 class="text-xs font-bold text-on-surface mb-3 uppercase tracking-wider">➕ Add Target Product</h4>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+          <div>
+            <label class="text-[11px] font-bold text-outline block mb-1">Target Keyword</label>
+            <input type="text" id="watchKeywordInput" placeholder="e.g. Sony WH-1000XM5, RTX 4080..." class="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg p-2 text-xs text-on-surface focus:outline-none focus:border-primary"/>
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-outline block mb-1">Category</label>
+            <select id="watchCategorySelect" class="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg p-2 text-xs text-on-surface focus:outline-none focus:border-primary">
+              <option value="all">All Categories</option>
+              <option value="videogames">Video Games</option>
+              <option value="electronics">Electronics</option>
+              <option value="pc">Computers & Tablets</option>
+              <option value="kitchen">Home & Kitchen</option>
+              <option value="hi">Tools</option>
+              <option value="sporting">Sports</option>
+              <option value="toys-and-games">Toys</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-outline block mb-1">Max Price ($)</label>
+            <input type="number" id="watchMaxPriceInput" placeholder="e.g. 350 (Optional)" min="0" class="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg p-2 text-xs text-on-surface focus:outline-none focus:border-primary"/>
+          </div>
+          <div>
+            <label class="text-[11px] font-bold text-outline block mb-1">Min Discount (%)</label>
+            <input type="number" id="watchMinDiscountInput" placeholder="0 (Any %)" min="0" max="95" value="0" class="w-full bg-surface-container-lowest border border-outline-variant/40 rounded-lg p-2 text-xs text-on-surface focus:outline-none focus:border-primary"/>
+          </div>
+        </div>
+        <button type="button" class="w-full bg-primary hover:bg-primary-container text-on-primary py-2 rounded-lg text-xs font-bold transition-all cursor-pointer" id="addWatchTargetBtn">Add Target Keyword</button>
+      </div>
+
+      <!-- Active Watch Targets -->
+      <div class="flex items-center justify-between mb-3">
+        <h4 class="text-xs font-bold text-on-surface uppercase tracking-wider">Active Targets (<span id="watchTargetCount">0</span>)</h4>
+        <button type="button" class="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer" id="runSniperScanBtn">
+          <span>🎯 Run Sniper Scan Now</span>
+        </button>
+      </div>
+      <div id="watchlistItemsContainer" class="flex-1 overflow-y-auto space-y-2 max-h-60 pr-1">
+        <!-- Injected via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SAVED DEALS SLIDE-OVER DRAWER ================= -->
+  <div class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs transition-opacity duration-300" id="savedBackdrop" style="display: none;"></div>
+  <aside class="fixed right-0 top-0 bottom-0 w-full max-w-md bg-surface-container-lowest shadow-2xl z-50 border-l border-outline-variant/30 flex flex-col transition-transform duration-300 translate-x-full" id="savedDrawer">
+    <div class="p-5 border-b border-outline-variant/20 flex items-center justify-between bg-surface-container-low/40">
+      <div class="flex items-center gap-2.5">
+        <span class="material-symbols-outlined text-secondary text-[22px]">favorite</span>
+        <h3 class="text-base font-headline font-bold text-on-surface">Saved Deals</h3>
+      </div>
+      <button type="button" class="p-1.5 text-outline hover:text-on-surface rounded-lg cursor-pointer" id="closeDrawerBtn">✕</button>
+    </div>
+    <div class="p-5 flex-1 overflow-y-auto space-y-3" id="savedList">
+      <div class="text-center py-10 text-xs text-outline">
+        No saved deals yet. Click the heart icon on any product card to bookmark it here!
+      </div>
+    </div>
+    <div class="p-4 border-t border-outline-variant/20 bg-surface-container-low/40 flex justify-between items-center">
+      <button type="button" class="px-3.5 py-1.5 rounded-lg border border-error/40 text-error hover:bg-error-container/20 text-xs font-bold cursor-pointer" id="clearSavedBtn">
+        Clear All Saved
+      </button>
+    </div>
+  </aside>
+
+  <!-- Notification Toast -->
+  <div class="fixed bottom-5 right-5 z-50 bg-on-surface text-surface py-2.5 px-4 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 pointer-events-none opacity-0 transition-opacity duration-200" id="toast"></div>
+
+  <script src="app.js?v=8.0"></script>
 </body>
 </html>
