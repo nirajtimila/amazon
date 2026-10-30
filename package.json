@@ -5,7 +5,10 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "test": "node --experimental-websocket tests/run_master_suite.js",
+    "test:backend": "node tests/test_backend_features.js",
+    "test:frontend": "node --experimental-websocket tests/test_frontend_features.js"
   },
   "dependencies": {
     "cheerio": "^1.0.0-rc.12",
