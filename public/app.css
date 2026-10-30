@@ -1,11 +1,14 @@
 /* ========================================================
    WAREHOUSE HUNTER - GOOGLE STITCH LUXURY DESIGN SYSTEM
-   Exact recreation of Stitch Prototype • Emerald & Clean Minimalist UI
+   Clean Emerald, Slate & Crisp Light Architecture
    ======================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap');
 
 :root {
+  /* Force light color scheme to prevent browser OS dark-mode inversion */
+  color-scheme: light !important;
+
   /* Google Stitch Theme Colors */
   --primary: #006948;
   --primary-container: #00855d;
@@ -31,10 +34,10 @@
   --surface-container: #eaedff;
   --surface-lowest: #ffffff;
   
-  --on-surface: #131b2e;
-  --on-surface-variant: #3d4a42;
-  --outline: #6d7a72;
-  --outline-variant: #bccac0;
+  --on-surface: #0f172a;
+  --on-surface-variant: #334155;
+  --outline: #64748b;
+  --outline-variant: #cbd5e1;
 
   --error: #ba1a1a;
   --error-container: #ffdad6;
@@ -44,17 +47,25 @@
   --font-body: 'Inter', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  --shadow-card: 0 1px 3px rgba(19, 27, 46, 0.05), 0 6px 16px -2px rgba(19, 27, 46, 0.05);
-  --shadow-card-hover: 0 4px 12px rgba(19, 27, 46, 0.08), 0 16px 32px -4px rgba(19, 27, 46, 0.08);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 8px 24px -4px rgba(15, 23, 42, 0.1), 0 2px 6px -1px rgba(15, 23, 42, 0.05);
 }
 
-/* Base resets & typography */
-body {
+/* ========================================================
+   GLOBAL BASE & COLOR-SCHEME ENFORCEMENT
+   ======================================================== */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html, body {
+  color-scheme: light !important;
   font-family: var(--font-body);
-  background-color: var(--surface);
-  color: var(--on-surface);
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 h1, h2, h3, h4, .font-headline {
@@ -65,23 +76,66 @@ h1, h2, h3, h4, .font-headline {
   font-family: var(--font-mono);
 }
 
+/* ========================================================
+   CRISP LIGHT FORM INPUTS & SELECTS
+   Eliminates OS dark-mode user-agent black backgrounds
+   ======================================================== */
+input[type="text"],
+input[type="number"],
+input[type="search"],
+select,
+textarea {
+  color-scheme: light !important;
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #006948 !important;
+  box-shadow: 0 0 0 3px rgba(0, 105, 72, 0.15) !important;
+  outline: none !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
 /* Custom Sleek Scrollbar */
 ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--surface-low);
+  background: #f1f5f9;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--outline-variant);
+  background: #cbd5e1;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary);
 }
 
-/* Dual-range slider styling */
+/* ========================================================
+   DUAL-RANGE DISCOUNT SLIDER
+   ======================================================== */
 .dual-range-container {
   position: relative;
   width: 100%;
@@ -96,7 +150,9 @@ h1, h2, h3, h4, .font-headline {
   height: 6px;
   -webkit-appearance: none;
   appearance: none;
-  background: transparent;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   pointer-events: none;
   z-index: 2;
   margin: 0;
@@ -108,7 +164,7 @@ h1, h2, h3, h4, .font-headline {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--primary);
+  background: #006948;
   border: 2px solid #ffffff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   cursor: pointer;
@@ -118,14 +174,14 @@ h1, h2, h3, h4, .font-headline {
 
 .dual-range-container input[type="range"]::-webkit-slider-thumb:hover {
   transform: scale(1.15);
-  background: var(--primary-container);
+  background: #00855d;
 }
 
 .dual-range-container input[type="range"]::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: var(--primary);
+  background: #006948;
   border: 2px solid #ffffff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
   cursor: pointer;
@@ -144,45 +200,197 @@ h1, h2, h3, h4, .font-headline {
   z-index: 1;
 }
 
-/* Active Store Pills */
+/* ========================================================
+   STORE SWITCHER PILLS (AU / UK / US / DE / JP)
+   ======================================================== */
+.store-pill {
+  background: transparent;
+  color: #475569;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.store-pill:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: #0f172a;
+}
+
 .store-pill.active {
   background: #ffffff !important;
-  color: var(--primary) !important;
+  color: #006948 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
   font-weight: 700 !important;
   border-color: rgba(0, 105, 72, 0.25) !important;
 }
 
 .store-pill.active span.material-symbols-outlined {
-  color: var(--primary) !important;
+  color: #006948 !important;
 }
 
-/* Preset Pills Active State */
+/* ========================================================
+   CATEGORY QUICK CHIPS (.cat-chip)
+   ======================================================== */
+.cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.cat-chip:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+.cat-chip.active {
+  background-color: #006948 !important;
+  color: #ffffff !important;
+  border-color: #006948 !important;
+  box-shadow: 0 2px 6px rgba(0, 105, 72, 0.25) !important;
+}
+
+/* ========================================================
+   DISCOUNT PRESET PILLS (.preset-pill)
+   ======================================================== */
+.preset-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.preset-pill:hover {
+  background-color: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
+}
+
 .preset-pill.active {
-  background: rgba(133, 248, 196, 0.45) !important;
-  color: var(--on-primary-fixed) !important;
-  border-color: var(--primary) !important;
+  background-color: #ecfdf5 !important;
+  color: #006948 !important;
+  border-color: #006948 !important;
   font-weight: 700 !important;
+  box-shadow: 0 1px 4px rgba(0, 105, 72, 0.2) !important;
+}
+
+.preset-pill.preset-pill-fire.active {
+  background-color: #fff7ed !important;
+  color: #c2410c !important;
+  border-color: #ea580c !important;
+  box-shadow: 0 1px 4px rgba(234, 88, 12, 0.2) !important;
+}
+
+/* ========================================================
+   PRICE PRESET PILLS (.price-preset-pill)
+   ======================================================== */
+.price-preset-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.price-preset-pill:hover {
+  background-color: #f1f5f9 !important;
+  border-color: #94a3b8 !important;
+  color: #0f172a !important;
 }
 
 .price-preset-pill.active {
-  background: var(--primary) !important;
+  background-color: #006948 !important;
   color: #ffffff !important;
-  border-color: var(--primary) !important;
+  border-color: #006948 !important;
+  font-weight: 700 !important;
+  box-shadow: 0 1px 3px rgba(0, 105, 72, 0.25) !important;
 }
 
-/* Filter Tab Pills */
+/* ========================================================
+   DEPARTMENT EXCLUSION PILLS (.exclude-pill)
+   ======================================================== */
+.exclude-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #ffffff !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.exclude-pill:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+}
+
+.exclude-pill.excluded {
+  background-color: #fef2f2 !important;
+  border-color: #fca5a5 !important;
+  color: #dc2626 !important;
+  text-decoration: line-through;
+  opacity: 0.9;
+}
+
+/* ========================================================
+   RESULTS FILTER TABS (.filter-tab-pill)
+   ======================================================== */
+.filter-tab-pill {
+  background: transparent;
+  color: #475569;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.filter-tab-pill:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: #0f172a;
+}
+
 .filter-tab-pill.active {
   background: #ffffff !important;
-  color: var(--primary) !important;
+  color: #006948 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
   border-color: rgba(0, 105, 72, 0.3) !important;
   font-weight: 700 !important;
 }
 
 .filter-tab-pill.tab-pill-fire.active {
-  color: var(--secondary) !important;
-  border-color: rgba(167, 58, 0, 0.4) !important;
+  color: #ea580c !important;
+  border-color: rgba(234, 88, 12, 0.4) !important;
 }
 
 .filter-tab-pill.tab-pill-brands.active {
@@ -190,28 +398,50 @@ h1, h2, h3, h4, .font-headline {
   border-color: rgba(245, 158, 11, 0.4) !important;
 }
 
-/* Clean Feed Toggle Active */
-.accessory-filter-toggle.active {
-  background: rgba(133, 248, 196, 0.35) !important;
-  border-color: var(--primary) !important;
-  color: var(--primary) !important;
+/* Clean Feed Toggle */
+.accessory-filter-toggle {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  transition: all 0.15s ease;
 }
 
-/* Time Pills Active */
-.time-pill.active {
-  background: rgba(133, 248, 196, 0.5) !important;
-  border-color: var(--primary) !important;
-  color: var(--primary) !important;
+.accessory-filter-toggle.active {
+  background-color: #ecfdf5 !important;
+  border-color: #006948 !important;
+  color: #006948 !important;
   font-weight: 700 !important;
 }
 
-/* Deal Cards (Stitch Prototype) */
+/* Time Filter Pills */
+.time-pill {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  transition: all 0.15s ease;
+}
+
+.time-pill:hover {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+.time-pill.active {
+  background-color: #ecfdf5 !important;
+  border-color: #006948 !important;
+  color: #006948 !important;
+  font-weight: 700 !important;
+}
+
+/* ========================================================
+   DEAL CARDS (Stitch Prototype)
+   ======================================================== */
 .deal-card {
   background: #ffffff;
-  border: 1px solid rgba(188, 202, 192, 0.35);
+  border: 1px solid #e2e8f0;
   border-radius: 0.75rem;
   overflow: hidden;
-  box-shadow: var(--shadow-card);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
   transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
@@ -220,29 +450,28 @@ h1, h2, h3, h4, .font-headline {
 
 .deal-card:hover {
   transform: translateY(-3px);
-  box-shadow: var(--shadow-card-hover);
-  border-color: rgba(0, 105, 72, 0.35);
+  box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.1);
+  border-color: #cbd5e1;
 }
 
 .deal-card.is-glitch {
-  border-color: rgba(244, 63, 94, 0.4);
+  border-color: #fca5a5;
 }
 
 .deal-card.is-glitch:hover {
-  box-shadow: 0 8px 24px -2px rgba(244, 63, 94, 0.2);
+  box-shadow: 0 8px 24px -2px rgba(244, 63, 94, 0.18);
 }
 
-/* Card Image Container */
 .card-img-wrap {
   position: relative;
-  background: #f4f6fa;
+  background: #f8fafc;
   padding: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   aspect-ratio: 4 / 3;
   overflow: hidden;
-  border-bottom: 1px solid rgba(188, 202, 192, 0.2);
+  border-bottom: 1px solid #f1f5f9;
 }
 
 .card-img-wrap img {
@@ -257,7 +486,6 @@ h1, h2, h3, h4, .font-headline {
   transform: scale(1.05);
 }
 
-/* Save Heart Button */
 .save-btn {
   position: absolute;
   top: 0.75rem;
@@ -265,8 +493,8 @@ h1, h2, h3, h4, .font-headline {
   padding: 0.35rem;
   border-radius: 9999px;
   background: rgba(255, 255, 255, 0.9);
-  color: var(--outline);
-  border: 1px solid rgba(188, 202, 192, 0.3);
+  color: #94a3b8;
+  border: 1px solid #e2e8f0;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -324,28 +552,4 @@ h1, h2, h3, h4, .font-headline {
   opacity: 1 !important;
   pointer-events: auto !important;
   transform: translateY(0);
-}
-
-/* Category exclusion pill styles */
-.exclude-pill {
-  padding: 3px 8px;
-  border-radius: 6px;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  border: 1px solid rgba(188, 202, 192, 0.4);
-  background: #ffffff;
-  color: var(--on-surface);
-  transition: all 0.15s ease;
-}
-
-.exclude-pill:hover {
-  background: var(--surface-low);
-}
-
-.exclude-pill.excluded {
-  background: rgba(186, 26, 26, 0.1);
-  border-color: rgba(186, 26, 26, 0.4);
-  color: var(--error);
-  text-decoration: line-through;
 }

@@ -17,7 +17,7 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 
   <!-- Tailwind CSS CDN with Plugins -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="https://cdn.tailwindcss.com?plugins=container-queries"></script>
 
   <!-- Tailwind Configuration Token Injection (Google Stitch Design System) -->
   <script id="tailwind-config">
@@ -80,7 +80,7 @@
   </script>
 
   <!-- Custom Styles for Modals, Sliders, Animations, and Drawers -->
-  <link rel="stylesheet" href="app.css?v=8.0"/>
+  <link rel="stylesheet" href="app.css?v=10.0"/>
 </head>
 <body class="bg-background text-on-surface min-h-screen flex flex-col font-body text-sm antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
 
@@ -234,12 +234,12 @@
               <span class="text-xs text-outline">Select category</span>
             </div>
             <div class="flex flex-wrap gap-1.5">
-              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-on-surface text-surface text-xs font-semibold transition-colors" data-cat="sweep_all">⚡ Deep Sweep</button>
-              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="electronics">🎧 Electronics</button>
-              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="pc">💻 Computers</button>
-              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="kitchen">☕ Kitchen</button>
-              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="videogames">🎮 Video Games</button>
-              <button type="button" class="cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors" data-cat="hi">🛠️ Tools</button>
+              <button type="button" class="cat-chip active" data-cat="sweep_all">⚡ Deep Sweep</button>
+              <button type="button" class="cat-chip" data-cat="electronics">🎧 Electronics</button>
+              <button type="button" class="cat-chip" data-cat="pc">💻 Computers</button>
+              <button type="button" class="cat-chip" data-cat="kitchen">☕ Kitchen</button>
+              <button type="button" class="cat-chip" data-cat="videogames">🎮 Video Games</button>
+              <button type="button" class="cat-chip" data-cat="hi">🛠️ Tools</button>
             </div>
             <!-- Full Category Select Dropdown -->
             <select id="categorySelect" class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg py-1.5 px-3 text-xs font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary mt-1">
@@ -285,12 +285,10 @@
               <span class="text-xs font-mono font-bold text-primary" id="discountDisplay">20% – 99%</span>
             </div>
             <div class="flex flex-wrap gap-2">
-              <button type="button" class="preset-pill active px-3 py-1.5 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-on-surface text-xs font-semibold transition-colors cursor-pointer" data-min="20" data-max="99">All Deals (20%+)</button>
-              <button type="button" class="preset-pill px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:border-primary text-on-surface text-xs font-semibold transition-colors cursor-pointer" data-min="30" data-max="99">30%+ Off</button>
-              <button type="button" class="preset-pill px-3 py-1.5 rounded-lg bg-primary-fixed/40 border border-primary/40 text-on-primary-fixed font-bold text-xs transition-colors cursor-pointer" data-min="50" data-max="99">50%+ Half Price</button>
-              <button type="button" class="preset-pill preset-pill-fire px-3 py-1.5 rounded-lg bg-secondary-fixed/40 border border-secondary/30 text-secondary font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer" data-min="70" data-max="99">
-                <span>🔥</span> 70%+ Crazy Deals
-              </button>
+              <button type="button" class="preset-pill active" data-min="20" data-max="99">All Deals (20%+)</button>
+              <button type="button" class="preset-pill" data-min="30" data-max="99">30%+ Off</button>
+              <button type="button" class="preset-pill" data-min="50" data-max="99">50%+ Half Price</button>
+              <button type="button" class="preset-pill preset-pill-fire" data-min="70" data-max="99">🔥 70%+ Crazy Deals</button>
             </div>
             <!-- Dual Range Sliders -->
             <div class="dual-range-container mt-1">
@@ -316,9 +314,9 @@
                 <input type="number" id="maxPriceInput" placeholder="Max" min="0" step="1" class="w-full pl-6 pr-2 py-1.5 bg-surface-container-low border border-outline-variant/40 rounded-lg text-xs font-mono text-on-surface focus:outline-none focus:border-primary"/>
               </div>
               <div class="flex gap-1">
-                <button type="button" class="price-preset-pill active px-2 py-1 rounded border border-outline-variant/40 text-[11px] font-semibold" data-min="0" data-max="0">Any</button>
-                <button type="button" class="price-preset-pill px-2 py-1 rounded border border-outline-variant/40 text-[11px] font-semibold" data-min="0" data-max="50">&lt;$50</button>
-                <button type="button" class="price-preset-pill px-2 py-1 rounded border border-outline-variant/40 text-[11px] font-semibold" data-min="50" data-max="200">$50–$200</button>
+                <button type="button" class="price-preset-pill active" data-min="0" data-max="0">Any</button>
+                <button type="button" class="price-preset-pill" data-min="0" data-max="50">&lt;$50</button>
+                <button type="button" class="price-preset-pill" data-min="50" data-max="200">$50–$200</button>
               </div>
             </div>
           </div>
@@ -965,6 +963,6 @@
   <!-- Notification Toast -->
   <div class="fixed bottom-5 right-5 z-50 bg-on-surface text-surface py-2.5 px-4 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 pointer-events-none opacity-0 transition-opacity duration-200" id="toast"></div>
 
-  <script src="app.js?v=8.0"></script>
+  <script src="app.js?v=10.0"></script>
 </body>
 </html>

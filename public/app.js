@@ -1166,6 +1166,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Event Listeners for Filters
   keywordInput.addEventListener('input', updateTargetUrl);
   categorySelect.addEventListener('change', () => {
+    document.querySelectorAll('.cat-chip').forEach(c => {
+      c.classList.toggle('active', c.getAttribute('data-cat') === categorySelect.value);
+    });
     updateExcludePanelVisibility();
     updateTargetUrl();
     currentPage = 1;
@@ -3142,10 +3145,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const cat = e.currentTarget.getAttribute('data-cat');
         if (categorySelect && cat) {
           categorySelect.value = cat;
-          document.querySelectorAll('.cat-chip').forEach(c => {
-            c.className = 'cat-chip px-3 py-1.5 rounded-lg bg-surface-container-lowest border border-outline-variant/40 hover:bg-surface-container-low text-on-surface text-xs font-semibold transition-colors cursor-pointer';
-          });
-          e.currentTarget.className = 'cat-chip px-3 py-1.5 rounded-lg bg-on-surface text-surface text-xs font-semibold transition-colors cursor-pointer';
+          document.querySelectorAll('.cat-chip').forEach(c => c.classList.remove('active'));
+          e.currentTarget.classList.add('active');
           searchBtn?.click();
         }
       });
