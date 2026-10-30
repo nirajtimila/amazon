@@ -99,23 +99,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // Excluded Categories Engine (Deep Sweep & Database Radar)
   const EXCLUDE_STORAGE_KEY = 'wh_excluded_categories';
   const EXCLUDABLE_DEPARTMENTS = [
-    { id: 'stripbooks', name: 'Books', icon: '📚' },
-    { id: 'pets', name: 'Pet Supplies', icon: '🐾' },
-    { id: 'baby', name: 'Baby Products', icon: '🍼' },
-    { id: 'beauty', name: 'Beauty', icon: '💄' },
-    { id: 'toys-and-games', name: 'Toys & Games', icon: '🧸' },
-    { id: 'videogames', name: 'Video Games', icon: '🎮' },
-    { id: 'automotive', name: 'Automotive', icon: '🚗' },
-    { id: 'garden', name: 'Garden & Outdoor', icon: '🌱' },
-    { id: 'office-products', name: 'Office', icon: '📎' },
-    { id: 'mi', name: 'Musical Instruments', icon: '🎸' },
-    { id: 'luggage', name: 'Luggage & Travel', icon: '🧳' },
-    { id: 'hpc', name: 'Health & Household', icon: '💊' },
-    { id: 'hi', name: 'Tools & Home', icon: '🔧' },
-    { id: 'sporting', name: 'Sports & Outdoors', icon: '⚽' },
-    { id: 'kitchen', name: 'Home & Kitchen', icon: '🍳' },
-    { id: 'pc', name: 'Computers & Tablets', icon: '💻' },
-    { id: 'electronics', name: 'Electronics', icon: '🎧' }
+    { id: 'stripbooks', name: 'Books' },
+    { id: 'pets', name: 'Pet Supplies' },
+    { id: 'baby', name: 'Baby Products' },
+    { id: 'beauty', name: 'Beauty' },
+    { id: 'toys-and-games', name: 'Toys & Games' },
+    { id: 'videogames', name: 'Video Games' },
+    { id: 'automotive', name: 'Automotive' },
+    { id: 'garden', name: 'Garden & Outdoor' },
+    { id: 'office-products', name: 'Office' },
+    { id: 'mi', name: 'Musical Instruments' },
+    { id: 'luggage', name: 'Luggage & Travel' },
+    { id: 'hpc', name: 'Health & Household' },
+    { id: 'hi', name: 'Tools & Home' },
+    { id: 'sporting', name: 'Sports & Outdoors' },
+    { id: 'kitchen', name: 'Home & Kitchen' },
+    { id: 'pc', name: 'Computers & Tablets' },
+    { id: 'electronics', name: 'Electronics' }
   ];
 
   let excludedCategories = new Set(JSON.parse(localStorage.getItem(EXCLUDE_STORAGE_KEY) || '["stripbooks", "pets"]'));
@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!wrap) return;
     wrap.innerHTML = EXCLUDABLE_DEPARTMENTS.map(dept => {
       const isEx = isCategoryExcluded(dept.id);
-      return `<button type="button" class="exclude-pill ${isEx ? 'excluded' : ''}" data-cat="${dept.id}" title="${isEx ? 'Click to re-include ' + dept.name : 'Click to exclude ' + dept.name}">${dept.icon} ${dept.name}</button>`;
+      return `<button type="button" class="exclude-pill ${isEx ? 'excluded' : ''}" data-cat="${dept.id}" title="${isEx ? 'Click to re-include ' + dept.name : 'Click to exclude ' + dept.name}">${dept.name}</button>`;
     }).join('');
 
     wrap.querySelectorAll('.exclude-pill').forEach(btn => {
@@ -445,11 +445,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (hideAccessories) {
         hideAccessoriesToggleBtn.classList.add('active');
         if (hideAccessoriesLabel) hideAccessoriesLabel.textContent = 'Clean Feed (No Cases/Parts)';
-        showToast('🛡️ Clean Feed enabled: Cases, covers, & replacement parts hidden');
+        showToast('Clean Feed enabled: Cases, covers, & replacement parts hidden');
       } else {
         hideAccessoriesToggleBtn.classList.remove('active');
         if (hideAccessoriesLabel) hideAccessoriesLabel.textContent = 'Show All (Including Parts)';
-        showToast('🔓 Clean Feed disabled: Showing all items');
+        showToast('Clean Feed disabled: Showing all items');
       }
       loadDatabaseDeals(false);
     });
@@ -629,17 +629,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <span class="watchlist-kw" style="${!item.active ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(item.keyword)}</span>
           </div>
           <div class="watchlist-details">
-            <span>📁 ${escapeHtml(item.category)}</span>
-            <span>💰 Max: $${item.maxPrice ? item.maxPrice : 'Any'}</span>
-            <span>🏷️ Min: ${item.minDiscount}% OFF</span>
+            <span>${escapeHtml(item.category)}</span>
+            <span>Max: $${item.maxPrice ? item.maxPrice : 'Any'}</span>
+            <span>Min: ${item.minDiscount}% OFF</span>
           </div>
         </div>
         <div class="watchlist-actions">
-          <button class="btn btn-sm btn-primary watch-snipe-btn" data-id="${item.id}" title="Run search for this item immediately">
-            🎯 Snipe
+          <button class="btn btn-sm btn-primary watch-snipe-btn inline-flex items-center gap-1" data-id="${item.id}" title="Run search for this item immediately">
+            <span class="material-symbols-outlined text-[14px]">track_changes</span>
+            <span>Snipe</span>
           </button>
-          <button class="btn-icon watch-delete-btn" data-id="${item.id}" title="Delete target" style="color: #ef4444; font-size: 1.1rem;">
-            ✕
+          <button class="btn-icon watch-delete-btn inline-flex items-center justify-center p-1 text-outline hover:text-error rounded-lg" data-id="${item.id}" title="Delete target">
+            <span class="material-symbols-outlined text-[18px]">close</span>
           </button>
         </div>
       </div>
@@ -677,7 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = watchlist.find(w => w.id === id);
         if (target) {
           closeWatchlistModal();
-          showToast(`🎯 Sniping "${target.keyword}" across database and live stores...`);
+          showToast(`Sniping "${target.keyword}" across database and live stores...`);
           await runWatchlistSniperForTarget(target);
         }
       });
@@ -835,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!target) return;
     if (scanBanner) {
       scanBanner.style.display = 'flex';
-      scanBannerText.textContent = `🎯 Sniper scanning target: "${target.keyword}" across database & live stores...`;
+      scanBannerText.textContent = `Sniper scanning target: "${target.keyword}" across database & live stores...`;
     }
 
     const domain = domainSelect ? domainSelect.value : 'amazon.com.au';
@@ -893,10 +894,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }).catch(() => {});
 
       playNotificationChime();
-      showToast(`🎯 Found ${foundHits > 0 ? foundHits : snipedDeals.length} match(es) for "${target.keyword}"!`);
+      showToast(`Found ${foundHits > 0 ? foundHits : snipedDeals.length} match(es) for "${target.keyword}"!`);
       if (tabSnipedDeals) tabSnipedDeals.click();
     } else {
-      showToast(`🎯 Scanned "${target.keyword}". 0 matching deals right now. Tip: Set Min Off to 0% or raise Max Price.`);
+      showToast(`Scanned "${target.keyword}". 0 matching deals right now. Tip: Set Min Off to 0% or raise Max Price.`);
     }
   }
 
@@ -910,10 +911,10 @@ document.addEventListener('DOMContentLoaded', () => {
     closeWatchlistModal();
     if (scanBanner) {
       scanBanner.style.display = 'flex';
-      scanBannerText.textContent = `🎯 Sniper scanning ${activeTargets.length} active watchlist targets...`;
+      scanBannerText.textContent = `Sniper scanning ${activeTargets.length} active watchlist targets...`;
     }
 
-    showToast(`🎯 Running Watchlist Sniper for ${activeTargets.length} target(s)...`);
+    showToast(`Running Watchlist Sniper for ${activeTargets.length} target(s)...`);
 
     // Trigger backend autonomous scan as well
     fetch('/api/watchlist/scan', { method: 'POST' }).catch(() => {});
@@ -921,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < activeTargets.length; i++) {
       const target = activeTargets[i];
       if (scanBannerText) {
-        scanBannerText.textContent = `🎯 Sniper scanning target ${i + 1}/${activeTargets.length}: "${target.keyword}"...`;
+        scanBannerText.textContent = `Sniper scanning target ${i + 1}/${activeTargets.length}: "${target.keyword}"...`;
       }
       await runWatchlistSniperForTarget(target);
     }
@@ -953,10 +954,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }).catch(() => {});
 
       playNotificationChime();
-      showToast(`🎯 SNIPER SUCCESS! ${snipedDeals.length} match(es) in your sniped list!`);
+      showToast(`Sniper Success! ${snipedDeals.length} match(es) in your sniped list!`);
       if (tabSnipedDeals) tabSnipedDeals.click();
     } else {
-      showToast('🎯 Sniper scan complete. No items currently match your target price/discount thresholds.');
+      showToast('Sniper scan complete. No items currently match your target price/discount thresholds.');
     }
   }
 
@@ -1173,7 +1174,7 @@ document.addEventListener('DOMContentLoaded', () => {
     excludedCategories.add('pets');
     localStorage.setItem(EXCLUDE_STORAGE_KEY, JSON.stringify(Array.from(excludedCategories)));
     renderExcludePills();
-    showToast('🚫 Excluded Books & Pet Supplies from Sweep & Radar');
+    showToast('Excluded Books & Pet Supplies from Sweep & Radar');
     currentPage = 1;
     deals = [];
     loadDatabaseDeals(false);
@@ -1183,7 +1184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     excludedCategories.clear();
     localStorage.removeItem(EXCLUDE_STORAGE_KEY);
     renderExcludePills();
-    showToast('✅ All categories included in Sweep & Radar');
+    showToast('All categories included in Sweep & Radar');
     currentPage = 1;
     deals = [];
     loadDatabaseDeals(false);
@@ -1482,14 +1483,14 @@ document.addEventListener('DOMContentLoaded', () => {
       resultsMeta.style.display = 'none';
       if (loadMoreContainer) loadMoreContainer.style.display = 'none';
     } else {
-      loadMoreBtn.textContent = '⏳ Loading More Deals...';
+      loadMoreBtn.textContent = 'Loading More Deals...';
     }
 
     if (scanBanner) {
       scanBanner.style.display = 'flex';
       scanBannerText.textContent = isDeepSweep
-        ? '⚡ Initializing Deep Category Sweep...'
-        : `🔄 Scanning Page ${currentPage}${isAllPages ? ' (Scanning All Available Pages...)' : ` of ${targetMaxPages}`}...`;
+        ? 'Initializing Deep Category Sweep...'
+        : `Scanning Page ${currentPage}${isAllPages ? ' (Scanning All Available Pages...)' : ` of ${targetMaxPages}`}...`;
     }
 
     try {
@@ -1497,7 +1498,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (isDeepSweep) {
         const DEEP_SWEEP_CATEGORIES = [
-          { id: 'all', name: '⚡ Broad All Deals' },
+          { id: 'all', name: 'Broad All Deals' },
           { id: 'electronics', name: 'Electronics & Audio' },
           { id: 'pc', name: 'Computers & Tablets' },
           { id: 'kitchen', name: 'Home & Kitchen' },
@@ -1524,7 +1525,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (stopRequested) break;
           const currentCat = DEEP_SWEEP_CATEGORIES[c];
           if (isCategoryExcluded(currentCat.id)) {
-            console.log(`[DEEP SWEEP] ⏭️ Skipping excluded department: ${currentCat.name}`);
+            console.log(`[DEEP SWEEP] Skipping excluded department: ${currentCat.name}`);
             continue;
           }
           categoriesScanned++;
@@ -1533,7 +1534,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (stopRequested) break;
 
             if (scanBanner) {
-              scanBannerText.textContent = `⚡ Deep Sweep: ${currentCat.name} (${c + 1}/${DEEP_SWEEP_CATEGORIES.length}) • Page ${p}/${pagesPerCat} • Found ${deals.length} deals...`;
+              scanBannerText.textContent = `Deep Sweep: ${currentCat.name} (${c + 1}/${DEEP_SWEEP_CATEGORIES.length}) • Page ${p}/${pagesPerCat} • Found ${deals.length} deals...`;
             }
 
             const apiUrl = `/api/search?storeType=${encodeURIComponent(storeType)}&keyword=${encodeURIComponent(keyword)}&category=${encodeURIComponent(currentCat.id)}&minDiscount=${min}&maxDiscount=${max}&domain=${encodeURIComponent(domain)}&sort=${encodeURIComponent(sort)}&page=${p}&maxPages=1&availableOnly=${onlyInStock}&minPrice=${minP}&maxPrice=${maxP}&condition=${encodeURIComponent(cond)}&negKeywords=${encodeURIComponent(negKw)}`;
@@ -1568,13 +1569,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (inventoryBadge) {
           inventoryBadge.style.display = 'inline-flex';
-          inventoryBadge.textContent = `⚡ Deep Sweep: Scanned across ${categoriesScanned} categories`;
+          inventoryBadge.textContent = `Deep Sweep: Scanned across ${categoriesScanned} categories`;
         }
 
         if (stopRequested) {
           showToast(`Deep Sweep stopped. Found ${deals.length} deals across ${categoriesScanned} departments.`);
         } else {
-          showToast(`⚡ Deep Sweep complete! Found ${deals.length} verified deals across ${categoriesScanned} departments!`);
+          showToast(`Deep Sweep complete! Found ${deals.length} verified deals across ${categoriesScanned} departments!`);
         }
 
       } else {
@@ -1626,7 +1627,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (scanBanner) {
             const pageLimitInfo = isAllPages ? '' : ` of ${targetMaxPages}`;
             const infoSnippet = resultInfo ? ` • ${resultInfo}` : '';
-            scanBannerText.textContent = `🔄 Scanned Page ${pageToFetch}${pageLimitInfo} • Found ${deals.length} deals so far${infoSnippet}`;
+            scanBannerText.textContent = `Scanned Page ${pageToFetch}${pageLimitInfo} • Found ${deals.length} deals so far${infoSnippet}`;
           }
 
           // If Amazon indicates no next page exists, end scan
@@ -1664,9 +1665,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (isAllPages && deals.length > 0) {
           if (inventoryBadge) {
             inventoryBadge.style.display = 'inline-flex';
-            inventoryBadge.textContent = `📦 Scanned all ${pagesScannedInThisRun} available pages (Amazon active stock limit)`;
+            inventoryBadge.textContent = `Scanned all ${pagesScannedInThisRun} available pages (Amazon active stock limit)`;
           }
-          showToast(`✅ Scan complete! Scanned all ${pagesScannedInThisRun} active pages on Amazon. Found ${deals.length} deals.`);
+          showToast(`Scan complete! Scanned all ${pagesScannedInThisRun} active pages on Amazon. Found ${deals.length} deals.`);
         }
       }
 
@@ -1682,7 +1683,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (scanBanner) scanBanner.style.display = 'none';
       if (loadMoreContainer) {
         loadMoreContainer.style.display = (deals.length > 0 && !isDeepSweep) ? 'block' : 'none';
-        loadMoreBtn.textContent = `⬇️ Load Next Page (+24 Deals)`;
+        loadMoreBtn.textContent = `Load Next Page (+24 Deals)`;
       }
     }
   }
@@ -1707,7 +1708,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!items || items.length === 0) {
       dealsGrid.innerHTML = `
         <div class="empty-state card">
-          <div class="empty-icon">🔎</div>
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-outline">search</span></div>
           <h3>No Exact Deals Found for This Filter</h3>
           <p>Inventory updates dynamically on Amazon. Try broadening your keywords, changing category, or widening the discount range.</p>
           <button class="btn btn-primary" id="fallbackDirectBtn">Open Filter Directly on Amazon</button>
@@ -1721,7 +1722,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     resultsMeta.style.display = 'flex';
     const pageCountText = currentPage > 1 ? ` (${currentPage} pgs)` : '';
-    const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
+    const storeLabel = storeType === 'warehouse' ? 'Warehouse' : (storeType === 'normal' ? 'Normal Amazon' : 'All Stores');
     let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
     if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') {
       const exCount = excludedCategories ? excludedCategories.size : 0;
@@ -1799,13 +1800,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (activeFilterTab === 'sniped') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Watchlist Sniped Matches`;
-      filterSummaryBadge.textContent = '🎯 Watchlist Sniper Target Hits';
+      filterSummaryBadge.textContent = 'Watchlist Sniper Target Hits';
     } else if (activeFilterTab === 'price_errors') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Verified Price Errors & Clearance Glitches`;
-      filterSummaryBadge.textContent = `🔥 Price Errors & Glitches • ${storeLabel}`;
+      filterSummaryBadge.textContent = `Price Errors & Glitches • ${storeLabel}`;
     } else if (activeFilterTab === 'top_brands') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Premier Brand Deals (Apple, Sony, Bose, etc.)`;
-      filterSummaryBadge.textContent = `⭐ Premier Brand Deals • ${storeLabel}`;
+      filterSummaryBadge.textContent = `Premier Brand Deals • ${storeLabel}`;
     } else {
       const matchTotal = totalMatches || dbTotalMatches || items.length;
       let countExtraHtml = '';
@@ -1821,7 +1822,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           resultsCount.innerHTML = `${displayedItems.length.toLocaleString()} Deals Discovered (${winLabel})${countExtraHtml}`;
         }
-        filterSummaryBadge.textContent = `✨ Just Listed (${winLabel}) • ${storeLabel}`;
+        filterSummaryBadge.textContent = `Just Listed (${winLabel}) • ${storeLabel}`;
       } else {
         if (matchTotal > displayedItems.length) {
           resultsCount.innerHTML = `Showing ${displayedItems.length.toLocaleString()} of ${matchTotal.toLocaleString()} Deals in Database${pageCountText}${countExtraHtml}`;
@@ -1840,7 +1841,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (displayedItems.length === 0 && activeFilterTab === 'price_errors') {
       dealsGrid.innerHTML = `
         <div class="empty-state card" style="grid-column: 1 / -1;">
-          <div class="empty-icon">🔥</div>
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-error">local_fire_department</span></div>
           <h3>No 80%+ Price Errors Found For Current Filter</h3>
           <p>Price error and 80%+ discount clearance glitches update dynamically. Try switching to "All Categories" or adjusting store type.</p>
           <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
@@ -1857,7 +1858,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (displayedItems.length === 0 && activeFilterTab === 'top_brands') {
       dealsGrid.innerHTML = `
         <div class="empty-state card" style="grid-column: 1 / -1;">
-          <div class="empty-icon">⭐</div>
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-amber-500">verified</span></div>
           <h3>No Premier Brand Deals Found For Current Filter</h3>
           <p>We're actively indexing deals for Sony, Apple, Bose, Dyson, Nintendo, ASUS, and 30+ top brands. Try clearing category or price restrictions, or click below to view all deals.</p>
           <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
@@ -1874,12 +1875,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (displayedItems.length === 0 && activeFilterTab === 'sniped') {
       dealsGrid.innerHTML = `
         <div class="empty-state card" style="grid-column: 1 / -1;">
-          <div class="empty-icon">🎯</div>
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-blue-500">track_changes</span></div>
           <h3>No Watchlist Sniped Matches Yet</h3>
           <p>The Watchlist Sniper scans all your active target keywords every 2 hours and collects matching deals here.</p>
           <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
-            <button class="btn btn-primary" id="openSniperEmptyBtn">🎯 Open Watchlist & Run Sniper</button>
-            <button class="btn btn-secondary" id="exitSniperEmptyBtn">📦 View All Normal Deals (${items.length || deals.length})</button>
+            <button class="btn btn-primary inline-flex items-center gap-1.5" id="openSniperEmptyBtn"><span class="material-symbols-outlined text-[16px]">track_changes</span> Open Watchlist & Run Sniper</button>
+            <button class="btn btn-secondary inline-flex items-center gap-1.5" id="exitSniperEmptyBtn"><span class="material-symbols-outlined text-[16px]">inventory_2</span> View All Deals (${items.length || deals.length})</button>
           </div>
         </div>
       `;
@@ -1893,7 +1894,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (displayedItems.length === 0 && activeFilterTab === 'just_listed') {
       dealsGrid.innerHTML = `
         <div class="empty-state card" style="grid-column: 1 / -1;">
-          <div class="empty-icon">✨</div>
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-primary">schedule</span></div>
           <h3>No Deals Discovered in ${winLabel}</h3>
           <p>No new warehouse deals were indexed within this specific time window. Select a wider window (e.g. 6h, 12h, 24h) or trigger a fresh background scan.</p>
           <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
@@ -1920,11 +1921,12 @@ document.addEventListener('DOMContentLoaded', () => {
       contextBannerHtml = `
         <div class="sniped-context-banner" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.4); padding: 12px 18px; border-radius: 8px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 10px;">
           <div style="display: flex; align-items: center; gap: 8px; color: #d8b4fe;">
-            <span style="font-size: 1.15rem;">🎯</span>
+            <span class="material-symbols-outlined text-[20px] text-purple-400">track_changes</span>
             <span style="font-size: 0.92rem;">Currently viewing <strong>Watchlist Sniped Deals</strong> (${displayedItems.length} items).</span>
           </div>
-          <button type="button" class="btn btn-sm btn-primary" id="exitSniperBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem;">
-            📦 View All Normal Deals (${items.length || deals.length})
+          <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1.5" id="exitSniperBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem;">
+            <span class="material-symbols-outlined text-[15px]">inventory_2</span>
+            <span>View All Deals (${items.length || deals.length})</span>
           </button>
         </div>
       `;
@@ -1932,11 +1934,12 @@ document.addEventListener('DOMContentLoaded', () => {
       contextBannerHtml = `
         <div class="glitch-context-banner">
           <div style="display: flex; align-items: center; gap: 8px; color: #fca5a5;">
-            <span style="font-size: 1.25rem;">🔥</span>
+            <span class="material-symbols-outlined text-[20px] text-red-400">local_fire_department</span>
             <span style="font-size: 0.95rem;">Currently viewing <strong>Price Error & Clearance Glitches (80%+ Off)</strong> (${displayedItems.length} deals found).</span>
           </div>
-          <button type="button" class="btn btn-sm btn-primary" id="exitGlitchBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem; background: linear-gradient(135deg, #dc2626, #ea580c); border: none;">
-            📦 View All Normal Deals (${items.length || deals.length})
+          <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1.5" id="exitGlitchBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem; background: linear-gradient(135deg, #dc2626, #ea580c); border: none;">
+            <span class="material-symbols-outlined text-[15px]">inventory_2</span>
+            <span>View All Deals (${items.length || deals.length})</span>
           </button>
         </div>
       `;
@@ -1958,7 +1961,7 @@ document.addEventListener('DOMContentLoaded', () => {
         itemUrl += (itemUrl.includes('?') ? '&' : '?') + 'aod=1';
       }
       const storeBadgeClass = isWarehouse ? 'warehouse' : 'normal';
-      const storeBadgeText = isWarehouse ? '📦 Warehouse' : '🛒 Brand New';
+      const storeBadgeText = isWarehouse ? 'Warehouse' : 'Brand New';
       const savingsLabelText = isWarehouse ? 'Warehouse Deal' : 'Brand New Deal';
 
       // Relative timestamp badge (evaluates first listed or price drop date)
@@ -1967,25 +1970,25 @@ document.addEventListener('DOMContentLoaded', () => {
       if (ts) {
         const ageMs = now - ts;
         const isDrop = item.priceDropAt && (now - item.priceDropAt <= 86400000);
-        const actionPrefix = isDrop ? '🔥 Price Drop' : '🟢 Listed';
+        const actionPrefix = isDrop ? 'Price Drop' : 'Listed';
         const relText = formatRelativeTime(ts);
         const lastSeen = item.lastSeenAt;
         const scannedText = (lastSeen && (now - lastSeen < ageMs - 300000)) ? ` • Scanned ${formatRelativeTime(lastSeen)}` : '';
         if (ageMs <= 3600000) {
           timeBadgeHtml = `<span class="deal-time-badge fresh-1h" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${actionPrefix} ${relText}${scannedText}</span>`;
         } else if (ageMs <= 7200000) {
-          timeBadgeHtml = `<span class="deal-time-badge recent-2h" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${isDrop ? '🔥 Price Drop' : '🟡 Listed'} ${relText}${scannedText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge recent-2h" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${actionPrefix} ${relText}${scannedText}</span>`;
         } else if (ageMs <= 86400000) {
-          timeBadgeHtml = `<span class="deal-time-badge older" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${isDrop ? '🔥 Price Drop' : '🕒 Listed'} ${relText}${scannedText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge older" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${actionPrefix} ${relText}${scannedText}</span>`;
         } else {
-          timeBadgeHtml = `<span class="deal-time-badge older" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${isDrop ? '🔥 Price Drop' : '📦 Listed'} ${relText}${scannedText}</span>`;
+          timeBadgeHtml = `<span class="deal-time-badge older" title="${isDrop ? 'Price dropped' : 'First listed'}: ${relText}${scannedText}">${actionPrefix} ${relText}${scannedText}</span>`;
         }
       }
 
       // Price Drop badge
       let priceDropHtml = '';
       if (item.previousPrice) {
-        priceDropHtml = `<div class="deal-price-drop-badge">🔥 Price cut from ${escapeHtml(item.previousPrice)}</div>`;
+        priceDropHtml = `<div class="deal-price-drop-badge flex items-center gap-1"><span class="material-symbols-outlined text-[13px]">trending_down</span> Price cut from ${escapeHtml(item.previousPrice)}</div>`;
       }
 
       const discNum = parseInt(item.discountPercent, 10) || 0;
@@ -2014,15 +2017,15 @@ document.addEventListener('DOMContentLoaded', () => {
               })()}
               ${item.condition ? `
                 <span class="condition-badge bg-surface-container-lowest/95 backdrop-blur-sm text-on-surface text-[11px] font-semibold px-2 py-0.5 rounded-md border border-outline-variant/30 shadow-xs">
-                  ${isWarehouse ? '✨ ' : '🛒 '}${escapeHtml(item.condition)}
+                  ${escapeHtml(item.condition)}
                 </span>
               ` : (storeBadgeText ? `
                 <span class="store-badge ${storeBadgeClass} text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">${storeBadgeText}</span>
               ` : '')}
               
-              ${isGlitch ? '<span class="badge-glitch-error bg-error text-on-error text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs animate-pulse">🔥 PRICE ERROR</span>' : ''}
-              ${item.isJustListed ? '<span class="just-listed-badge bg-primary-fixed text-on-primary-fixed text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs">✨ JUST LISTED</span>' : ''}
-              ${item.snipedFromTarget ? `<span class="sniper-match-badge bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs">🎯 ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
+              ${isGlitch ? '<span class="badge-glitch-error bg-error text-on-error text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">bolt</span> PRICE ERROR</span>' : ''}
+              ${item.isJustListed ? '<span class="just-listed-badge bg-primary-fixed text-on-primary-fixed text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">schedule</span> JUST LISTED</span>' : ''}
+              ${item.snipedFromTarget ? `<span class="sniper-match-badge bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">track_changes</span> ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
             </div>
             <!-- Favorite button -->
             <button type="button" class="save-btn ${isSaved ? 'active text-error bg-error/10' : 'text-outline bg-surface-container-lowest/90'} absolute top-3 right-3 p-1.5 rounded-full hover:bg-surface-container-lowest hover:text-error transition-colors shadow-sm z-10 cursor-pointer" data-asin="${item.asin}" title="Save deal">
@@ -2033,8 +2036,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="card-body p-5 flex-1 flex flex-col justify-between">
             <div>
               ${item.brand ? `
-                <div class="flex items-center gap-1.5 text-xs text-amber-700 font-bold mb-1">
-                  <span>⭐ ${escapeHtml(item.brand.toUpperCase())}</span>
+                <div class="flex items-center gap-1 text-xs text-amber-700 font-bold mb-1">
+                  <span class="material-symbols-outlined text-[14px]">star</span>
+                  <span>${escapeHtml(item.brand.toUpperCase())}</span>
                 </div>
               ` : `
                 <div class="flex items-center gap-1.5 text-xs text-primary font-bold mb-1">
@@ -2054,7 +2058,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <!-- Price Box -->
               <div class="card-pricing-block flex items-baseline gap-2 mb-2">
                 ${(!priceObj.numVal || priceObj.display === 'See Options' || priceObj.display === 'Check Site') ? `
-                  <span class="text-sm font-bold text-primary">⚡ See Options on Amazon</span>
+                  <span class="text-sm font-bold text-primary">See Options on Amazon</span>
                 ` : `
                   <span class="price-current text-2xl font-price font-extrabold text-on-surface font-mono">${priceObj.display}</span>
                   ${listPriceObj.display && listPriceObj.display !== 'See Options' && listPriceObj.display !== priceObj.display ? `
@@ -2082,8 +2086,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="material-symbols-outlined text-[18px]">query_stats</span>
               </button>
               ${activeFilterTab === 'sniped' ? `
-                <button type="button" class="btn-sm remove-sniped-btn p-2.5 rounded-lg border border-error/30 text-error hover:bg-error-container/20 text-xs font-bold cursor-pointer" data-asin="${item.asin}" title="Dismiss deal from sniped matches">
-                  ✕
+                <button type="button" class="btn-sm remove-sniped-btn p-2 rounded-lg border border-error/30 text-error hover:bg-error-container/20 text-xs font-bold cursor-pointer inline-flex items-center justify-center" data-asin="${item.asin}" title="Dismiss deal from sniped matches">
+                  <span class="material-symbols-outlined text-[16px]">close</span>
                 </button>
               ` : ''}
             </div>
@@ -2140,12 +2144,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderFallbackState() {
     dealsGrid.innerHTML = `
       <div class="empty-state card">
-        <div class="empty-icon">🛡️</div>
+        <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-primary">shield</span></div>
         <h3>Live Amazon Filter Ready</h3>
         <p>Amazon's anti-bot system occasionally requires direct user verification. You can jump straight into the full, unblocked search page on Amazon with your <strong>${minDiscountSlider.value}%–${maxDiscountSlider.value}%</strong> discount filters applied!</p>
         <div style="display: flex; gap: 12px; justify-content: center; margin-top: 1rem;">
-          <button class="btn btn-primary" id="fallbackDirectBtn2">
-            🚀 Open Filtered Results on Amazon Now
+          <button class="btn btn-primary inline-flex items-center gap-1.5" id="fallbackDirectBtn2">
+            <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+            <span>Open Filtered Results on Amazon Now</span>
           </button>
         </div>
       </div>
@@ -2209,8 +2214,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="saved-item-title" style="text-decoration:none;color:inherit;display:block;">${escapeHtml(d.title)}</a>
             <div class="saved-item-price">${priceObj.display}</div>
           </div>
-          <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline" style="text-decoration:none;">Open ↗</a>
-          <button class="btn-icon remove-saved" data-asin="${d.asin}">✕</button>
+          <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline inline-flex items-center gap-1" style="text-decoration:none;">
+            <span>Open</span>
+            <span class="material-symbols-outlined text-[13px]">open_in_new</span>
+          </a>
+          <button class="btn-icon remove-saved inline-flex items-center justify-center p-1 text-outline hover:text-error rounded-md" data-asin="${d.asin}">
+            <span class="material-symbols-outlined text-[16px]">close</span>
+          </button>
         </div>
       `;
     }).join('');
@@ -2368,7 +2378,7 @@ document.addEventListener('DOMContentLoaded', () => {
           dbPulseDot.style.background = '#f59e0b';
           dbPulseDot.style.boxShadow = '0 0 8px #f59e0b';
         }
-        if (dbLastScanText) dbLastScanText.textContent = `⚡ Running: ${crawler.currentStep || 'Scanning...'}`;
+        if (dbLastScanText) dbLastScanText.textContent = `Running: ${crawler.currentStep || 'Scanning...'}`;
         if (dbNextScanText) dbNextScanText.textContent = 'In progress';
         if (dbScanNowBtn) {
           dbScanNowBtn.classList.add('scanning');
@@ -2518,10 +2528,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (hasMore) {
               const remaining = dbTotalMatches - deals.length;
               if (loadMoreBtn) {
-                loadMoreBtn.textContent = `⬇️ Load More Deals (${deals.length.toLocaleString()} of ${dbTotalMatches.toLocaleString()} displayed • +${Math.min(remaining, DB_PAGE_SIZE)} more)`;
+                loadMoreBtn.textContent = `Load More Deals (${deals.length.toLocaleString()} of ${dbTotalMatches.toLocaleString()} displayed • +${Math.min(remaining, DB_PAGE_SIZE)} more)`;
               }
               if (loadAllDbDealsBtn) {
-                loadAllDbDealsBtn.textContent = `⚡ Load All ${dbTotalMatches.toLocaleString()} Deals Into View`;
+                loadAllDbDealsBtn.textContent = `Load All ${dbTotalMatches.toLocaleString()} Deals Into View`;
               }
             }
           }
@@ -2547,11 +2557,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         console.error('Database query returned non-200 status:', res.status);
-        showToast('⚠️ Could not load database deals');
+        showToast('Could not load database deals');
       }
     } catch (e) {
       console.warn('Error loading database deals:', e);
-      showToast('⚠️ Could not load database deals');
+      showToast('Could not load database deals');
     } finally {
       if (searchBtn) {
         searchBtn.disabled = false;
@@ -2566,16 +2576,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
     const winLabel = windowLabels[timeWindow] || timeWindow;
     resultsCount.textContent = `0 Deals Discovered (${winLabel})`;
-    filterSummaryBadge.textContent = `✨ Just Listed (${winLabel})`;
+    filterSummaryBadge.textContent = `Just Listed (${winLabel})`;
 
     dealsGrid.innerHTML = `
       <div class="empty-state card" style="grid-column: 1 / -1;">
-        <div class="empty-icon">✨</div>
+        <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-primary">schedule</span></div>
         <h3>No Deals Discovered in ${winLabel}</h3>
         <p>No new deals were discovered in this specific time window. The database currently contains <strong>${totalInDb.toLocaleString()} indexed deals</strong> across all categories.</p>
         <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
-          <button class="btn btn-secondary" id="switchTo24hBtn">🕒 Show Last 24 Hours</button>
-          <button class="btn btn-primary" id="switchToAllDbDealsBtn">📦 View All ${totalInDb.toLocaleString()} Deals in Database</button>
+          <button class="btn btn-secondary inline-flex items-center gap-1.5" id="switchTo24hBtn"><span class="material-symbols-outlined text-[15px]">schedule</span> Show Last 24 Hours</button>
+          <button class="btn btn-primary inline-flex items-center gap-1.5" id="switchToAllDbDealsBtn"><span class="material-symbols-outlined text-[15px]">inventory_2</span> View All ${totalInDb.toLocaleString()} Deals in Database</button>
         </div>
       </div>
     `;
@@ -2590,7 +2600,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderDatabaseEmptyState(keyword, totalInDb) {
     resultsMeta.style.display = 'flex';
-    const storeLabel = storeType === 'warehouse' ? '📦 Warehouse' : (storeType === 'normal' ? '🛒 Normal Amazon' : '⚡ All Stores');
+    const storeLabel = storeType === 'warehouse' ? 'Warehouse' : (storeType === 'normal' ? 'Normal Amazon' : 'All Stores');
     let catClean = categorySelect.options[categorySelect.selectedIndex]?.text || 'All';
     if (categorySelect.value === 'sweep_all' || categorySelect.value === 'all') {
       const exCount = excludedCategories ? excludedCategories.size : 0;
@@ -2604,14 +2614,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dealsGrid.innerHTML = `
       <div class="empty-state card" style="grid-column: 1 / -1;">
-        <div class="empty-icon">🔎</div>
+        <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-outline">search</span></div>
         <h3>No Deals Match Current Filters</h3>
         <p>No indexed deals matched this specific filter (${storeLabel} • ${catClean} • ${minDiscountSlider.value}%–${maxDiscountSlider.value}% off${keyword ? ` • "${escapeHtml(keyword)}"` : ''}).<br>
         The database currently contains <strong>${totalInDb.toLocaleString()} active deals</strong> across all categories!</p>
         <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
-          <button class="btn btn-primary" id="resetDbFiltersBtn">⚡ View All Deals in Database (${totalInDb.toLocaleString()})</button>
-          <button class="btn btn-secondary" id="widenDiscountBtn">🏷️ Broaden Discount to 20%–99%</button>
-          <button class="btn btn-ghost" id="runLiveScrapeFallbackBtn">🌐 Search Live Online (Amazon)</button>
+          <button class="btn btn-primary inline-flex items-center gap-1.5" id="resetDbFiltersBtn"><span class="material-symbols-outlined text-[15px]">inventory_2</span> View All Deals in Database (${totalInDb.toLocaleString()})</button>
+          <button class="btn btn-secondary inline-flex items-center gap-1.5" id="widenDiscountBtn"><span class="material-symbols-outlined text-[15px]">tune</span> Broaden Discount to 20%–99%</button>
+          <button class="btn btn-ghost inline-flex items-center gap-1.5" id="runLiveScrapeFallbackBtn"><span class="material-symbols-outlined text-[15px]">language</span> Search Live Online (Amazon)</button>
         </div>
       </div>
     `;
@@ -2649,7 +2659,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dbDeepScanBtn) {
     dbDeepScanBtn.addEventListener('click', async () => {
       resetToAllDealsTab();
-      showToast('⚡ Starting full DEEP SEARCH across all 18 departments (150+ pages directly into database)...');
+      showToast('Starting full DEEP SEARCH across all 18 departments (150+ pages directly into database)...');
       if (dbDeepScanBtn) dbDeepScanBtn.style.opacity = '0.6';
       if (dbDeepScanLabel) dbDeepScanLabel.textContent = 'Deep Sweeping 150+ Pgs...';
       try {
@@ -2687,7 +2697,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ========================================================
-  // 📈 PRICE HISTORY & KEEPA TRACKER MODAL
+  // PRICE HISTORY & KEEPA TRACKER MODAL
   // ========================================================
   const priceHistoryModal = document.getElementById('priceHistoryModal');
   const closePriceHistoryModalBtn = document.getElementById('closePriceHistoryModalBtn');
@@ -2728,7 +2738,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const pmStoreBadge = document.getElementById('pmStoreBadge');
     if (pmStoreBadge) {
-      pmStoreBadge.textContent = isWarehouse ? '📦 Amazon Warehouse' : '🛒 Normal Amazon';
+      pmStoreBadge.textContent = isWarehouse ? 'Amazon Warehouse' : 'Normal Amazon';
       pmStoreBadge.className = `pm-badge ${isWarehouse ? 'warehouse' : 'normal'}`;
     }
 
@@ -2829,7 +2839,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // ========================================================
-  // 📊 MARKET INTELLIGENCE & CHARTS DASHBOARD
+  // MARKET INTELLIGENCE & CHARTS DASHBOARD
   // ========================================================
   let marketAnalyticsData = null;
   let discountChartInstance = null;

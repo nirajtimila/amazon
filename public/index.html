@@ -80,7 +80,7 @@
   </script>
 
   <!-- Custom Styles for Modals, Sliders, Animations, and Drawers -->
-  <link rel="stylesheet" href="app.css?v=12.0"/>
+  <link rel="stylesheet" href="app.css?v=13.0"/>
 </head>
 <body class="bg-background text-on-surface min-h-screen flex flex-col font-body text-sm antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
 
@@ -249,16 +249,16 @@
               <span class="text-xs text-outline">Select category</span>
             </div>
             <div class="flex flex-wrap gap-1.5">
-              <button type="button" class="cat-chip active" data-cat="sweep_all">⚡ Deep Sweep</button>
-              <button type="button" class="cat-chip" data-cat="electronics">🎧 Electronics</button>
-              <button type="button" class="cat-chip" data-cat="pc">💻 Computers</button>
-              <button type="button" class="cat-chip" data-cat="kitchen">☕ Kitchen</button>
-              <button type="button" class="cat-chip" data-cat="videogames">🎮 Video Games</button>
-              <button type="button" class="cat-chip" data-cat="hi">🛠️ Tools</button>
+              <button type="button" class="cat-chip active" data-cat="sweep_all">Deep Sweep</button>
+              <button type="button" class="cat-chip" data-cat="electronics">Electronics</button>
+              <button type="button" class="cat-chip" data-cat="pc">Computers</button>
+              <button type="button" class="cat-chip" data-cat="kitchen">Kitchen</button>
+              <button type="button" class="cat-chip" data-cat="videogames">Video Games</button>
+              <button type="button" class="cat-chip" data-cat="hi">Tools</button>
             </div>
             <!-- Full Category Select Dropdown -->
             <select id="categorySelect" class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg py-1.5 px-3 text-xs font-medium text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary mt-1">
-              <option value="sweep_all" selected>⚡ Deep Sweep (All Categories Combined - Scans All Pages)</option>
+              <option value="sweep_all" selected>Deep Sweep (All Categories Combined - Scans All Pages)</option>
               <option value="all">Single Broad Search (~14 pages / ~300 items)</option>
               <option value="electronics">Electronics (TV, Audio, Camera)</option>
               <option value="pc">Computers & Tablets</option>
@@ -285,11 +285,11 @@
             <span class="text-xs font-bold text-on-surface-variant uppercase tracking-wider">Warehouse Condition:</span>
             <select id="conditionSelect" class="w-full bg-surface-container-low border border-outline-variant/40 rounded-lg py-2 px-3 text-xs font-semibold text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary">
               <option value="all" selected>Any Condition (Deepest Discounts)</option>
-              <option value="like-new">✨ Like New / Mint (Flawless condition)</option>
-              <option value="very-good">👍 Very Good (Minor cosmetic box flaw)</option>
-              <option value="good">👌 Good (Inspected & Verified)</option>
-              <option value="acceptable">📦 Acceptable</option>
-              <option value="brand-new">🛒 Brand New (Clearance)</option>
+              <option value="like-new">Like New / Mint (Flawless condition)</option>
+              <option value="very-good">Very Good (Minor cosmetic box flaw)</option>
+              <option value="good">Good (Inspected & Verified)</option>
+              <option value="acceptable">Acceptable</option>
+              <option value="brand-new">Brand New (Clearance)</option>
             </select>
           </div>
 
@@ -303,7 +303,7 @@
               <button type="button" class="preset-pill active" data-min="20" data-max="99">All Deals (20%+)</button>
               <button type="button" class="preset-pill" data-min="30" data-max="99">30%+ Off</button>
               <button type="button" class="preset-pill" data-min="50" data-max="99">50%+ Half Price</button>
-              <button type="button" class="preset-pill preset-pill-fire" data-min="70" data-max="99">🔥 70%+ Crazy Deals</button>
+              <button type="button" class="preset-pill preset-pill-fire" data-min="70" data-max="99">70%+ Steals</button>
             </div>
             <!-- Dual Range Sliders -->
             <div class="dual-range-container mt-1">
@@ -355,13 +355,13 @@
                 <input checked type="checkbox" id="inStockOnly" class="w-4 h-4 rounded text-primary focus:ring-primary/20 border-outline-variant/60 cursor-pointer"/>
                 <span class="text-xs font-semibold text-on-surface">In Stock Only</span>
               </label>
-              <div class="flex items-center gap-1 text-xs text-outline" title="Auto-refresh interval">
-                <span>🔔</span>
-                <select id="autoRefreshSelect" class="bg-transparent text-xs text-on-surface border-none p-0 focus:ring-0 cursor-pointer">
-                  <option value="0" selected>Off</option>
-                  <option value="2">2m</option>
-                  <option value="5">5m</option>
-                  <option value="10">10m</option>
+              <div class="flex items-center gap-1.5 text-xs text-outline" title="Auto-refresh interval">
+                <span class="material-symbols-outlined text-[15px] text-outline">sync</span>
+                <select id="autoRefreshSelect" class="bg-transparent text-xs text-on-surface border-none p-0 focus:ring-0 cursor-pointer font-medium">
+                  <option value="0" selected>Refresh: Off</option>
+                  <option value="2">Refresh: 2m</option>
+                  <option value="5">Refresh: 5m</option>
+                  <option value="10">Refresh: 10m</option>
                 </select>
               </div>
               <select id="pagesSelect" style="display: none;">
@@ -386,11 +386,11 @@
         <div class="mt-4 pt-3 border-t border-outline-variant/20" id="excludeCategoriesPanel">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2">
-              <span class="text-xs font-bold text-error">🚫 Exclude Departments:</span>
+              <span class="text-xs font-bold text-error flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">do_not_disturb_on</span> Exclude Departments:</span>
               <span class="text-xs text-on-surface-variant hidden sm:inline">Click to exclude from live sweeps & database radar:</span>
             </div>
             <div class="flex gap-2">
-              <button type="button" class="text-[11px] font-bold text-secondary hover:underline cursor-pointer" id="quickExcludeBooksPetsBtn">⚡ Exclude Books & Pets</button>
+              <button type="button" class="text-[11px] font-bold text-secondary hover:underline cursor-pointer" id="quickExcludeBooksPetsBtn">Exclude Books & Pets</button>
               <button type="button" class="text-[11px] text-outline hover:text-on-surface cursor-pointer" id="resetExcludedCatsBtn">Reset (Include All)</button>
             </div>
           </div>
@@ -541,27 +541,27 @@
       <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-outline-variant/10">
         <div class="inline-flex p-1 bg-surface-container-low rounded-xl border border-outline-variant/30 gap-1 flex-wrap" id="filterTabsRow">
           <button type="button" class="filter-tab-pill active px-3.5 py-1.5 rounded-lg bg-surface-container-lowest shadow-xs text-primary font-bold text-xs border border-outline-variant/20 transition-all cursor-pointer flex items-center gap-1.5" id="tabAllDeals">
-            <span>📦</span>
+            <span class="material-symbols-outlined text-[16px]">inventory_2</span>
             <span>All Deals</span>
             <span class="px-1.5 py-0.2 rounded-full bg-primary/10 text-primary text-[10px] font-bold" id="countAllDeals">0</span>
           </button>
           <button type="button" class="filter-tab-pill tab-pill-brands px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabTopBrands">
-            <span>⭐</span>
+            <span class="material-symbols-outlined text-[16px]">verified</span>
             <span>Top Brands Only</span>
             <span class="px-1.5 py-0.2 rounded-full bg-amber-500/10 text-amber-700 text-[10px] font-bold" id="countTopBrands">0</span>
           </button>
           <button type="button" class="filter-tab-pill px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabJustListed">
-            <span>✨</span>
+            <span class="material-symbols-outlined text-[16px]">schedule</span>
             <span>Just Listed</span>
             <span class="px-1.5 py-0.2 rounded-full bg-primary-fixed/40 text-on-primary-fixed text-[10px] font-bold" id="countJustListed">0</span>
           </button>
           <button type="button" class="filter-tab-pill px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-on-surface text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabSnipedDeals">
-            <span>🎯</span>
+            <span class="material-symbols-outlined text-[16px]">track_changes</span>
             <span>Sniped Matches</span>
             <span class="px-1.5 py-0.2 rounded-full bg-blue-500/10 text-blue-700 text-[10px] font-bold" id="countSnipedDeals">0</span>
           </button>
           <button type="button" class="filter-tab-pill tab-pill-fire px-3.5 py-1.5 rounded-lg text-on-surface-variant hover:text-secondary text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5" id="tabPriceErrors">
-            <span>🔥</span>
+            <span class="material-symbols-outlined text-[16px]">local_fire_department</span>
             <span>Price Errors</span>
             <span class="px-1.5 py-0.2 rounded-full bg-secondary-fixed/50 text-secondary text-[10px] font-bold" id="countPriceErrors">0</span>
           </button>
@@ -578,7 +578,7 @@
 
       <!-- Granular Time Filter Chips (Just Listed) -->
       <div class="time-filter-row flex items-center gap-2 pt-3 mt-2 border-t border-outline-variant/10 flex-wrap" id="timeFilterRow" style="display: none;">
-        <span class="text-xs font-bold text-on-surface-variant">🕒 Discovered:</span>
+        <span class="text-xs font-bold text-on-surface-variant flex items-center gap-1"><span class="material-symbols-outlined text-[15px]">schedule</span> Discovered:</span>
         <div class="time-pills-track flex items-center gap-1.5 flex-wrap">
           <button type="button" class="time-pill px-2.5 py-1 rounded-md border border-outline-variant/40 text-xs font-mono font-medium hover:bg-surface-container-low" data-time="1h">Last 1h (<span id="count1h">0</span>)</button>
           <button type="button" class="time-pill px-2.5 py-1 rounded-md border border-outline-variant/40 text-xs font-mono font-medium hover:bg-surface-container-low" data-time="2h">Last 2h (<span id="count2h">0</span>)</button>
@@ -596,7 +596,7 @@
     <div class="p-3.5 rounded-xl bg-primary-fixed/40 border border-primary/30 flex items-center justify-between text-xs font-bold text-on-primary-fixed-variant">
       <div class="flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full bg-primary animate-spin"></span>
-        <span id="scanBannerText">🔄 Scanning Page 1... (Found 0 deals)</span>
+        <span id="scanBannerText">Scanning Page 1... (Found 0 deals)</span>
       </div>
       <button type="button" class="px-3 py-1 rounded-md bg-surface-container-lowest text-error font-bold border border-error/30 hover:bg-error-container/20 cursor-pointer" id="stopScanBtn">⏹️ Stop Scanning</button>
     </div>
@@ -610,8 +610,8 @@
       <section class="deals-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" id="dealsGrid">
         <!-- Default State: Quick Picks (Styled like Stitch prototype) -->
         <div class="col-span-full empty-state bg-surface-container-lowest border border-outline-variant/30 rounded-2xl p-10 text-center max-w-2xl mx-auto shadow-sm">
-          <div class="w-16 h-16 rounded-2xl bg-primary-fixed/40 text-primary flex items-center justify-center mx-auto mb-4 text-2xl">
-            🏷️
+          <div class="w-16 h-16 rounded-2xl bg-primary-fixed/40 text-primary flex items-center justify-center mx-auto mb-4">
+            <span class="material-symbols-outlined text-[32px]">travel_explore</span>
           </div>
           <h3 class="text-xl font-headline font-bold text-on-surface mb-2">Ready to Hunt Deep Amazon Deals</h3>
           <p class="text-sm text-on-surface-variant mb-6">
@@ -619,12 +619,12 @@
           </p>
           <div class="flex items-center justify-center gap-2 flex-wrap">
             <span class="text-xs text-outline">Popular searches:</span>
-            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Headphones">🎧 Headphones</button>
-            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Monitor">🖥️ Monitors</button>
-            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Laptop">💻 Laptops</button>
-            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Vacuum">🧹 Vacuums</button>
-            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Tools">🔨 Tools</button>
-            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Apple">🍎 Apple</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Headphones">Headphones</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Monitor">Monitors</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Laptop">Laptops</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Vacuum">Vacuums</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Tools">Tools</button>
+            <button class="keyword-chip px-3 py-1 rounded-lg bg-surface-container-low border border-outline-variant/40 hover:border-primary text-xs font-semibold cursor-pointer" data-q="Apple">Apple</button>
           </div>
         </div>
       </section>
@@ -728,7 +728,7 @@
                 82% OFF DEAL
               </span>
               <span class="bg-surface-container-lowest text-on-surface text-xs font-medium px-2 py-0.5 rounded-md border border-outline-variant/30" id="pmConditionBadge">
-                ✨ Like New (Open Box)
+                Like New (Open Box)
               </span>
               <span class="bg-surface-container-low text-outline font-mono text-xs px-2 py-0.5 rounded" id="pmStoreBadge">
                 Warehouse
@@ -904,12 +904,17 @@
             <p class="text-xs text-on-surface-variant">Autonomous sniper daemon checks your target items every 2 hours</p>
           </div>
         </div>
-        <button type="button" class="p-2 text-outline hover:text-on-surface rounded-lg cursor-pointer" id="closeWatchlistModalBtn">✕</button>
+        <button type="button" class="p-2 text-outline hover:text-on-surface rounded-lg cursor-pointer flex items-center justify-center" id="closeWatchlistModalBtn">
+          <span class="material-symbols-outlined text-[20px]">close</span>
+        </button>
       </div>
 
       <!-- Add Target Form -->
       <div class="bg-surface-container-low rounded-xl p-4 border border-outline-variant/30 mb-5">
-        <h4 class="text-xs font-bold text-on-surface mb-3 uppercase tracking-wider">➕ Add Target Product</h4>
+        <h4 class="text-xs font-bold text-on-surface mb-3 uppercase tracking-wider flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[16px]">add_circle</span>
+          <span>Add Target Product</span>
+        </h4>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
           <div>
             <label class="text-[11px] font-bold text-outline block mb-1">Target Keyword</label>
@@ -943,8 +948,9 @@
       <!-- Active Watch Targets -->
       <div class="flex items-center justify-between mb-3">
         <h4 class="text-xs font-bold text-on-surface uppercase tracking-wider">Active Targets (<span id="watchTargetCount">0</span>)</h4>
-        <button type="button" class="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline cursor-pointer" id="runSniperScanBtn">
-          <span>🎯 Run Sniper Scan Now</span>
+        <button type="button" class="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:underline cursor-pointer" id="runSniperScanBtn">
+          <span class="material-symbols-outlined text-[16px]">track_changes</span>
+          <span>Run Sniper Scan Now</span>
         </button>
       </div>
       <div id="watchlistItemsContainer" class="flex-1 overflow-y-auto space-y-2 max-h-60 pr-1">
@@ -961,7 +967,9 @@
         <span class="material-symbols-outlined text-secondary text-[22px]">favorite</span>
         <h3 class="text-base font-headline font-bold text-on-surface">Saved Deals</h3>
       </div>
-      <button type="button" class="p-1.5 text-outline hover:text-on-surface rounded-lg cursor-pointer" id="closeDrawerBtn">✕</button>
+      <button type="button" class="p-1.5 text-outline hover:text-on-surface rounded-lg cursor-pointer flex items-center justify-center" id="closeDrawerBtn">
+        <span class="material-symbols-outlined text-[18px]">close</span>
+      </button>
     </div>
     <div class="p-5 flex-1 overflow-y-auto space-y-3" id="savedList">
       <div class="text-center py-10 text-xs text-outline">
@@ -978,6 +986,6 @@
   <!-- Notification Toast -->
   <div class="fixed bottom-5 right-5 z-50 bg-on-surface text-surface py-2.5 px-4 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 pointer-events-none opacity-0 transition-opacity duration-200" id="toast"></div>
 
-  <script src="app.js?v=12.0"></script>
+  <script src="app.js?v=13.0"></script>
 </body>
 </html>
