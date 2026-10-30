@@ -2349,13 +2349,18 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dbTotalDealsCount) {
         const wh = data.warehouseDeals || 0;
         const norm = data.normalDeals || 0;
-        dbTotalDealsCount.textContent = `${totalDeals.toLocaleString()} (${wh.toLocaleString()} Warehouse • ${norm.toLocaleString()} Normal Retail)`;
+        dbTotalDealsCount.textContent = totalDeals.toLocaleString();
         const cStoreWh = document.getElementById('countStoreWarehouse');
         const cStoreNorm = document.getElementById('countStoreNormal');
         const cStoreBoth = document.getElementById('countStoreBoth');
         if (cStoreWh) cStoreWh.textContent = `(${wh.toLocaleString()})`;
         if (cStoreNorm) cStoreNorm.textContent = `(${norm.toLocaleString()})`;
         if (cStoreBoth) cStoreBoth.textContent = `(${totalDeals.toLocaleString()})`;
+
+        const dbWhCount = document.getElementById('dbWhCount');
+        const dbNormCount = document.getElementById('dbNormCount');
+        if (dbWhCount) dbWhCount.textContent = wh.toLocaleString();
+        if (dbNormCount) dbNormCount.textContent = norm.toLocaleString();
       }
 
       if (crawler.isRunning) {
@@ -2371,27 +2376,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } else {
         if (dbPulseDot) {
-          dbPulseDot.style.background = '#10b981';
-          dbPulseDot.style.boxShadow = '0 0 8px #10b981';
+          dbPulseDot.style.background = '#059669';
+          dbPulseDot.style.boxShadow = '0 0 8px #059669';
         }
         if (dbLastScanText) {
-          const stats = crawler.lastRunStats || {};
-          let scanDetails = '';
-          if (stats.pagesScanned || stats.totalScanned) {
-            const pCount = stats.pagesScanned || Math.round((stats.totalScanned || 0) / 28);
-            scanDetails = ` (${pCount} pages • ${(stats.totalScanned || 0).toLocaleString()} items scanned across 12 depts)`;
-          }
           dbLastScanText.textContent = crawler.lastRunAt
-            ? `Last Auto-Scan: ${formatRelativeTime(crawler.lastRunAt)}${scanDetails}`
-            : 'Last Auto-Scan: initializing...';
+            ? `Scanned ${formatRelativeTime(crawler.lastRunAt)}`
+            : 'Scanned recently';
         }
         if (dbNextScanText) {
           if (crawler.nextRunAt) {
             const minsLeft = Math.max(0, Math.round((crawler.nextRunAt - Date.now()) / 60000));
-            dbNextScanText.textContent = `Next scan in: ${minsLeft}m`;
+            dbNextScanText.textContent = `Next in ${minsLeft}m`;
           } else {
-            dbNextScanText.textContent = 'Next scan in: 60m';
+            dbNextScanText.textContent = 'Next in 60m';
           }
+        }
+        const stats = crawler.lastRunStats || {};
+        const dbScanDetails = document.getElementById('dbScanDetails');
+        if (dbScanDetails && (stats.pagesScanned || stats.totalScanned)) {
+          const pCount = stats.pagesScanned || Math.round((stats.totalScanned || 0) / 28);
+          dbScanDetails.textContent = `Last sweep: ${pCount} pages • ${(stats.totalScanned || 0).toLocaleString()} items across 12 depts`;
         }
         if (dbScanNowBtn) {
           dbScanNowBtn.classList.remove('scanning');

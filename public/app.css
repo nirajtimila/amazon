@@ -201,6 +201,17 @@ select option {
 }
 
 /* ========================================================
+   RADAR STATUS PILL
+   ======================================================== */
+#dbStatusBar {
+  white-space: nowrap !important;
+  background-color: #ecfdf5 !important;
+  border: 1px solid #a7f3d0 !important;
+  color: #065f46 !important;
+  box-shadow: 0 1px 3px rgba(6, 95, 70, 0.08) !important;
+}
+
+/* ========================================================
    STORE SWITCHER PILLS (AU / UK / US / DE / JP)
    ======================================================== */
 .store-pill {
