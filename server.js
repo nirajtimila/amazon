@@ -123,6 +123,7 @@ function detectBrandName(title) {
 
   for (const b of TOP_DESIRABLE_BRANDS) {
     if (new RegExp(`\\b${b}\\b`, 'i').test(t)) {
+      if (b === 'ninja' && /turtle|mutant|cosplay|costume/i.test(t)) continue;
       // Exclude if it's merely a cheap case/cover FOR that brand
       if (ACCESSORY_REPLACEMENT_REGEX.test(t)) return null;
       return b.charAt(0).toUpperCase() + b.slice(1);
@@ -187,83 +188,124 @@ function getSmartProductFallback(title = '', category = '') {
   return SMART_PRODUCT_FALLBACKS.default;
 }
 
-function isValidPriceError(item) {
-  if (!item) return false;
+function getPriceErrorInfo(item) {
+  if (!item) return { isPriceError: false };
   const np = item.numericPrice || parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
-  if (np < 8.0) return false; // Filter out cheap trinkets
+  if (np < 8.0) return { isPriceError: false }; // Filter out cheap trinkets
 
   const title = String(item.title || '');
-  if (JUNK_TRASH_REGEX.test(title)) return false;
-  if (ACCESSORY_REPLACEMENT_REGEX.test(title)) return false;
+  if (JUNK_TRASH_REGEX.test(title)) return { isPriceError: false };
+  if (ACCESSORY_REPLACEMENT_REGEX.test(title)) return { isPriceError: false };
 
   const disc = parseInt(item.discountPercent, 10) || 0;
   const origPrice = parseFloat(String(item.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
   const savings = origPrice > np ? (origPrice - np) : 0;
   const brand = item.brand || detectBrandName(title);
   const rev = parseInt(item.reviews, 10) || 0;
-  const rating = parseFloat(item.rating) || 0;
   const isWh = item.store === 'Amazon Warehouse';
 
   // Reject dropshipper fake MSRP inflation
-  if (!brand && disc >= 85 && savings >= 200 && rev < 20) return false;
-  if (!brand && origPrice >= 800 && rev === 0 && !isWh) return false;
+  if (!brand && disc >= 85 && savings >= 200 && rev < 20) return { isPriceError: false };
+  if (!brand && origPrice >= 800 && rev === 0 && !isWh) return { isPriceError: false };
 
-  // Tier 1: Recognized Top Brand with real price cut
-  if (brand) {
-    if (disc >= 60) return true;
-    if (disc >= 40 && savings >= 25) return true;
-    if (disc >= 30 && savings >= 40) return true;
-    if (savings >= 80) return true;
+  // Tier 1: Epic Glitch (70%+ off with verified savings)
+  if (disc >= 70 && savings >= 15) {
+    return { isPriceError: true, tier: 'epic_glitch', badge: `🔥 ${disc}% GLITCH` };
   }
 
-  // Tier 2: Genuine High Percentage Bargain (75%+ off with meaningful dollar savings)
-  if (disc >= 75 && savings >= 25 && (rev >= 3 || rating >= 3.5 || isWh)) {
-    return true;
-  }
-  if (disc >= 80 && savings >= 20 && (rev >= 2 || rating >= 3.5 || isWh)) {
-    return true;
+  // Tier 2: High Dollar Glitch (50%+ off AND $45+ savings)
+  if (disc >= 50 && savings >= 45) {
+    return { isPriceError: true, tier: 'dollar_glitch', badge: `⚡ $${Math.round(savings)} DROP` };
   }
 
-  // Tier 3: High Dollar Glitch (saving $60+ with 50%+ discount)
-  if (savings >= 60 && disc >= 50 && (rev >= 5 || rating >= 3.8 || isWh)) {
-    return true;
-  }
-  if (savings >= 100 && disc >= 40 && (rev >= 5 || rating >= 3.5 || isWh)) {
-    return true;
+  // Tier 3: Warehouse Deep Steal (40%+ off AND $20+ savings on Amazon Warehouse)
+  if (isWh && disc >= 40 && savings >= 20) {
+    return { isPriceError: true, tier: 'warehouse_steal', badge: `📦 ${disc}% WH STEAL` };
   }
 
-  // Tier 4: Amazon Warehouse Deep Clearance
-  if (isWh && disc >= 50 && savings >= 25) {
-    return true;
+  // Tier 4: Premier Brand Clearance (40%+ off AND $50+ savings on top recognized brand)
+  if (brand && disc >= 40 && savings >= 50) {
+    return { isPriceError: true, tier: 'brand_glitch', badge: `⭐ ${disc}% ${brand.toUpperCase()}` };
   }
 
-  // Tier 5: Verified Price Drop from previous crawl
-  if (item.previousPrice && disc >= 35 && savings >= 25) {
+  // Tier 5: Flash Crash Price Drop (35%+ drop from previousPrice)
+  if (item.previousPrice && disc >= 35 && savings >= 20) {
     const prevPrice = parseFloat(String(item.previousPrice).replace(/[^0-9.]/g, '')) || 0;
-    if (prevPrice > np && ((prevPrice - np) / prevPrice) >= 0.30) {
-      return true;
+    if (prevPrice > np && ((prevPrice - np) / prevPrice) >= 0.35) {
+      return { isPriceError: true, tier: 'flash_drop', badge: `📉 FLASH DROP` };
     }
   }
 
-  return false;
+  return { isPriceError: false };
+}
+
+function isValidPriceError(item) {
+  return getPriceErrorInfo(item).isPriceError;
+}
+
+// Automated 14-Day Database Retention Pruner
+function pruneStaleDeals(dbObj, maxAgeDays = 14) {
+  if (!dbObj || !dbObj.crawledDeals) return { prunedCount: 0, remainingDeals: 0, maxAgeDays };
+  const maxAgeMs = (parseFloat(maxAgeDays) || 14) * 24 * 60 * 60 * 1000;
+  const now = Date.now();
+  let prunedCount = 0;
+
+  for (const asin in dbObj.crawledDeals) {
+    const deal = dbObj.crawledDeals[asin];
+    if (!deal) continue;
+    const dealTs = Math.max(deal.lastSeenAt || 0, deal.firstSeenAt || 0, deal.priceDropAt || 0) || 0;
+    if (dealTs > 0 && (now - dealTs) > maxAgeMs) {
+      delete dbObj.crawledDeals[asin];
+      prunedCount++;
+    }
+  }
+
+  // Also prune snipedDeals that are older than maxAgeDays
+  if (Array.isArray(dbObj.snipedDeals)) {
+    dbObj.snipedDeals = dbObj.snipedDeals.filter(d => {
+      const ts = Math.max(d.snipedAt || 0, d.lastSeenAt || 0, d.firstSeenAt || 0) || 0;
+      return ts === 0 || (now - ts) <= maxAgeMs;
+    });
+  }
+
+  return {
+    prunedCount,
+    remainingDeals: Object.keys(dbObj.crawledDeals).length,
+    maxAgeDays
+  };
 }
 
 function pruneSpamDeals(dbObj) {
-  if (!dbObj || !dbObj.crawledDeals) return 0;
+  if (!dbObj || !dbObj.crawledDeals) return { reclassified: 0, purgedCount: 0, priceErrors: 0 };
   let reclassified = 0;
   let purgedCount = 0;
+  let priceErrors = 0;
 
   for (const asin in dbObj.crawledDeals) {
     const d = dbObj.crawledDeals[asin];
     if (!d) continue;
     const title = String(d.title || '');
     const brand = detectBrandName(title);
-    d.brand = brand;
-    d.isBrandDeal = !!brand;
+    if (brand) {
+      d.brand = brand;
+      d.isBrandDeal = true;
+    } else {
+      d.isBrandDeal = false;
+    }
 
     // Re-evaluate price error status with smart rules
     const wasPriceError = !!d.isPriceError;
-    d.isPriceError = isValidPriceError(d);
+    const errorInfo = getPriceErrorInfo(d);
+    d.isPriceError = errorInfo.isPriceError;
+    if (errorInfo.isPriceError) {
+      d.priceErrorType = errorInfo.tier;
+      d.glitchBadge = errorInfo.badge;
+      priceErrors++;
+    } else {
+      delete d.priceErrorType;
+      delete d.glitchBadge;
+    }
+
     if (wasPriceError && !d.isPriceError) {
       reclassified++;
     }
@@ -275,7 +317,7 @@ function pruneSpamDeals(dbObj) {
       purgedCount++;
     }
   }
-  return { reclassified, purgedCount };
+  return { reclassified, purgedCount, priceErrors };
 }
 
 // Thread-safe / Atomic JSON Database Loader & Saver
@@ -285,9 +327,17 @@ function loadDb() {
       const raw = fs.readFileSync(DB_FILE, 'utf8');
       const loaded = JSON.parse(raw);
       if (!loaded.crawledDeals) loaded.crawledDeals = {};
+
+      // 1. Automated 14-day retention purge on startup
+      const retention = pruneStaleDeals(loaded, 14);
+      if (retention.prunedCount > 0) {
+        console.log(`[DB] 🧹 14-Day Retention: Purged ${retention.prunedCount} stale deals (>14 days old). Remaining: ${retention.remainingDeals}`);
+      }
+
+      // 2. Smart classification and spam purge
       const cleanup = pruneSpamDeals(loaded);
       if (cleanup.reclassified > 0 || cleanup.purgedCount > 0) {
-        console.log(`[DB] 🧹 Smart Cleansing: reclassified ${cleanup.reclassified} fake price errors, purged ${cleanup.purgedCount} junk items.`);
+        console.log(`[DB] 🧹 Smart Cleansing: reclassified ${cleanup.reclassified} fake price errors, purged ${cleanup.purgedCount} junk items. Active verified glitches: ${cleanup.priceErrors}`);
       }
       if (!loaded.settings) loaded.settings = { ...DEFAULT_DB.settings };
       if (!loaded.settings.scanIntervalMinutes || loaded.settings.scanIntervalMinutes === 10) {
@@ -347,6 +397,19 @@ function saveDb(data) {
 // In-Memory DB Handle
 let db = loadDb();
 pruneInvalidSnipedDeals();
+
+// Hourly automated database retention check (purges any items reaching >14 days old)
+setInterval(() => {
+  try {
+    const pruneRes = pruneStaleDeals(db, 14);
+    if (pruneRes.prunedCount > 0) {
+      console.log(`[DB] 🧹 Hourly Retention: Purged ${pruneRes.prunedCount} deals older than 14 days.`);
+      saveDb(db);
+    }
+  } catch (err) {
+    console.warn('[DB] Periodic retention check error:', err.message);
+  }
+}, 60 * 60 * 1000);
 
 // Express Middleware
 app.use(express.json());
@@ -1136,7 +1199,8 @@ app.get('/api/db/deals', (req, res) => {
       storeType = 'both', // 'warehouse', 'normal', 'both'
       category = 'all',
       excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
-      priceErrorsOnly = 'false', // 'true' to show only 80%+ price errors / clearance glitches
+      priceErrorsOnly = 'false', // 'true' to show only verified price errors / clearance glitches
+      glitchTier = 'all', // 'all', 'epic', 'dollar', 'warehouse', 'brand'
       brandsOnly = 'false', // 'true' to show only recognized top brand bargains
       hideAccessories = 'true', // 'true' to auto-hide cases, covers, screen protectors, raw metal sheets
       minDiscount = 0,
@@ -1153,6 +1217,7 @@ app.get('/api/db/deals', (req, res) => {
     } = req.query;
 
     const now = Date.now();
+    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
     const allDeals = Object.values(db.crawledDeals || {});
 
     // Excluded categories set with alias normalization
@@ -1202,6 +1267,10 @@ app.get('/api/db/deals', (req, res) => {
     for (const d of allDeals) {
       if (!d || d.status === 'sold_out') continue;
 
+      // Automated 14-Day Retention: exclude deals older than 14 days from stats
+      const dealActivityTs = Math.max(d.lastSeenAt || 0, d.firstSeenAt || 0, d.priceDropAt || 0) || 0;
+      if (dealActivityTs > 0 && (now - dealActivityTs) > FOURTEEN_DAYS_MS) continue;
+
       // Require valid confirmed price (never include items with no price or 'See Options')
       const np = d.numericPrice || 0;
       if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') continue;
@@ -1245,6 +1314,10 @@ app.get('/api/db/deals', (req, res) => {
     let filtered = allDeals.filter(d => {
       if (!d || d.status === 'sold_out') return false;
 
+      // Automated 14-Day Retention: exclude deals older than 14 days
+      const dealActivityTs = Math.max(d.lastSeenAt || 0, d.firstSeenAt || 0, d.priceDropAt || 0) || 0;
+      if (dealActivityTs > 0 && (now - dealActivityTs) > FOURTEEN_DAYS_MS) return false;
+
       // Require valid confirmed price (never return items with no price or 'See Options')
       const np = d.numericPrice || 0;
       if (np <= 0 || d.price === 'See Options' || d.price === 'Check Site') return false;
@@ -1275,7 +1348,14 @@ app.get('/api/db/deals', (req, res) => {
 
       // Price Errors / Glitches filter (genuine high-value clearance or price errors)
       if (priceErrorsOnly === 'true' || priceErrorsOnly === true) {
-        if (!isValidPriceError(d)) return false;
+        const errorInfo = getPriceErrorInfo(d);
+        if (!errorInfo.isPriceError) return false;
+        if (glitchTier && glitchTier !== 'all') {
+          if (glitchTier === 'epic' && errorInfo.tier !== 'epic_glitch') return false;
+          if (glitchTier === 'dollar' && errorInfo.tier !== 'dollar_glitch') return false;
+          if (glitchTier === 'warehouse' && errorInfo.tier !== 'warehouse_steal') return false;
+          if (glitchTier === 'brand' && errorInfo.tier !== 'brand_glitch') return false;
+        }
       }
 
       // Top Brands Only filter
@@ -1353,7 +1433,15 @@ app.get('/api/db/deals', (req, res) => {
     const lim = Math.max(1, parseInt(limit, 10) || 48);
     const total = filtered.length;
     const totalPages = Math.ceil(total / lim) || 1;
-    const products = filtered.slice((p - 1) * lim, p * lim);
+    const products = filtered.slice((p - 1) * lim, p * lim).map(item => {
+      const errorInfo = getPriceErrorInfo(item);
+      item.isPriceError = errorInfo.isPriceError;
+      if (errorInfo.isPriceError) {
+        item.priceErrorType = errorInfo.tier;
+        item.glitchBadge = errorInfo.badge;
+      }
+      return item;
+    });
 
     res.json({
       total,
@@ -1401,8 +1489,22 @@ app.get('/api/db/status', (req, res) => {
     totalDeals: all.length,
     warehouseDeals: whCount,
     normalDeals: normCount,
+    retentionDays: 14,
+    autoPruneEnabled: true,
     crawler: db.crawler || {}
   });
+});
+
+// Database Stale Deals Retention Pruner
+app.post('/api/db/prune', (req, res) => {
+  try {
+    const maxAgeDays = parseFloat(req.query.maxAgeDays || (req.body && req.body.maxAgeDays)) || 14;
+    const result = pruneStaleDeals(db, maxAgeDays);
+    saveDb(db);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 // Live Market Analytics & Price Distribution Endpoint
@@ -2245,17 +2347,12 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
         console.warn(`[CRAWLER] Brand sweep error for ${brand}:`, brandErr.message);
       }
     }
-    saveDb(db);
-
-    // Prune deals older than 14 days
-    const FOURTEEN_DAYS = 14 * 24 * 3600 * 1000;
-    const now = Date.now();
-    for (const asin in db.crawledDeals) {
-      const deal = db.crawledDeals[asin];
-      if (now - (deal.lastSeenAt || deal.firstSeenAt || now) > FOURTEEN_DAYS) {
-        delete db.crawledDeals[asin];
-      }
+    // Automated 14-day database retention purge
+    const retention = pruneStaleDeals(db, 14);
+    if (retention.prunedCount > 0) {
+      console.log(`[CRAWLER] 🧹 14-Day Retention: Purged ${retention.prunedCount} stale deals (>14 days old). Remaining: ${retention.remainingDeals}`);
     }
+    saveDb(db);
 
     const durationSeconds = Math.round((Date.now() - startTime) / 1000);
     db.crawler.lastRunStats = { totalScanned, pagesScanned, newAdded, priceDrops, durationSeconds };

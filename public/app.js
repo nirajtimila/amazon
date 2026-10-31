@@ -474,6 +474,13 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
+      // Ensure both stores are queried for price errors so all 200+ glitch steals are loaded
+      storeType = 'both';
+      storePills.forEach(p => {
+        if (p.getAttribute('data-store') === 'both') p.classList.add('active');
+        else p.classList.remove('active');
+      });
+
       loadDatabaseDeals(true);
       if (typeof setActiveNavLink === 'function') {
         setActiveNavLink('glitches');
@@ -1900,7 +1907,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (activeFilterTab === 'sniped') {
       displayedItems = snipedDeals;
     } else if (activeFilterTab === 'price_errors') {
-      displayedItems = items.filter(d => d.isPriceError || (parseInt(d.discountPercent, 10) || 0) >= 70);
+      displayedItems = items;
     } else if (activeFilterTab === 'top_brands') {
       displayedItems = items.filter(d => d.isBrandDeal || d.brand);
     }
@@ -2042,10 +2049,10 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     } else if (activeFilterTab === 'price_errors') {
       contextBannerHtml = `
-        <div class="glitch-context-banner">
+        <div class="glitch-context-banner" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: rgba(220, 38, 38, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); padding: 12px 18px; border-radius: 8px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 10px;">
           <div style="display: flex; align-items: center; gap: 8px; color: #fca5a5;">
             <span class="material-symbols-outlined text-[20px] text-red-400">local_fire_department</span>
-            <span style="font-size: 0.95rem;">Currently viewing <strong>Price Error & Clearance Glitches (80%+ Off)</strong> (${displayedItems.length} deals found).</span>
+            <span style="font-size: 0.95rem;">Currently viewing <strong>Verified Price Errors & Clearance Glitches</strong> (${displayedItems.length} verified steals found).</span>
           </div>
           <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1.5" id="exitGlitchBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem; background: linear-gradient(135deg, #dc2626, #ea580c); border: none;">
             <span class="material-symbols-outlined text-[15px]">inventory_2</span>
@@ -2133,7 +2140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="store-badge ${storeBadgeClass} text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">${storeBadgeText}</span>
               ` : '')}
               
-              ${isGlitch ? '<span class="badge-glitch-error bg-error text-on-error text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">bolt</span> PRICE ERROR</span>' : ''}
+              ${isGlitch ? `<span class="badge-glitch-error bg-error text-on-error text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">bolt</span> ${escapeHtml(item.glitchBadge || (discNum >= 70 ? `${discNum}% GLITCH` : 'PRICE ERROR'))}</span>` : ''}
               ${item.isJustListed ? '<span class="just-listed-badge bg-primary-fixed text-on-primary-fixed text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">schedule</span> JUST LISTED</span>' : ''}
               ${item.snipedFromTarget ? `<span class="sniper-match-badge bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">track_changes</span> ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
             </div>
@@ -3282,6 +3289,11 @@ document.addEventListener('DOMContentLoaded', () => {
       loadDatabaseDeals(false);
       document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (navKey === 'glitches') {
+      storeType = 'both';
+      storePills.forEach(p => {
+        if (p.getAttribute('data-store') === 'both') p.classList.add('active');
+        else p.classList.remove('active');
+      });
       tabPriceErrors?.click();
       document.getElementById('dealsGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } else if (navKey === 'watchlist') {

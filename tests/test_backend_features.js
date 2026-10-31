@@ -56,6 +56,9 @@ async function runBackendTests() {
     assert(typeof status.warehouseDeals === 'number' && status.warehouseDeals > 0, 'Warehouse deal count is positive', `Warehouse: ${status.warehouseDeals}`);
     assert(typeof status.normalDeals === 'number' && status.normalDeals > 0, 'Normal Clearance deal count is positive', `Clearance: ${status.normalDeals}`);
     assert(status.crawler && typeof status.crawler.intervalMinutes === 'number', 'Background crawler telemetry is present', `Interval: ${status.crawler.intervalMinutes}m`);
+    assert(status.retentionDays === 14 && status.autoPruneEnabled === true, '14-Day automated database retention telemetry verified', `Retention: ${status.retentionDays}d`);
+    const pruneRes = await postJson('/api/db/prune?maxAgeDays=14', {});
+    assert(pruneRes && pruneRes.success === true && typeof pruneRes.remainingDeals === 'number', 'POST /api/db/prune executes automated retention cleanup', `Remaining deals: ${pruneRes.remainingDeals}`);
   } catch (err) {
     assert(false, 'Status API unreachable', err.message);
   }
