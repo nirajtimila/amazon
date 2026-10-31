@@ -409,6 +409,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Reset view back to All Deals
   function resetToAllDealsTab() {
     activeFilterTab = 'all';
+    activeSniperFilter = 'all';
     if (tabAllDeals) tabAllDeals.classList.add('active');
     if (tabTopBrands) tabTopBrands.classList.remove('active');
     if (tabJustListed) tabJustListed.classList.remove('active');
@@ -540,29 +541,16 @@ document.addEventListener('DOMContentLoaded', () => {
         setActiveNavLink('watchlist');
       }
 
-      // Always fetch fresh sniped matches from backend and merge
+      // Always fetch fresh sniped matches from backend
       try {
         const res = await fetch('/api/sniped');
         if (res.ok) {
           const fresh = await res.json();
           if (Array.isArray(fresh) && fresh.length > 0) {
-            for (const item of fresh) {
-              if (!snipedDeals.some(d => d.asin === item.asin)) {
-                snipedDeals.push(item);
-              }
-            }
+            snipedDeals = fresh;
           }
         }
       } catch (err) {}
-
-      // If local has sniped deals, ensure backend has them too
-      if (snipedDeals.length > 0) {
-        fetch('/api/sniped', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(snipedDeals)
-        }).catch(() => {});
-      }
 
       if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
       renderDeals(snipedDeals);
@@ -588,6 +576,71 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   let watchlist = JSON.parse(localStorage.getItem(WATCHLIST_KEY) || JSON.stringify(defaultWatchlist));
   let snipedDeals = [];
+  let activeSniperFilter = 'all'; // 'all' or specific target keyword (e.g. 'PS', 'Glasses', etc.)
+
+  function isDealMatchingSniperFilter(deal, targetKeyword) {
+    if (!deal || !targetKeyword) return false;
+    if (targetKeyword === 'all') return true;
+
+    const targetNorm = targetKeyword.trim().toLowerCase();
+
+    // 1. Explicit snipedFromTarget check
+    if (deal.snipedFromTarget) {
+      const snipedNorm = String(deal.snipedFromTarget).trim().toLowerCase();
+      if (snipedNorm === targetNorm) return true;
+      if (snipedNorm.includes(targetNorm) || targetNorm.includes(snipedNorm)) return true;
+      if (/\b(ps5?|playstation)\b/i.test(targetNorm) && /\b(ps5?|playstation)\b/i.test(snipedNorm)) return true;
+      if (/\b(glasses|sunglasses|eyewear)\b/i.test(targetNorm) && /\b(glasses|sunglasses|eyewear)\b/i.test(snipedNorm)) return true;
+      return false;
+    }
+
+    // 2. Title matching fallback only for unassigned deals
+    const title = String(deal.title || '').toLowerCase();
+    if (/\b(ps5?|playstation)\b/i.test(targetNorm)) {
+      return /\b(ps5?|playstation)\b/i.test(title);
+    }
+    if (/\b(glasses|sunglasses|eyewear)\b/i.test(targetNorm)) {
+      return /\b(glasses|sunglasses|eyewear)\b/i.test(title);
+    }
+    const escaped = targetNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(title);
+  }
+
+  function getAvailableSniperTargets() {
+    const targetMap = new Map();
+
+    // 1. Collect from active and saved watchlist targets
+    for (const w of (watchlist || [])) {
+      if (w && w.keyword) {
+        const kw = w.keyword.trim();
+        if (!targetMap.has(kw.toLowerCase())) {
+          targetMap.set(kw.toLowerCase(), { keyword: kw, count: 0 });
+        }
+      }
+    }
+
+    // 2. Collect from all sniped deals
+    for (const d of snipedDeals) {
+      const rawTarget = d.snipedFromTarget || '';
+      if (rawTarget && rawTarget.trim()) {
+        const kw = rawTarget.trim();
+        if (!targetMap.has(kw.toLowerCase())) {
+          targetMap.set(kw.toLowerCase(), { keyword: kw, count: 0 });
+        }
+      }
+    }
+
+    // 3. Compute accurate counts for each target
+    const list = Array.from(targetMap.values());
+    for (const t of list) {
+      t.count = snipedDeals.filter(d => isDealMatchingSniperFilter(d, t.keyword)).length;
+    }
+
+    // Sort targets: those with deals first (descending count), then alphabetically
+    list.sort((a, b) => b.count - a.count || a.keyword.localeCompare(b.keyword));
+
+    return list;
+  }
 
   function saveWatchlist() {
     localStorage.setItem(WATCHLIST_KEY, JSON.stringify(watchlist));
@@ -646,12 +699,20 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    watchlistItemsContainer.innerHTML = watchlist.map(item => `
+    watchlistItemsContainer.innerHTML = watchlist.map(item => {
+      const matchHits = snipedDeals.filter(d => isDealMatchingSniperFilter(d, item.keyword)).length;
+      return `
       <div class="watchlist-item-card" data-id="${item.id}">
         <div class="watchlist-info">
           <div style="display: flex; align-items: center; gap: 8px;">
             <input type="checkbox" class="watch-toggle-checkbox" data-id="${item.id}" ${item.active ? 'checked' : ''} style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
             <span class="watchlist-kw" style="${!item.active ? 'text-decoration: line-through; opacity: 0.6;' : ''}">${escapeHtml(item.keyword)}</span>
+            ${matchHits > 0 ? `
+              <button class="watch-view-matches-btn inline-flex items-center gap-1" data-keyword="${escapeHtml(item.keyword)}" title="View ${matchHits} sniped deal${matchHits > 1 ? 's' : ''} for ${escapeHtml(item.keyword)}">
+                <span class="material-symbols-outlined text-[13px]">track_changes</span>
+                <span>${matchHits} Deal${matchHits > 1 ? 's' : ''}</span>
+              </button>
+            ` : ''}
           </div>
           <div class="watchlist-details">
             <span>${escapeHtml(item.category)}</span>
@@ -669,7 +730,24 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
+
+    watchlistItemsContainer.querySelectorAll('.watch-view-matches-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const kw = e.currentTarget.getAttribute('data-keyword');
+        if (kw) {
+          activeSniperFilter = kw;
+          closeWatchlistModal();
+          if (tabSnipedDeals) {
+            tabSnipedDeals.click();
+          } else {
+            activeFilterTab = 'sniped';
+            renderDeals(snipedDeals);
+          }
+        }
+      });
+    });
 
     watchlistItemsContainer.querySelectorAll('.watch-toggle-checkbox').forEach(cb => {
       cb.addEventListener('change', async (e) => {
@@ -1905,7 +1983,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeFilterTab === 'just_listed') {
       displayedItems = justListedItems;
     } else if (activeFilterTab === 'sniped') {
-      displayedItems = snipedDeals;
+      if (activeSniperFilter && activeSniperFilter !== 'all') {
+        displayedItems = snipedDeals.filter(d => isDealMatchingSniperFilter(d, activeSniperFilter));
+      } else {
+        displayedItems = snipedDeals;
+      }
     } else if (activeFilterTab === 'price_errors') {
       displayedItems = items;
     } else if (activeFilterTab === 'top_brands') {
@@ -1916,8 +1998,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const winLabel = windowLabels[activeTimeWindow] || 'Current Window';
 
     if (activeFilterTab === 'sniped') {
-      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Watchlist Sniped Matches`;
-      filterSummaryBadge.textContent = 'Watchlist Sniper Target Hits';
+      const targetLabel = (activeSniperFilter && activeSniperFilter !== 'all') ? ` for "${activeSniperFilter}"` : '';
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Watchlist Sniped Matches${targetLabel}`;
+      filterSummaryBadge.textContent = (activeSniperFilter && activeSniperFilter !== 'all')
+        ? `Sniper Target: ${activeSniperFilter} (${displayedItems.length} hits)`
+        : `Watchlist Sniper Target Hits (${snipedDeals.length} total)`;
     } else if (activeFilterTab === 'price_errors') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Verified Price Errors & Clearance Glitches`;
       filterSummaryBadge.textContent = `Price Errors & Glitches • ${storeLabel}`;
@@ -1990,17 +2075,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (displayedItems.length === 0 && activeFilterTab === 'sniped') {
+      const isFiltered = activeSniperFilter && activeSniperFilter !== 'all';
       dealsGrid.innerHTML = `
         <div class="empty-state card" style="grid-column: 1 / -1;">
-          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-blue-500">track_changes</span></div>
-          <h3>No Watchlist Sniped Matches Yet</h3>
-          <p>The Watchlist Sniper scans all your active target keywords every 2 hours and collects matching deals here.</p>
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-purple-400">track_changes</span></div>
+          <h3>${isFiltered ? `No Sniped Matches for "${escapeHtml(activeSniperFilter)}"` : 'No Watchlist Sniped Matches Yet'}</h3>
+          <p>${isFiltered ? `There are currently no sniped deals recorded matching target "${escapeHtml(activeSniperFilter)}". Try viewing all snipers or adjusting target criteria in your Watchlist.` : 'The Watchlist Sniper scans all your active target keywords every 2 hours and collects matching deals here.'}</p>
           <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1.25rem; flex-wrap: wrap;">
-            <button class="btn btn-primary inline-flex items-center gap-1.5" id="openSniperEmptyBtn"><span class="material-symbols-outlined text-[16px]">track_changes</span> Open Watchlist & Run Sniper</button>
+            ${isFiltered ? `<button class="btn btn-primary inline-flex items-center gap-1.5" id="resetSniperFilterBtn" style="background: linear-gradient(135deg, #7c3aed, #a855f7); border: none;"><span class="material-symbols-outlined text-[16px]">track_changes</span> View All Snipers (${snipedDeals.length})</button>` : ''}
+            <button class="btn btn-secondary inline-flex items-center gap-1.5" id="openSniperEmptyBtn"><span class="material-symbols-outlined text-[16px]">tune</span> Open Watchlist</button>
             <button class="btn btn-secondary inline-flex items-center gap-1.5" id="exitSniperEmptyBtn"><span class="material-symbols-outlined text-[16px]">inventory_2</span> View All Deals (${items.length || deals.length})</button>
           </div>
         </div>
       `;
+      document.getElementById('resetSniperFilterBtn')?.addEventListener('click', () => {
+        activeSniperFilter = 'all';
+        renderDeals(snipedDeals);
+      });
       document.getElementById('openSniperEmptyBtn')?.addEventListener('click', openWatchlistModal);
       document.getElementById('exitSniperEmptyBtn')?.addEventListener('click', () => {
         tabAllDeals?.click();
@@ -2035,16 +2126,51 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let contextBannerHtml = '';
     if (activeFilterTab === 'sniped') {
-      contextBannerHtml = `
-        <div class="sniped-context-banner" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.4); padding: 12px 18px; border-radius: 8px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 10px;">
-          <div style="display: flex; align-items: center; gap: 8px; color: #d8b4fe;">
-            <span class="material-symbols-outlined text-[20px] text-purple-400">track_changes</span>
-            <span style="font-size: 0.92rem;">Currently viewing <strong>Watchlist Sniped Deals</strong> (${displayedItems.length} items).</span>
-          </div>
-          <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1.5" id="exitSniperBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem;">
-            <span class="material-symbols-outlined text-[15px]">inventory_2</span>
-            <span>View All Deals (${items.length || deals.length})</span>
+      const availableTargets = getAvailableSniperTargets();
+      const allActive = (!activeSniperFilter || activeSniperFilter === 'all') ? 'active' : '';
+      const totalSniped = snipedDeals.length;
+
+      const targetPillsHtml = `
+        <div class="sniper-targets-filter-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; width: 100%;">
+          <span style="font-size: 0.82rem; font-weight: 700; color: #d8b4fe; display: flex; align-items: center; gap: 4px;">
+            <span class="material-symbols-outlined text-[16px]">filter_alt</span> Filter by Target:
+          </span>
+          <button type="button" class="sniper-target-pill ${allActive}" data-target="all">
+            🎯 All Snipers (${totalSniped})
           </button>
+          ${availableTargets.map(t => {
+            const isAct = (activeSniperFilter && activeSniperFilter.toLowerCase() === t.keyword.toLowerCase()) ? 'active' : '';
+            return `
+              <button type="button" class="sniper-target-pill ${isAct}" data-target="${escapeHtml(t.keyword)}" title="Filter deals matching target '${escapeHtml(t.keyword)}'">
+                🎯 ${escapeHtml(t.keyword)} (${t.count})
+              </button>
+            `;
+          }).join('')}
+        </div>
+      `;
+
+      contextBannerHtml = `
+        <div class="sniped-context-banner" style="grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.4); padding: 14px 18px; border-radius: 10px; margin-bottom: 0.75rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px; color: #d8b4fe;">
+              <span class="material-symbols-outlined text-[20px] text-purple-400">track_changes</span>
+              <span style="font-size: 0.92rem;">
+                Currently viewing <strong>Watchlist Sniped Deals</strong>
+                ${activeSniperFilter && activeSniperFilter !== 'all' ? `filtered to target: <strong style="color: #f3e8ff; background: rgba(168,85,247,0.3); padding: 2px 8px; border-radius: 4px;">🎯 ${escapeHtml(activeSniperFilter)}</strong>` : `(${displayedItems.length} total hits)`}
+              </span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-sm btn-secondary inline-flex items-center gap-1.5" id="openWatchlistBannerBtn" style="font-weight: 600; padding: 6px 12px; font-size: 0.82rem; border-color: rgba(168, 85, 247, 0.4); color: #d8b4fe;">
+                <span class="material-symbols-outlined text-[15px]">edit_note</span>
+                <span>Manage Watchlist</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1.5" id="exitSniperBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem; background: linear-gradient(135deg, #7c3aed, #a855f7); border: none;">
+                <span class="material-symbols-outlined text-[15px]">inventory_2</span>
+                <span>View All Deals (${items.length || deals.length})</span>
+              </button>
+            </div>
+          </div>
+          ${targetPillsHtml}
         </div>
       `;
     } else if (activeFilterTab === 'price_errors') {
@@ -2142,7 +2268,11 @@ document.addEventListener('DOMContentLoaded', () => {
               
               ${isGlitch ? `<span class="badge-glitch-error bg-error text-on-error text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">bolt</span> ${escapeHtml(item.glitchBadge || (discNum >= 70 ? `${discNum}% GLITCH` : 'PRICE ERROR'))}</span>` : ''}
               ${item.isJustListed ? '<span class="just-listed-badge bg-primary-fixed text-on-primary-fixed text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">schedule</span> JUST LISTED</span>' : ''}
-              ${item.snipedFromTarget ? `<span class="sniper-match-badge bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">track_changes</span> ${escapeHtml(item.snipedFromTarget)}</span>` : ''}
+              ${item.snipedFromTarget ? `
+                <span class="sniper-match-badge clickable-sniper-badge bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/40 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1 cursor-pointer transition-all duration-150" data-target="${escapeHtml(item.snipedFromTarget)}" title="Click to filter by '${escapeHtml(item.snipedFromTarget)}' sniped deals">
+                  <span class="material-symbols-outlined text-[12px]">track_changes</span> ${escapeHtml(item.snipedFromTarget)}
+                </span>
+              ` : ''}
             </div>
             <!-- Favorite button -->
             <button type="button" class="save-btn ${isSaved ? 'active text-error bg-error/10' : 'text-outline bg-surface-container-lowest/90'} absolute top-3 right-3 p-1.5 rounded-full hover:bg-surface-container-lowest hover:text-error transition-colors shadow-sm z-10 cursor-pointer" data-asin="${item.asin}" title="Save deal">
@@ -2215,7 +2345,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Attach exit sniper banner listener
     document.getElementById('exitSniperBannerBtn')?.addEventListener('click', () => {
+      activeSniperFilter = 'all';
       tabAllDeals?.click();
+    });
+
+    // Attach open watchlist banner listener
+    document.getElementById('openWatchlistBannerBtn')?.addEventListener('click', openWatchlistModal);
+
+    // Attach sniper target filter pill listeners
+    document.querySelectorAll('.sniper-target-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        const target = e.currentTarget.getAttribute('data-target') || 'all';
+        activeSniperFilter = target;
+        renderDeals(snipedDeals);
+      });
+    });
+
+    // Clickable sniper match badge on deal cards
+    document.querySelectorAll('.clickable-sniper-badge').forEach(badge => {
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        const target = e.currentTarget.getAttribute('data-target');
+        if (target) {
+          activeSniperFilter = target;
+          if (activeFilterTab !== 'sniped') {
+            if (tabSnipedDeals) tabSnipedDeals.click();
+            else {
+              activeFilterTab = 'sniped';
+              renderDeals(snipedDeals);
+            }
+          } else {
+            renderDeals(snipedDeals);
+          }
+        }
+      });
     });
 
     // Attach exit price error banner listener

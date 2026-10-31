@@ -382,6 +382,50 @@ async function runFrontendTests() {
     })()`);
     assert(justListedTab.tabActive && justListedTab.timeRowVisible, 'Just Listed tab reveals time filter row with 1h/2h/6h/24h pills');
 
+    // Test Watchlist Sniped Mode & Sniper Target Filtering (PS, Glasses, All)
+    const snipedTabCheck = await evaluate(`(async () => {
+      const tab = document.getElementById('tabSnipedDeals');
+      if (tab) tab.click();
+      await new Promise(r => setTimeout(r, 600));
+      const pills = Array.from(document.querySelectorAll('.sniper-target-pill')).map(p => p.textContent.trim());
+      const allDealsCount = document.querySelectorAll('.deal-card').length;
+      
+      // Click PS pill
+      const psPill = Array.from(document.querySelectorAll('.sniper-target-pill')).find(p => p.textContent.includes('PS'));
+      if (psPill) psPill.click();
+      await new Promise(r => setTimeout(r, 300));
+      const psDealsCount = document.querySelectorAll('.deal-card').length;
+      const psBadgeTexts = Array.from(document.querySelectorAll('.sniper-match-badge')).map(b => b.textContent.trim());
+
+      // Click Glasses pill
+      const glassesPill = Array.from(document.querySelectorAll('.sniper-target-pill')).find(p => p.textContent.includes('Glasses'));
+      if (glassesPill) glassesPill.click();
+      await new Promise(r => setTimeout(r, 300));
+      const glassesDealsCount = document.querySelectorAll('.deal-card').length;
+      const glassesBadgeTexts = Array.from(document.querySelectorAll('.sniper-match-badge')).map(b => b.textContent.trim());
+
+      // Click All Snipers pill
+      const allPill = Array.from(document.querySelectorAll('.sniper-target-pill')).find(p => p.textContent.includes('All Snipers'));
+      if (allPill) allPill.click();
+      await new Promise(r => setTimeout(r, 300));
+      const restoredAllCount = document.querySelectorAll('.deal-card').length;
+
+      return {
+        tabActive: tab ? tab.classList.contains('active') : false,
+        hasPills: pills.length >= 3,
+        allDealsCount,
+        psDealsCount,
+        allPsMatch: psBadgeTexts.length > 0 && psBadgeTexts.every(t => t.includes('PS')),
+        glassesDealsCount,
+        allGlassesMatch: glassesBadgeTexts.length > 0 && glassesBadgeTexts.every(t => t.includes('Glasses')),
+        restoredAllCount
+      };
+    })()`);
+    assert(snipedTabCheck.tabActive && snipedTabCheck.hasPills, 'Sniped tab activates and renders dynamic Sniper Target filter pills');
+    assert(snipedTabCheck.psDealsCount > 0 && snipedTabCheck.allPsMatch, 'Filtering by "PS" sniper target displays only PS deals', `Hits: ${snipedTabCheck.psDealsCount}`);
+    assert(snipedTabCheck.glassesDealsCount > 0 && snipedTabCheck.allGlassesMatch, 'Filtering by "Glasses" sniper target displays only Glasses deals', `Hits: ${snipedTabCheck.glassesDealsCount}`);
+    assert(snipedTabCheck.restoredAllCount === snipedTabCheck.allDealsCount, 'Clicking "All Snipers" restores all sniped deals view', `Total: ${snipedTabCheck.restoredAllCount}`);
+
     const returnAllTab = await evaluate(`(() => {
       const tab = document.getElementById('tabAllDeals');
       if (tab) tab.click();
@@ -467,9 +511,14 @@ async function runFrontendTests() {
       const btn = document.getElementById('watchlistModalBtn');
       if (btn) btn.click();
       const modal = document.getElementById('watchlistModal');
-      return modal ? modal.style.display !== 'none' : false;
+      const matchBtns = document.querySelectorAll('.watch-view-matches-btn');
+      return {
+        isOpen: modal ? modal.style.display !== 'none' : false,
+        matchBtnCount: matchBtns.length
+      };
     })()`);
-    assert(watchlistModalOpen, 'Watchlist Sniper modal displays upon header radar click');
+    assert(watchlistModalOpen.isOpen, 'Watchlist Sniper modal displays upon header radar click');
+    assert(watchlistModalOpen.matchBtnCount > 0, 'Watchlist targets display quick-jump match buttons for sniped targets', `Buttons: ${watchlistModalOpen.matchBtnCount}`);
 
     const watchlistModalClose = await evaluate(`(() => {
       const closeBtn = document.getElementById('closeWatchlistModalBtn');

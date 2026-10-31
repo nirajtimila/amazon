@@ -649,3 +649,71 @@ select option {
   pointer-events: auto !important;
   transform: translateY(0);
 }
+
+/* Watchlist Sniper Target Filter Bar & Pills */
+.sniper-targets-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.sniper-target-pill {
+  background: rgba(168, 85, 247, 0.15);
+  color: #d8b4fe;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 9999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  user-select: none;
+}
+
+.sniper-target-pill:hover {
+  background: rgba(168, 85, 247, 0.3);
+  color: #ffffff;
+  border-color: rgba(168, 85, 247, 0.6);
+  transform: translateY(-1px);
+}
+
+.sniper-target-pill.active {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #ffffff;
+  border-color: #c084fc;
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4);
+}
+
+.clickable-sniper-badge {
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.clickable-sniper-badge:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(168, 85, 247, 0.4);
+  filter: brightness(1.15);
+}
+
+.watch-view-matches-btn {
+  background: rgba(168, 85, 247, 0.12);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 0.73rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.watch-view-matches-btn:hover {
+  background: rgba(168, 85, 247, 0.28);
+  color: #ffffff;
+  border-color: #a855f7;
+}

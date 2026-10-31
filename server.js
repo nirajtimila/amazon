@@ -1105,7 +1105,26 @@ app.put('/api/watchlist/:id/toggle', (req, res) => {
 
 // Sniped deals endpoints
 app.get('/api/sniped', (req, res) => {
-  res.json(db.snipedDeals || []);
+  const target = req.query.target ? String(req.query.target).trim().toLowerCase() : '';
+  const deals = db.snipedDeals || [];
+  if (!target || target === 'all') {
+    return res.json(deals);
+  }
+  const filtered = deals.filter(d => {
+    if (d.snipedFromTarget) {
+      const snipedNorm = String(d.snipedFromTarget).trim().toLowerCase();
+      if (snipedNorm === target || snipedNorm.includes(target) || target.includes(snipedNorm)) return true;
+      if (/\b(ps5?|playstation)\b/i.test(target) && /\b(ps5?|playstation)\b/i.test(snipedNorm)) return true;
+      if (/\b(glasses|sunglasses|eyewear)\b/i.test(target) && /\b(glasses|sunglasses|eyewear)\b/i.test(snipedNorm)) return true;
+      return false;
+    }
+    const title = String(d.title || '').toLowerCase();
+    if (/\b(ps5?|playstation)\b/i.test(target)) return /\b(ps5?|playstation)\b/i.test(title);
+    if (/\b(glasses|sunglasses|eyewear)\b/i.test(target)) return /\b(glasses|sunglasses|eyewear)\b/i.test(title);
+    const escaped = target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(title);
+  });
+  res.json(filtered);
 });
 
 app.post('/api/sniped', (req, res) => {

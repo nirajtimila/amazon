@@ -265,6 +265,13 @@ async function runBackendTests() {
     const snipedList = await getJson('/api/sniped');
     assert(Array.isArray(snipedList), 'Sniped deals endpoint returns array', `Count: ${snipedList.length}`);
 
+    // 4b. Target-specific filtering (e.g. PS and Glasses)
+    const psSnipedList = await getJson('/api/sniped?target=PS');
+    assert(Array.isArray(psSnipedList) && psSnipedList.length > 0 && psSnipedList.every(d => (d.snipedFromTarget && d.snipedFromTarget.toLowerCase().includes('ps')) || (d.title && d.title.toLowerCase().includes('ps'))), 'Sniped deals target filtering for "PS" returns matching deals', `Count: ${psSnipedList.length}`);
+
+    const glassesSnipedList = await getJson('/api/sniped?target=Glasses');
+    assert(Array.isArray(glassesSnipedList) && glassesSnipedList.length > 0 && glassesSnipedList.every(d => (d.snipedFromTarget && d.snipedFromTarget.toLowerCase().includes('glasses')) || (d.title && d.title.toLowerCase().includes('glasses'))), 'Sniped deals target filtering for "Glasses" returns matching deals', `Count: ${glassesSnipedList.length}`);
+
     // 5. Clean up test watchlist target
     const delTargetRes = await deleteJson(`/api/watchlist/${testTarget.id}`);
     assert(delTargetRes && delTargetRes.success === true, 'Test watchlist target successfully cleaned up', `ID: ${testTarget.id}`);
