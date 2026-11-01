@@ -224,19 +224,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'USD';
   }
 
-  function formatPriceWithCurrency(priceStr, storeDomain, targetCurrency) {
+  function detectCurrency(priceStr, storeDomain, explicitCurrency) {
+    if (explicitCurrency && EXCHANGE_RATES[explicitCurrency]) return explicitCurrency;
+    if (!priceStr) return getStoreCurrency(storeDomain);
+    const s = String(priceStr).trim();
+    if (/^(AUD|A\$|\$AU)/i.test(s) || s.includes('AUD')) return 'AUD';
+    if (/^(JPY|¥|￥)/i.test(s) || /円|JPY/i.test(s)) return 'JPY';
+    if (/^(GBP|£)/i.test(s) || s.includes('GBP')) return 'GBP';
+    if (/^(EUR|€)/i.test(s) || s.includes('EUR')) return 'EUR';
+    if (/^(CAD|C\$)/i.test(s) || s.includes('CAD')) return 'CAD';
+    if (/^(USD|\$US)/i.test(s) || s.includes('USD')) return 'USD';
+    if (s.startsWith('$')) {
+      return (storeDomain && storeDomain.includes('amazon.com.au')) ? 'AUD' : ((storeDomain && storeDomain.includes('amazon.ca')) ? 'CAD' : 'USD');
+    }
+    return getStoreCurrency(storeDomain);
+  }
+
+  function formatPriceWithCurrency(priceStr, storeDomain, targetCurrency, explicitCurrency) {
     if (!priceStr || priceStr === 'See Options' || priceStr === 'Check Site' || priceStr.toLowerCase().includes('unavailable')) {
       return { display: 'See Options', original: '', numVal: null };
     }
 
     const cleanStr = priceStr.replace(/&nbsp;/gi, ' ').trim();
-    const storeCurr = getStoreCurrency(storeDomain || (domainSelect ? domainSelect.value : 'amazon.com.au'));
+    const storeCurr = detectCurrency(cleanStr, storeDomain, explicitCurrency);
 
     // Extract numeric amount
     let numericVal = 0;
     if (storeCurr === 'EUR' && cleanStr.includes(',')) {
       const euroClean = cleanStr.replace(/[^\d,]/g, '').replace(',', '.');
       numericVal = parseFloat(euroClean);
+    } else if (storeCurr === 'JPY') {
+      // JPY is whole yen (no fractional cents)
+      const jpyClean = cleanStr.replace(/[^\d.]/g, '');
+      numericVal = parseFloat(jpyClean);
+      if (!isNaN(numericVal)) numericVal = Math.round(numericVal);
     } else {
       const stdClean = cleanStr.replace(/[^\d.]/g, '');
       numericVal = parseFloat(stdClean);
@@ -246,27 +267,55 @@ document.addEventListener('DOMContentLoaded', () => {
       return { display: cleanStr, original: '', numVal: null };
     }
 
-    if (!targetCurrency || targetCurrency === 'ORIGINAL' || storeCurr === targetCurrency) {
-      return { display: cleanStr, original: '', numVal: numericVal };
+    const target = targetCurrency || (currencySelect ? currencySelect.value : 'AUD');
+    if (!target || target === 'ORIGINAL' || storeCurr === target) {
+      const sym = CURRENCY_SYMBOLS[storeCurr] || '$';
+      const dec = storeCurr === 'JPY' ? 0 : 2;
+      const formatted = numericVal.toLocaleString('en-US', {
+        minimumFractionDigits: dec,
+        maximumFractionDigits: dec
+      });
+      return {
+        display: `${sym}${formatted}`,
+        currencyCode: storeCurr,
+        original: '',
+        numVal: numericVal
+      };
     }
 
-    // Convert currency
+    // Convert currency using latest exchange rates
     const rateFrom = EXCHANGE_RATES[storeCurr] || 1.0;
-    const rateTo = EXCHANGE_RATES[targetCurrency] || 1.0;
+    const rateTo = EXCHANGE_RATES[target] || 1.0;
     const convertedVal = (numericVal / rateFrom) * rateTo;
 
-    const symbol = CURRENCY_SYMBOLS[targetCurrency] || '$';
-    const decimals = (targetCurrency === 'JPY') ? 0 : 2;
+    const symbol = CURRENCY_SYMBOLS[target] || '$';
+    const decimals = (target === 'JPY') ? 0 : 2;
     const formattedNum = convertedVal.toLocaleString('en-US', {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals
     });
 
     return {
-      display: `${symbol}${formattedNum} ${targetCurrency}`,
-      original: `(${cleanStr} ${storeCurr})`,
+      display: `${symbol}${formattedNum}`,
+      currencyCode: target,
+      original: `(${cleanStr})`,
       numVal: convertedVal
     };
+  }
+
+  // Domain Matcher for Strict Domain Isolation
+  function isDealFromDomain(deal, targetDomain) {
+    if (!deal) return false;
+    if (!targetDomain || targetDomain === 'all') return true;
+    const cleanTarget = targetDomain.trim().toLowerCase().replace('www.', '');
+    const itemUrl = deal.url || deal.link || '';
+    let dDom = (deal.domain || (itemUrl && (itemUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/) || [])[1]) || '').toLowerCase().replace('www.', '');
+    if (!dDom) dDom = 'amazon.com.au';
+    if (dDom === cleanTarget || dDom.includes(cleanTarget)) {
+      if (cleanTarget === 'amazon.com' && dDom.includes('amazon.com.au')) return false;
+      return true;
+    }
+    return false;
   }
 
   // Verification Links (CamelCamelCamel, Keepa, OzBargain)
@@ -541,19 +590,22 @@ document.addEventListener('DOMContentLoaded', () => {
         setActiveNavLink('watchlist');
       }
 
-      // Always fetch fresh sniped matches from backend
+      // Always fetch fresh sniped matches from backend for active domain
       try {
-        const res = await fetch('/api/sniped');
+        const activeDom = domainSelect ? domainSelect.value : 'amazon.com.au';
+        const res = await fetch(`/api/sniped?domain=${encodeURIComponent(activeDom)}`);
         if (res.ok) {
           const fresh = await res.json();
-          if (Array.isArray(fresh) && fresh.length > 0) {
+          if (Array.isArray(fresh)) {
             snipedDeals = fresh;
           }
         }
       } catch (err) {}
 
-      if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
-      renderDeals(snipedDeals);
+      const activeDom = domainSelect ? domainSelect.value : 'amazon.com.au';
+      const domainSniped = (snipedDeals || []).filter(d => isDealFromDomain(d, activeDom));
+      if (countSnipedDeals) countSnipedDeals.textContent = domainSniped.length;
+      renderDeals(domainSniped);
     });
   }
 
@@ -608,6 +660,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getAvailableSniperTargets() {
     const targetMap = new Map();
+    const activeDomain = domainSelect ? domainSelect.value : 'amazon.com.au';
+    const domainSniped = (snipedDeals || []).filter(d => isDealFromDomain(d, activeDomain));
 
     // 1. Collect from active and saved watchlist targets
     for (const w of (watchlist || [])) {
@@ -619,8 +673,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // 2. Collect from all sniped deals
-    for (const d of snipedDeals) {
+    // 2. Collect from all sniped deals matching active domain
+    for (const d of domainSniped) {
       const rawTarget = d.snipedFromTarget || '';
       if (rawTarget && rawTarget.trim()) {
         const kw = rawTarget.trim();
@@ -633,7 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Compute accurate counts for each target
     const list = Array.from(targetMap.values());
     for (const t of list) {
-      t.count = snipedDeals.filter(d => isDealMatchingSniperFilter(d, t.keyword)).length;
+      t.count = domainSniped.filter(d => isDealMatchingSniperFilter(d, t.keyword)).length;
     }
 
     // Sort targets: those with deals first (descending count), then alphabetically
@@ -650,10 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Sync Watchlist and Saved Deals with Server Database
   async function syncInitialData() {
     try {
+      const activeDom = domainSelect ? domainSelect.value : 'amazon.com.au';
       const [wRes, sRes, snipedRes] = await Promise.allSettled([
         fetch('/api/watchlist'),
         fetch('/api/saved'),
-        fetch('/api/sniped')
+        fetch(`/api/sniped?domain=${encodeURIComponent(activeDom)}`)
       ]);
       if (wRes.status === 'fulfilled' && wRes.value.ok) {
         const wData = await wRes.value.json();
@@ -1318,9 +1373,19 @@ document.addEventListener('DOMContentLoaded', () => {
     syncCurrencyUI();
     updateTargetUrl();
     currentPage = 1;
+    dbCurrentPage = 1;
     deals = [];
     resetToAllDealsTab();
     loadDatabaseDeals();
+    const newDom = domainSelect.value || 'amazon.com.au';
+    fetch(`/api/sniped?domain=${encodeURIComponent(newDom)}`)
+      .then(r => r.json())
+      .then(fresh => {
+        if (Array.isArray(fresh)) {
+          snipedDeals = fresh;
+          if (countSnipedDeals) countSnipedDeals.textContent = snipedDeals.length;
+        }
+      }).catch(() => {});
   });
   sortSelect.addEventListener('change', () => {
     updateTargetUrl();
@@ -1979,20 +2044,27 @@ document.addEventListener('DOMContentLoaded', () => {
       return true;
     });
 
+    const activeDomain = domainSelect ? domainSelect.value : 'amazon.com.au';
+    const activeCurrency = currencySelect ? currencySelect.value : 'AUD';
+
     let displayedItems = items;
     if (activeFilterTab === 'just_listed') {
       displayedItems = justListedItems;
     } else if (activeFilterTab === 'sniped') {
+      const domainSniped = (snipedDeals || []).filter(d => isDealFromDomain(d, activeDomain));
       if (activeSniperFilter && activeSniperFilter !== 'all') {
-        displayedItems = snipedDeals.filter(d => isDealMatchingSniperFilter(d, activeSniperFilter));
+        displayedItems = domainSniped.filter(d => isDealMatchingSniperFilter(d, activeSniperFilter));
       } else {
-        displayedItems = snipedDeals;
+        displayedItems = domainSniped;
       }
     } else if (activeFilterTab === 'price_errors') {
       displayedItems = items;
     } else if (activeFilterTab === 'top_brands') {
       displayedItems = items.filter(d => d.isBrandDeal || d.brand);
     }
+
+    // Strict domain isolation: only show items matching the active domain
+    displayedItems = displayedItems.filter(d => isDealFromDomain(d, activeDomain));
 
     const windowLabels = { '1h': 'Last 1 Hour', '2h': 'Last 2 Hours', '6h': 'Last 6 Hours', '12h': 'Last 12 Hours', '24h': 'Last 24 Hours', 'all': 'History' };
     const winLabel = windowLabels[activeTimeWindow] || 'Current Window';
@@ -2121,14 +2193,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const activeDomain = domainSelect ? domainSelect.value : 'amazon.com.au';
-    const activeCurrency = currencySelect ? currencySelect.value : 'AUD';
-
     let contextBannerHtml = '';
     if (activeFilterTab === 'sniped') {
       const availableTargets = getAvailableSniperTargets();
       const allActive = (!activeSniperFilter || activeSniperFilter === 'all') ? 'active' : '';
-      const totalSniped = snipedDeals.length;
+      const domainSniped = (snipedDeals || []).filter(d => isDealFromDomain(d, activeDomain));
+      const totalSniped = domainSniped.length;
 
       const targetPillsHtml = `
         <div class="sniper-targets-filter-row" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; width: 100%;">
@@ -2193,9 +2263,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const cleanImg = getProductImage(item);
       
       let itemUrl = item.url || item.link || (item.asin ? `https://${activeDomain}/dp/${item.asin}` : '#');
-      const itemDomain = itemUrl.startsWith('http') ? (itemUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/)?.[1] || activeDomain) : activeDomain;
-      const priceObj = formatPriceWithCurrency(item.price, itemDomain, activeCurrency);
-      const listPriceObj = formatPriceWithCurrency(item.originalPrice || item.listPrice, itemDomain, activeCurrency);
+      const itemDomain = item.domain || (itemUrl.startsWith('http') ? (itemUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/)?.[1] || activeDomain) : activeDomain);
+      const priceObj = formatPriceWithCurrency(item.price, itemDomain, activeCurrency, item.currency);
+      const listPriceObj = formatPriceWithCurrency(item.originalPrice || item.listPrice, itemDomain, activeCurrency, item.currency);
 
       const isUsedCondition = item.condition && /used|open box|like new/i.test(item.condition);
       const isWarehouse = (item.store !== 'Normal Amazon') || isUsedCondition;
@@ -2237,11 +2307,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const discNum = parseInt(item.discountPercent, 10) || 0;
       const isGlitch = discNum >= 80 || item.isPriceError;
 
-      // Dollar savings calculation
-      let savingsFormatted = item.savings;
+      // Dollar savings calculation with currency conversion
+      let savingsFormatted = '';
+      if (item.savings) {
+        const savObj = formatPriceWithCurrency(item.savings, itemDomain, activeCurrency, item.currency);
+        if (savObj && savObj.display && savObj.display !== 'See Options') {
+          savingsFormatted = `${savObj.display} ${activeCurrency}`;
+        }
+      }
       if (!savingsFormatted && priceObj.numVal && listPriceObj.numVal && listPriceObj.numVal > priceObj.numVal) {
         savingsFormatted = formatCurrencyAmount(listPriceObj.numVal - priceObj.numVal, activeCurrency);
       }
+
+      const storeNameMap = {
+        'amazon.com.au': 'Amazon Australia',
+        'amazon.co.jp': 'Amazon Japan',
+        'amazon.com': 'Amazon US',
+        'amazon.co.uk': 'Amazon UK',
+        'amazon.de': 'Amazon Germany',
+        'amazon.ca': 'Amazon Canada'
+      };
+      const cleanDom = itemDomain.replace('www.', '').toLowerCase();
+      const storeCleanName = storeNameMap[cleanDom] || (cleanDom.includes('co.jp') ? 'Amazon Japan' : (cleanDom.includes('com.au') ? 'Amazon Australia' : (cleanDom.includes('co.uk') ? 'Amazon UK' : (cleanDom.includes('de') ? 'Amazon Germany' : (cleanDom.includes('ca') ? 'Amazon Canada' : 'Amazon')))));
+      const storeWhName = cleanDom.includes('co.jp') ? 'Amazon JP Warehouse' : (cleanDom.includes('com.au') ? 'Amazon AU Warehouse' : (cleanDom.includes('co.uk') ? 'Amazon UK Warehouse' : (cleanDom.includes('de') ? 'Amazon DE Warehouse' : (cleanDom.includes('ca') ? 'Amazon CA Warehouse' : 'Amazon Warehouse'))));
 
       return `
         <article class="deal-card bg-surface-container-lowest border border-outline-variant/30 rounded-xl overflow-hidden shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col group ${isGlitch ? 'is-glitch ring-2 ring-error/30' : ''}" data-asin="${item.asin}">
@@ -2320,7 +2408,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="text-[11px] font-normal opacity-80">In Stock</span>
               </div>
               <p class="text-xs text-on-surface-variant line-clamp-2 mb-3">
-                ${item.condition ? `Amazon AU Warehouse (${escapeHtml(item.condition)}) • ` : ''}Tested & verified genuine listing on Amazon Australia.
+                ${item.condition ? `${storeWhName} (${escapeHtml(item.condition)}) • ` : ''}Tested & verified genuine listing on ${storeCleanName}.
               </p>
             </div>
             <!-- Actions -->
@@ -2485,15 +2573,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     savedList.innerHTML = savedDeals.map(d => {
       const dUrl = d.url || d.link || (d.asin ? `https://${activeDomain}/dp/${d.asin}` : '#');
-      const itemDomain = dUrl.startsWith('http') ? (dUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/)?.[1] || activeDomain) : activeDomain;
-      const priceObj = formatPriceWithCurrency(d.price, itemDomain, activeCurrency);
+      const itemDomain = d.domain || (dUrl.startsWith('http') ? (dUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/)?.[1] || activeDomain) : activeDomain);
+      const priceObj = formatPriceWithCurrency(d.price, itemDomain, activeCurrency, d.currency);
 
       return `
         <div class="saved-item-card">
           <img src="${getProductImage(d)}" alt="" onerror="handleProductImgError(this, '${escapeHtml(d.category || '')}', '${escapeHtml(d.title || '')}')">
           <div class="saved-item-info">
             <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="saved-item-title" style="text-decoration:none;color:inherit;display:block;">${escapeHtml(d.title)}</a>
-            <div class="saved-item-price">${priceObj.display}</div>
+            <div class="saved-item-price">${priceObj.display} ${priceObj.currencyCode || activeCurrency}</div>
           </div>
           <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline inline-flex items-center gap-1" style="text-decoration:none;">
             <span>Open</span>
@@ -2741,6 +2829,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const isMultiCat = (categoryParam === 'sweep_all' || categoryParam === 'all');
 
+      const activeDom = domainSelect ? domainSelect.value : 'amazon.com.au';
       const queryParams = new URLSearchParams({
         timeWindow: timeWin,
         page: queryPage,
@@ -2748,6 +2837,7 @@ document.addEventListener('DOMContentLoaded', () => {
         storeType: activeStore,
         category: categoryParam,
         keyword: kw,
+        domain: activeDom,
         minDiscount: minDisc,
         maxDiscount: maxDisc,
         minPrice: minP,
@@ -2778,8 +2868,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         dbTotalMatches = data.total || 0;
         let newProducts = data.products || [];
-        // Strictly filter out any items with no confirmed price
-        newProducts = newProducts.filter(d => d.numericPrice && d.numericPrice > 0 && d.price !== 'See Options' && d.price !== 'Check Site');
+        // Strictly filter out any items with no confirmed price and enforce domain isolation
+        newProducts = newProducts.filter(d => isDealFromDomain(d, activeDom) && d.numericPrice && d.numericPrice > 0 && d.price !== 'See Options' && d.price !== 'Check Site');
         if (isMultiCat && excludedCategories && excludedCategories.size > 0) {
           newProducts = newProducts.filter(d => !isCategoryExcluded(d.category, d.title, d.asin));
         }
@@ -3135,7 +3225,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function fetchMarketAnalytics() {
     try {
-      const res = await fetch('/api/db/analytics');
+      const activeDom = domainSelect ? domainSelect.value : 'amazon.com.au';
+      const res = await fetch(`/api/db/analytics?domain=${encodeURIComponent(activeDom)}`);
       if (!res.ok) return null;
       marketAnalyticsData = await res.json();
       return marketAnalyticsData;

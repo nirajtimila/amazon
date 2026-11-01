@@ -471,12 +471,12 @@ function getAvailabilityRefinement(domain) {
 }
 
 // Currency Symbol Helper
-function getCurrencySymbol(domain) {
-  if (domain.includes('amazon.co.jp')) return '¥';
-  if (domain.includes('amazon.co.uk')) return '£';
-  if (domain.includes('amazon.de')) return '€';
-  if (domain.includes('amazon.ca')) return 'CAD $';
-  if (domain.includes('amazon.com.au')) return 'AUD $';
+function getCurrencySymbol(domain, currency) {
+  if (currency === 'JPY' || (domain && domain.includes('amazon.co.jp'))) return '¥';
+  if (currency === 'GBP' || (domain && domain.includes('amazon.co.uk'))) return '£';
+  if (currency === 'EUR' || (domain && domain.includes('amazon.de'))) return '€';
+  if (currency === 'CAD' || (domain && domain.includes('amazon.ca'))) return 'CAD $';
+  if (currency === 'AUD' || (domain && domain.includes('amazon.com.au'))) return 'AUD $';
   return '$';
 }
 
@@ -527,6 +527,27 @@ async function fetchWithHttp(url) {
     'Upgrade-Insecure-Requests': '1',
     'Cache-Control': 'max-age=0'
   };
+
+  if (url.includes('amazon.co.jp')) {
+    headers['Accept-Language'] = 'ja-JP,ja;q=0.9,en-US;q=0.8';
+    headers['Cookie'] = 'i18n-prefs=JPY; lc-acbjp=ja_JP';
+  } else if (url.includes('amazon.com.au')) {
+    headers['Accept-Language'] = 'en-AU,en-GB;q=0.9,en-US;q=0.8';
+    headers['Cookie'] = 'i18n-prefs=AUD; lc-acbau=en_AU';
+  } else if (url.includes('amazon.co.uk')) {
+    headers['Accept-Language'] = 'en-GB,en;q=0.9';
+    headers['Cookie'] = 'i18n-prefs=GBP; lc-acbuk=en_GB';
+  } else if (url.includes('amazon.de')) {
+    headers['Accept-Language'] = 'de-DE,de;q=0.9,en-US;q=0.8';
+    headers['Cookie'] = 'i18n-prefs=EUR; lc-acbde=de_DE';
+  } else if (url.includes('amazon.ca')) {
+    headers['Accept-Language'] = 'en-CA,en;q=0.9';
+    headers['Cookie'] = 'i18n-prefs=CAD; lc-acbca=en_CA';
+  } else {
+    headers['Accept-Language'] = 'en-US,en;q=0.9';
+    headers['Cookie'] = 'i18n-prefs=USD; lc-acbus=en_US';
+  }
+
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(20000) });
   return await res.text();
 }
@@ -701,11 +722,27 @@ async function scrapeAmazonStore(opts) {
     // Robust Price Extraction (handles Warehouse used offers, More Buying Choices, & normal retail)
     let price = 0;
 
+    // Detect actual currency from card elements or domain default
+    const priceTextRaw = $(el).find('.a-price .a-offscreen, .a-price').first().text().trim() || $(el).text();
+    let detectedCurrency = null;
+    if (/AUD|A\$/i.test(priceTextRaw)) detectedCurrency = 'AUD';
+    else if (/¥|￥|円|JPY/i.test(priceTextRaw)) detectedCurrency = 'JPY';
+    else if (/£|GBP/i.test(priceTextRaw)) detectedCurrency = 'GBP';
+    else if (/€|EUR/i.test(priceTextRaw)) detectedCurrency = 'EUR';
+    else if (/CAD|C\$/i.test(priceTextRaw)) detectedCurrency = 'CAD';
+    else if (domain.includes('amazon.com.au')) detectedCurrency = 'AUD';
+    else if (domain.includes('amazon.co.jp')) detectedCurrency = 'JPY';
+    else if (domain.includes('amazon.co.uk')) detectedCurrency = 'GBP';
+    else if (domain.includes('amazon.de')) detectedCurrency = 'EUR';
+    else if (domain.includes('amazon.ca')) detectedCurrency = 'CAD';
+    else detectedCurrency = 'USD';
+
     // 1. Check standard .a-price .a-offscreen
     const offscreenPrice = $(el).find('.a-price .a-offscreen').first().text().trim();
     if (offscreenPrice) {
-      const m = offscreenPrice.replace(/,/g, '').match(/[\d.]+/);
-      if (m) price = parseFloat(m[0]);
+      const cleanOffscreen = offscreenPrice.replace(/,/g, '');
+      const m = (detectedCurrency === 'JPY') ? cleanOffscreen.match(/\d+/) : cleanOffscreen.match(/[\d.]+/);
+      if (m) price = (detectedCurrency === 'JPY') ? parseInt(m[0], 10) : parseFloat(m[0]);
     }
 
     // 2. Check More Buying Choices / Used offer box (Amazon Warehouse used offers)
@@ -770,9 +807,10 @@ async function scrapeAmazonStore(opts) {
     for (const sel of basisSelectors) {
       const txt = $(el).find(sel).first().text().trim();
       if (txt) {
-        const match = txt.replace(/,/g, '').match(/[\d.]+/);
+        const cleanTxt = txt.replace(/,/g, '');
+        const match = (detectedCurrency === 'JPY') ? cleanTxt.match(/\d+/) : cleanTxt.match(/[\d.]+/);
         if (match) {
-          const val = parseFloat(match[0]);
+          const val = (detectedCurrency === 'JPY') ? parseInt(match[0], 10) : parseFloat(match[0]);
           if (val > price) {
             originalPrice = val;
             break;
@@ -874,17 +912,28 @@ async function scrapeAmazonStore(opts) {
 
     const detectedBrand = detectBrandName(title);
 
+    const currSym = getCurrencySymbol(domain, detectedCurrency);
+    const formatDealPrice = (val) => {
+      if (!val || val <= 0) return '';
+      if (detectedCurrency === 'JPY') {
+        return `¥${Math.round(val).toLocaleString('en-US')}`;
+      }
+      return `${currSym}${val.toFixed(2)}`;
+    };
+
     items.push({
       asin,
       title,
       brand: detectedBrand,
       isBrandDeal: !!detectedBrand,
-      price: price > 0 ? `${currencySymbol}${price.toFixed(2)}` : 'See Options',
-      originalPrice: originalPrice > 0 ? `${currencySymbol}${originalPrice.toFixed(2)}` : '',
+      price: price > 0 ? formatDealPrice(price) : 'See Options',
+      originalPrice: originalPrice > 0 ? formatDealPrice(originalPrice) : '',
       discountPercent: `${discountPercent}%`,
-      savings: savings !== '0.00' ? `${currencySymbol}${savings}` : '',
+      savings: (originalPrice > price && price > 0) ? formatDealPrice(originalPrice - price) : '',
       url: link,
       link: link,
+      domain,
+      currency: detectedCurrency,
       image,
       rating,
       reviews,
@@ -983,6 +1032,7 @@ app.get('/api/search', async (req, res) => {
         const numericPrice = parseFloat((item.price || '').replace(/[^0-9.]/g, '')) || 0;
         item.numericPrice = numericPrice;
         item.domain = opts.domain;
+        item.currency = item.currency || (opts.domain.includes('amazon.co.jp') ? 'JPY' : (opts.domain.includes('amazon.com.au') ? 'AUD' : 'USD'));
         if (opts.category && opts.category !== 'all' && opts.category !== 'sweep_all') {
           item.category = opts.category;
         }
@@ -1106,7 +1156,23 @@ app.put('/api/watchlist/:id/toggle', (req, res) => {
 // Sniped deals endpoints
 app.get('/api/sniped', (req, res) => {
   const target = req.query.target ? String(req.query.target).trim().toLowerCase() : '';
-  const deals = db.snipedDeals || [];
+  const domain = req.query.domain ? String(req.query.domain).trim().toLowerCase() : '';
+  const cleanDom = domain ? domain.replace('www.', '') : '';
+  let deals = db.snipedDeals || [];
+
+  if (domain && domain !== 'all') {
+    deals = deals.filter(d => {
+      const rawUrl = d.url || d.link || '';
+      let dDom = (d.domain || (rawUrl && (rawUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/) || [])[1]) || '').toLowerCase().replace('www.', '');
+      if (!dDom) dDom = 'amazon.com.au';
+      if (dDom === cleanDom || dDom.includes(cleanDom)) {
+        if (cleanDom === 'amazon.com' && dDom.includes('amazon.com.au')) return false;
+        return true;
+      }
+      return false;
+    });
+  }
+
   if (!target || target === 'all') {
     return res.json(deals);
   }
@@ -1217,6 +1283,7 @@ app.get('/api/db/deals', (req, res) => {
       timeWindow = 'all', // '1h', '2h', '6h', '12h', '24h', 'all'
       storeType = 'both', // 'warehouse', 'normal', 'both'
       category = 'all',
+      domain = 'amazon.com.au',
       excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
       priceErrorsOnly = 'false', // 'true' to show only verified price errors / clearance glitches
       glitchTier = 'all', // 'all', 'epic', 'dollar', 'warehouse', 'brand'
@@ -1234,6 +1301,21 @@ app.get('/api/db/deals', (req, res) => {
       page = 1,
       limit = 48
     } = req.query;
+
+    const targetDomain = (domain || 'amazon.com.au').trim().toLowerCase();
+    const cleanTargetDomain = targetDomain.replace('www.', '');
+
+    const isDealDomainMatch = (d) => {
+      if (!targetDomain || targetDomain === 'all') return true;
+      const rawUrl = d.url || d.link || '';
+      let dDom = (d.domain || (rawUrl && (rawUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/) || [])[1]) || '').toLowerCase().replace('www.', '');
+      if (!dDom) dDom = 'amazon.com.au';
+      if (dDom === cleanTargetDomain || dDom.includes(cleanTargetDomain)) {
+        if (cleanTargetDomain === 'amazon.com' && dDom.includes('amazon.com.au')) return false;
+        return true;
+      }
+      return false;
+    };
 
     const now = Date.now();
     const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -1286,6 +1368,9 @@ app.get('/api/db/deals', (req, res) => {
     for (const d of allDeals) {
       if (!d || d.status === 'sold_out') continue;
 
+      // Domain isolation filter
+      if (!isDealDomainMatch(d)) continue;
+
       // Automated 14-Day Retention: exclude deals older than 14 days from stats
       const dealActivityTs = Math.max(d.lastSeenAt || 0, d.firstSeenAt || 0, d.priceDropAt || 0) || 0;
       if (dealActivityTs > 0 && (now - dealActivityTs) > FOURTEEN_DAYS_MS) continue;
@@ -1332,6 +1417,9 @@ app.get('/api/db/deals', (req, res) => {
 
     let filtered = allDeals.filter(d => {
       if (!d || d.status === 'sold_out') return false;
+
+      // Domain isolation filter
+      if (!isDealDomainMatch(d)) return false;
 
       // Automated 14-Day Retention: exclude deals older than 14 days
       const dealActivityTs = Math.max(d.lastSeenAt || 0, d.firstSeenAt || 0, d.priceDropAt || 0) || 0;
@@ -1529,7 +1617,22 @@ app.post('/api/db/prune', (req, res) => {
 // Live Market Analytics & Price Distribution Endpoint
 app.get('/api/db/analytics', (req, res) => {
   try {
-    const all = Object.values(db.crawledDeals || {});
+    const domain = req.query.domain ? String(req.query.domain).trim().toLowerCase() : '';
+    const cleanDom = domain ? domain.replace('www.', '') : '';
+    let all = Object.values(db.crawledDeals || {});
+
+    if (domain && domain !== 'all') {
+      all = all.filter(d => {
+        const rawUrl = d.url || d.link || '';
+        let dDom = (d.domain || (rawUrl && (rawUrl.match(/https?:\/\/(?:www\.)?([^\/]+)/) || [])[1]) || '').toLowerCase().replace('www.', '');
+        if (!dDom) dDom = 'amazon.com.au';
+        if (dDom === cleanDom || dDom.includes(cleanDom)) {
+          if (cleanDom === 'amazon.com' && dDom.includes('amazon.com.au')) return false;
+          return true;
+        }
+        return false;
+      });
+    }
     let whCount = 0, normCount = 0, priceErrors = 0;
     let totalDiscount = 0, countWithDiscount = 0;
     let maxSavings = 0;

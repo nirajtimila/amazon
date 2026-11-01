@@ -456,6 +456,28 @@ async function runFrontendTests() {
     })()`);
     assert(cardRenderCheck.count > 0, 'Deals grid successfully renders active deal cards', `Card count: ${cardRenderCheck.count}`);
 
+    const domainCurrencyCheck = await evaluate(`(() => {
+      const dom = document.getElementById('domainSelect')?.value;
+      const curr = document.getElementById('currencySelect')?.value;
+      const cards = Array.from(document.querySelectorAll('.deal-card'));
+      const textSamples = cards.map(c => c.innerText);
+      const hasJpLeaks = textSamples.some(t => t.includes('amazon.co.jp') || t.includes('Amazon Japan'));
+      const hasYenInAudSavings = curr === 'AUD' && textSamples.some(t => t.includes('You Save ¥'));
+      const verifiedAuListing = textSamples.some(t => t.includes('Amazon Australia'));
+      return {
+        dom,
+        curr,
+        cardCount: cards.length,
+        hasJpLeaks,
+        hasYenInAudSavings,
+        verifiedAuListing
+      };
+    })()`);
+    assert(domainCurrencyCheck.dom === 'amazon.com.au', 'Active store domain is Amazon Australia (amazon.com.au)');
+    assert(!domainCurrencyCheck.hasJpLeaks, 'No Amazon Japan listing leaks present in Australian deals view');
+    assert(!domainCurrencyCheck.hasYenInAudSavings, 'Savings display converts cleanly with zero raw Yen symbol leaks in AUD mode');
+    assert(domainCurrencyCheck.verifiedAuListing, 'Deal cards verify listing on Amazon Australia dynamically');
+
     // ============================================================
     console.log('\n============================================================');
     console.log('🧪 SUITE 11: Live Market Analytics Dashboard');

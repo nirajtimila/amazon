@@ -296,6 +296,43 @@ async function runBackendTests() {
   }
 
   console.log('\n============================================================');
+  console.log('🧪 SUITE 13: Strict Domain Isolation & Multi-Currency Integrity');
+  console.log('============================================================');
+  try {
+    // 1. Verify /api/db/deals?domain=amazon.com.au isolates to AU items
+    const auDealsRes = await getJson('/api/db/deals?domain=amazon.com.au&limit=50');
+    assert(auDealsRes && auDealsRes.products && auDealsRes.products.length > 0, 'AU deals query returns items', `Count: ${auDealsRes.products?.length}`);
+    const hasZeroJp = auDealsRes.products.every(d => {
+      const u = (d.url || d.link || '').toLowerCase();
+      const dom = (d.domain || '').toLowerCase();
+      return !u.includes('amazon.co.jp') && !dom.includes('amazon.co.jp');
+    });
+    assert(hasZeroJp, 'AU deals query strictly excludes any Amazon Japan (amazon.co.jp) items', '100% verified zero JP leaks');
+
+    // 2. Verify /api/sniped?domain=amazon.com.au isolates to AU sniped deals
+    const auSnipedRes = await getJson('/api/sniped?domain=amazon.com.au');
+    assert(Array.isArray(auSnipedRes), 'AU sniped deals returns array', `Count: ${auSnipedRes.length}`);
+    const noJpInSniped = auSnipedRes.every(d => {
+      const u = (d.url || d.link || '').toLowerCase();
+      const dom = (d.domain || '').toLowerCase();
+      return !u.includes('amazon.co.jp') && !dom.includes('amazon.co.jp');
+    });
+    assert(noJpInSniped, 'AU sniped query strictly excludes any Amazon Japan items', 'Zero JP items present in AU sniped view');
+
+    // 3. Test JP domain query isolation
+    const jpDealsRes = await getJson('/api/db/deals?domain=amazon.co.jp&limit=50');
+    assert(jpDealsRes && Array.isArray(jpDealsRes.products), 'JP domain deals query returns valid response structure', `Count: ${jpDealsRes.products?.length}`);
+    const zeroAuInJp = jpDealsRes.products.every(d => {
+      const u = (d.url || d.link || '').toLowerCase();
+      const dom = (d.domain || '').toLowerCase();
+      return !u.includes('amazon.com.au') && dom !== 'amazon.com.au';
+    });
+    assert(zeroAuInJp, 'JP domain query strictly isolates and never returns Amazon AU items', 'Zero AU items in JP query');
+  } catch (err) {
+    assert(false, 'Domain isolation test suite failed', err.message);
+  }
+
+  console.log('\n============================================================');
   console.log(`📊 BACKEND TEST SUITE SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('============================================================\n');
 
