@@ -7,6 +7,8 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { WebSocket } = require('undici');
+if (!globalThis.WebSocket) globalThis.WebSocket = WebSocket;
 
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 const PORT = 9235;
@@ -572,6 +574,80 @@ async function runFrontendTests() {
       return modal ? modal.style.display === 'none' : false;
     })()`);
     assert(priceModalClose, 'Keepa Price History modal closes upon dismiss');
+
+    // ============================================================
+    console.log('\n============================================================');
+    console.log('🧪 SUITE 13: Steals of the Day, OzBargain Feed, 1-Click Cart & Promo Mode');
+    console.log('============================================================');
+
+    // 1. Steals of the day tab
+    const stealsTabTest = await evaluate(`(async () => {
+      const tab = document.getElementById('tabSteals');
+      if (tab) tab.click();
+      await new Promise(r => setTimeout(r, 600));
+      const isActive = tab ? tab.classList.contains('active') : false;
+      const resCount = document.getElementById('resultsCount')?.textContent || '';
+      return { isActive, resCount };
+    })()`);
+    assert(stealsTabTest.isActive, 'tabSteals activates upon click');
+    assert(stealsTabTest.resCount.includes('Steals of the Day'), 'Results counter updates to display Steals of the Day summary', stealsTabTest.resCount);
+
+    // 2. OzBargain Community Hot Deals tab
+    const ozbTabTest = await evaluate(`(async () => {
+      const tab = document.getElementById('tabOzBargain');
+      if (tab) tab.click();
+      await new Promise(r => setTimeout(r, 600));
+      const isActive = tab ? tab.classList.contains('active') : false;
+      const resCount = document.getElementById('resultsCount')?.textContent || '';
+      return { isActive, resCount };
+    })()`);
+    assert(ozbTabTest.isActive, 'tabOzBargain activates upon click');
+    assert(ozbTabTest.resCount.includes('OzBargain') || ozbTabTest.resCount.includes('Community'), 'Results counter updates to display OzBargain community summary', ozbTabTest.resCount);
+
+    // 3. Extra +20% Promo Mode button toggle
+    const promoToggleTest = await evaluate(`(() => {
+      const btn = document.getElementById('extraWarehousePromoBtn');
+      if (btn) btn.click();
+      const isActive = btn ? btn.classList.contains('active') : false;
+      return { isActive };
+    })()`);
+    assert(promoToggleTest.isActive, 'extraWarehousePromoBtn toggles active state on click');
+
+    // 4. 1-Click Instant Fast Cart button
+    const instantCartTest = await evaluate(`(() => {
+      const cartBtn = document.querySelector('.btn-instant-cart');
+      const href = cartBtn ? cartBtn.getAttribute('href') : '';
+      return {
+        hasBtn: !!cartBtn,
+        isAddCartUrl: href.includes('/gp/aws/cart/add.html?ASIN.1=')
+      };
+    })()`);
+    assert(instantCartTest.hasBtn && instantCartTest.isAddCartUrl, '1-Click Fast Add-to-Cart bypass button rendered with valid Amazon cart URL');
+
+    // 5. Global Price Arbitrage Modal
+    const arbitrageModalTest = await evaluate(`(async () => {
+      const compareBtn = document.querySelector('.btn-global-compare');
+      if (compareBtn) compareBtn.click();
+      await new Promise(r => setTimeout(r, 600));
+      const modal = document.getElementById('globalArbitrageModal');
+      const isVisible = modal ? (modal.style.display !== 'none' && modal.style.display !== '') : false;
+      const closeBtn = document.getElementById('closeArbitrageModalBtn');
+      if (closeBtn) closeBtn.click();
+      await new Promise(r => setTimeout(r, 200));
+      const isClosed = modal ? (modal.style.display === 'none') : false;
+      return { isVisible, isClosed };
+    })()`);
+    assert(arbitrageModalTest.isVisible, 'Global Arbitrage comparison modal opens on .btn-global-compare click');
+    assert(arbitrageModalTest.isClosed, 'Global Arbitrage modal dismisses cleanly');
+
+    // 6. Reset to All Deals tab
+    const resetAllTest = await evaluate(`(async () => {
+      const tab = document.getElementById('tabAllDeals');
+      if (tab) tab.click();
+      await new Promise(r => setTimeout(r, 400));
+      return tab ? tab.classList.contains('active') : false;
+    })()`);
+    assert(resetAllTest, 'tabAllDeals resets filter back to all deals cleanly');
 
   } catch (err) {
     console.error('Fatal Frontend Test Error:', err);

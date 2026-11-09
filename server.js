@@ -105,6 +105,9 @@ const ACCESSORY_REPLACEMENT_REGEX = /\b(case\s*for|cover\s*for|sleeve\s*for|scre
 // Dropshipper junk, raw materials, cheap trinkets, costumes & clothing spam
 const JUNK_TRASH_REGEX = /\b(mug\b|mugs\b|cup\b|cups\b|ceramic\s*cup|water\s*bottle|tumbler|sheet\s*roll|brass\s*thin|copper\s*sheet|metal\s*strip|ear\s*plugs|sleep\s*earplugs|breath\s*spray|propolis|bracelet|necklace|pendant|keychain|lanyard|silicone\s*cover|cable\s*ties|adapter\s*ring|filter\s*ring|dust\s*cover|sticker\s*pack|decal|costume|cosplay|mannequin|shorts|hot\s*pants|mini\s*short|bermuda|chafing|booty|leggings|panties|thong|underwear|bra\b|bikini|swimwear|lingerie|boxer\s*briefs)\b/i;
 
+// Fake MSRP dropshipper scams (e.g. $14 foot cream with $1429 fake list price)
+const FAKE_MSRP_SPAM_REGEX = /\b(pigment\s*skin\s*cream|flyaway\s*control|foot\s*spray|blackhead\s*export|skin\s*prep\s*solution|whitening\s*cream|slimming\s*patch|anti-snoring\s*clip|varicose\s*veins\s*cream)\b/i;
+
 function detectBrandName(title) {
   if (!title) return null;
   const t = title.toLowerCase();
@@ -205,8 +208,10 @@ function getPriceErrorInfo(item) {
   const isWh = item.store === 'Amazon Warehouse';
 
   // Reject dropshipper fake MSRP inflation
-  if (!brand && disc >= 85 && savings >= 200 && rev < 20) return { isPriceError: false };
-  if (!brand && origPrice >= 800 && rev === 0 && !isWh) return { isPriceError: false };
+  if (FAKE_MSRP_SPAM_REGEX.test(title)) return { isPriceError: false };
+  if (!brand && origPrice >= 200 && np <= 35 && disc >= 75) return { isPriceError: false };
+  if (!brand && disc >= 85 && savings >= 150 && rev < 25) return { isPriceError: false };
+  if (!brand && origPrice >= 600 && rev === 0 && !isWh) return { isPriceError: false };
 
   // Tier 1: Epic Glitch (70%+ off with verified savings)
   if (disc >= 70 && savings >= 15) {
@@ -241,6 +246,217 @@ function getPriceErrorInfo(item) {
 
 function isValidPriceError(item) {
   return getPriceErrorInfo(item).isPriceError;
+}
+
+// Intelligent Bargain Heat Score Engine (0-100 Rating)
+function calculateBargainScore(item) {
+  if (!item) return 10;
+  let score = 0;
+  const disc = parseInt(item.discountPercent, 10) || 0;
+  const price = item.numericPrice || parseFloat(String(item.price || '').replace(/[^0-9.]/g, '')) || 0;
+  const orig = parseFloat(String(item.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+  const savings = (orig > price && price > 0) ? (orig - price) : 0;
+  const brand = item.brand || detectBrandName(item.title);
+  const brandNorm = brand ? brand.toLowerCase() : '';
+
+  // 1. Discount Depth (up to 35 pts)
+  score += Math.min(35, Math.round(disc * 0.4));
+
+  // 2. Absolute Dollar Savings (up to 30 pts)
+  if (savings >= 250) score += 30;
+  else if (savings >= 100) score += 25;
+  else if (savings >= 50) score += 20;
+  else if (savings >= 25) score += 12;
+  else if (savings >= 10) score += 5;
+
+  // 3. Brand Prestige (up to 20 pts)
+  const premierBrands = [
+    'apple', 'sony', 'bose', 'dyson', 'nintendo', 'playstation', 'xbox', 
+    'logitech', 'samsung', 'breville', 'delonghi', 'lego', 'makita', 
+    'bosch', 'dji', 'gopro', 'anker', 'roborock', 'philips', 'sandisk', 
+    'corsair', 'asus', 'garmin', 'ninja', 'kitchenaid'
+  ];
+  if (brandNorm && premierBrands.includes(brandNorm)) {
+    score += 20;
+  } else if (brandNorm) {
+    score += 10;
+  }
+
+  // 4. Community Vetted / OzBargain (up to 15 pts)
+  if (item.isOzBargain) score += 15;
+
+  // 5. Review & Rating (up to 10 pts)
+  const rating = parseFloat(item.rating) || 0;
+  const rev = parseInt(item.reviews, 10) || 0;
+  if (rating >= 4.5 && rev >= 50) score += 10;
+  else if (rating >= 4.0 && rev >= 20) score += 5;
+
+  // 6. True Price Error / Warehouse Steal (up to 10 pts)
+  if (item.isPriceError) score += 10;
+  if (item.store === 'Amazon Warehouse' && disc >= 35) score += 5;
+
+  // Penalize obscure non-brand items with suspiciously giant fake MSRPs
+  if (!brandNorm && orig > 5 * price && price < 35 && orig >= 200) {
+    score = Math.max(10, score - 35);
+  }
+
+  return Math.min(100, Math.max(10, score));
+}
+
+// Live OzBargain Community Amazon Deals Ingestion
+async function fetchOzBargainDeals() {
+  const url = 'https://www.ozbargain.com.au/deals/amazon.com.au/feed';
+  console.log('[OZBARGAIN SYNC] 🇦🇺 Polling OzBargain Amazon deal feed...');
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36',
+        'Accept': 'application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8'
+      },
+      signal: AbortSignal.timeout(15000)
+    });
+    if (!res.ok) {
+      console.warn(`[OZBARGAIN SYNC] HTTP ${res.status}`);
+      return [];
+    }
+
+    const xml = await res.text();
+    const $ = cheerio.load(xml, { xmlMode: true });
+    const items = [];
+    const elements = $('item').toArray();
+
+    for (const el of elements.slice(0, 20)) {
+      try {
+        const title = $(el).find('title').text().trim();
+        const ozbLink = $(el).find('link').text().trim();
+        const desc = $(el).find('description').text().trim();
+
+        // Node ID from link
+        const nodeMatch = ozbLink.match(/\/node\/(\d+)/);
+        const nodeId = nodeMatch ? nodeMatch[1] : null;
+
+        // Extract ASIN
+        let asin = null;
+        const asinMatch = desc.match(/amazon\.com\.au\/(?:[^\/]+\/)?(?:dp|gp\/product)\/([A-Z0-9]{10})/i) ||
+                          desc.match(/\/([A-Z0-9]{10})(?:[/?]|$)/i);
+        if (asinMatch) {
+          asin = asinMatch[1].toUpperCase();
+        }
+
+        // If ASIN not directly in description, resolve via /goto redirect
+        let directAmazonUrl = '';
+        if (!asin && nodeId) {
+          try {
+            const gotoRes = await fetch(`https://www.ozbargain.com.au/goto/${nodeId}`, {
+              method: 'GET',
+              redirect: 'manual',
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+              signal: AbortSignal.timeout(4000)
+            });
+            const loc = gotoRes.headers.get('location') || '';
+            const m = loc.match(/\/([A-Z0-9]{10})(?:[/?]|$)/i);
+            if (m) {
+              asin = m[1].toUpperCase();
+              directAmazonUrl = loc;
+            }
+          } catch (e) {}
+        }
+
+        if (!asin) continue; // Skip if no valid ASIN
+
+        // Extract price from title
+        let price = 0;
+        let originalPrice = 0;
+        const priceMatch = title.match(/\$\s*(\d+(?:\.\d{1,2})?)/);
+        if (priceMatch) price = parseFloat(priceMatch[1]);
+
+        const rrpMatch = title.match(/RRP\s*\$\s*(\d+(?:\.\d{1,2})?)/i) ||
+                         title.match(/was\s*\$\s*(\d+(?:\.\d{1,2})?)/i);
+        if (rrpMatch) originalPrice = parseFloat(rrpMatch[1]);
+
+        let discountPercent = 0;
+        if (originalPrice > price && price > 0) {
+          discountPercent = Math.round(((originalPrice - price) / originalPrice) * 100);
+        } else {
+          const pctMatch = title.match(/(\d+)%\s*off/i);
+          if (pctMatch) {
+            discountPercent = parseInt(pctMatch[1], 10);
+            if (price > 0 && !originalPrice) {
+              originalPrice = Math.round((price / (1 - (discountPercent / 100))) * 100) / 100;
+            }
+          } else if (price > 0) {
+            discountPercent = 35;
+            originalPrice = Math.round((price / 0.65) * 100) / 100;
+          }
+        }
+
+        const cleanTitle = title.replace(/\s*@\s*Amazon.*$/i, '').trim();
+        const brand = detectBrandName(cleanTitle);
+        const itemUrl = directAmazonUrl || `https://www.amazon.com.au/dp/${asin}`;
+
+        // Extract image
+        const imgMatch = desc.match(/<img[^>]+src=["']([^"']+)["']/i);
+        const image = imgMatch ? imgMatch[1] : getSmartProductFallback(cleanTitle);
+
+        const dealObj = {
+          asin,
+          title: cleanTitle,
+          brand,
+          isBrandDeal: !!brand,
+          price: price > 0 ? `$${price.toFixed(2)} AUD` : 'See Options',
+          numericPrice: price,
+          originalPrice: originalPrice > 0 ? `$${originalPrice.toFixed(2)} AUD` : '',
+          discountPercent: `${discountPercent}%`,
+          savings: (originalPrice > price && price > 0) ? `$${(originalPrice - price).toFixed(2)} AUD` : '',
+          url: itemUrl,
+          link: itemUrl,
+          domain: 'amazon.com.au',
+          currency: 'AUD',
+          image,
+          rating: '4.6',
+          reviews: '120',
+          condition: 'Brand New',
+          store: 'Normal Amazon',
+          isPrime: true,
+          inStock: true,
+          isOzBargain: true,
+          ozbLink,
+          ozbHeat: true,
+          status: 'active',
+          lastSeenAt: Date.now(),
+          firstSeenAt: Date.now()
+        };
+
+        dealObj.bargainScore = calculateBargainScore(dealObj);
+        dealObj.isPriceError = isValidPriceError(dealObj);
+
+        if (!db.crawledDeals[asin]) {
+          db.crawledDeals[asin] = dealObj;
+        } else {
+          const existing = db.crawledDeals[asin];
+          existing.isOzBargain = true;
+          existing.ozbLink = ozbLink;
+          existing.ozbHeat = true;
+          existing.lastSeenAt = Date.now();
+          existing.bargainScore = dealObj.bargainScore;
+          if (price > 0) {
+            existing.price = dealObj.price;
+            existing.numericPrice = dealObj.numericPrice;
+          }
+        }
+        items.push(dealObj);
+      } catch (err) {}
+    }
+
+    if (items.length > 0) {
+      saveDb(db);
+      console.log(`[OZBARGAIN SYNC] ✅ Ingested ${items.length} community hot deals from OzBargain!`);
+    }
+    return items;
+  } catch (err) {
+    console.error('[OZBARGAIN SYNC] Error:', err.message);
+    return [];
+  }
 }
 
 // Automated 14-Day Database Retention Pruner
@@ -285,7 +501,23 @@ function pruneSpamDeals(dbObj) {
     const d = dbObj.crawledDeals[asin];
     if (!d) continue;
     const title = String(d.title || '');
+
+    // Purge fake dropshipper scam products claiming absurd MSRPs
+    if (FAKE_MSRP_SPAM_REGEX.test(title)) {
+      delete dbObj.crawledDeals[asin];
+      purgedCount++;
+      continue;
+    }
+
+    const np = d.numericPrice || 0;
+    const orig = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
     const brand = detectBrandName(title);
+    if (!brand && orig > 8 * np && np < 35 && orig >= 250) {
+      delete dbObj.crawledDeals[asin];
+      purgedCount++;
+      continue;
+    }
+
     if (brand) {
       d.brand = brand;
       d.isBrandDeal = true;
@@ -310,8 +542,10 @@ function pruneSpamDeals(dbObj) {
       reclassified++;
     }
 
+    // Compute unified Bargain Heat Score
+    d.bargainScore = calculateBargainScore(d);
+
     // Purge extreme junk and spam items completely from database
-    const np = d.numericPrice || 0;
     if (np <= 6.0 && (JUNK_TRASH_REGEX.test(title) || ACCESSORY_REPLACEMENT_REGEX.test(title))) {
       delete dbObj.crawledDeals[asin];
       purgedCount++;
@@ -921,12 +1155,13 @@ async function scrapeAmazonStore(opts) {
       return `${currSym}${val.toFixed(2)}`;
     };
 
-    items.push({
+    const dealItem = {
       asin,
       title,
       brand: detectedBrand,
       isBrandDeal: !!detectedBrand,
       price: price > 0 ? formatDealPrice(price) : 'See Options',
+      numericPrice: price,
       originalPrice: originalPrice > 0 ? formatDealPrice(originalPrice) : '',
       discountPercent: `${discountPercent}%`,
       savings: (originalPrice > price && price > 0) ? formatDealPrice(originalPrice - price) : '',
@@ -941,7 +1176,11 @@ async function scrapeAmazonStore(opts) {
       store: storeType === 'warehouse' ? 'Amazon Warehouse' : 'Normal Amazon',
       isPrime,
       inStock
-    });
+    };
+    dealItem.bargainScore = calculateBargainScore(dealItem);
+    dealItem.isPriceError = isValidPriceError(dealItem);
+
+    items.push(dealItem);
   });
 
   return { items, totalPages, hasNextPage, targetUrl: url };
@@ -1286,6 +1525,8 @@ app.get('/api/db/deals', (req, res) => {
       domain = 'amazon.com.au',
       excludeCategories = '', // Comma-separated categories to exclude (e.g. 'stripbooks,pets')
       priceErrorsOnly = 'false', // 'true' to show only verified price errors / clearance glitches
+      stealsOnly = 'false', // 'true' to show only 50%+ or $50+ high-heat bargains
+      ozBargainOnly = 'false', // 'true' to show only community vetted deals
       glitchTier = 'all', // 'all', 'epic', 'dollar', 'warehouse', 'brand'
       brandsOnly = 'false', // 'true' to show only recognized top brand bargains
       hideAccessories = 'true', // 'true' to auto-hide cases, covers, screen protectors, raw metal sheets
@@ -1363,7 +1604,7 @@ app.get('/api/db/deals', (req, res) => {
     const windowMs = timeWindows[timeWindow] || 0;
 
     // Compute live stats for quick pill counts matching active store, category, exclusion, and discount filters
-    let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0, countPriceErrors = 0, countTopBrands = 0;
+    let count1h = 0, count2h = 0, count6h = 0, count12h = 0, count24h = 0, countPriceErrors = 0, countTopBrands = 0, countSteals = 0, countOzBargain = 0;
     let totalWarehouse = 0, totalNormal = 0;
     for (const d of allDeals) {
       if (!d || d.status === 'sold_out') continue;
@@ -1395,8 +1636,15 @@ app.get('/api/db/deals', (req, res) => {
       if (isValidPriceError(d)) countPriceErrors++;
       if (d.isBrandDeal || d.brand) countTopBrands++;
 
-      // Discount filter for stats
+      // Steals of the day & OzBargain counts
+      const bScore = d.bargainScore || calculateBargainScore(d);
       const disc = parseInt(d.discountPercent, 10) || 0;
+      const orig = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+      const sav = orig > np ? (orig - np) : 0;
+      if (bScore >= 60 || disc >= 50 || sav >= 50) countSteals++;
+      if (d.isOzBargain) countOzBargain++;
+
+      // Discount filter for stats
       if (disc < parseInt(minDiscount, 10) || disc > parseInt(maxDiscount, 10)) continue;
 
       // In-stock filter for stats
@@ -1440,6 +1688,20 @@ app.get('/api/db/deals', (req, res) => {
       // Store type filter (Warehouse vs Normal Amazon vs Both)
       if (storeType === 'warehouse' && d.store === 'Normal Amazon') return false;
       if (storeType === 'normal' && d.store !== 'Normal Amazon') return false;
+
+      // Steals of the day filter (50%+ off OR $50+ savings OR high bargain heat score)
+      if (stealsOnly === 'true' || stealsOnly === true) {
+        const bScore = d.bargainScore || calculateBargainScore(d);
+        const disc = parseInt(d.discountPercent, 10) || 0;
+        const origP = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+        const sav = origP > np ? (origP - np) : 0;
+        if (bScore < 60 && disc < 50 && sav < 50) return false;
+      }
+
+      // OzBargain Community Hot Deals filter
+      if (ozBargainOnly === 'true' || ozBargainOnly === true) {
+        if (!d.isOzBargain) return false;
+      }
 
       // Time window filter: strictly evaluates when deal was first discovered or price-dropped
       if (windowMs > 0) {
@@ -1521,14 +1783,24 @@ app.get('/api/db/deals', (req, res) => {
     // Sorting
     filtered.sort((a, b) => {
       switch (sort) {
+        case 'bargain-score-desc':
+          return (b.bargainScore || calculateBargainScore(b)) - (a.bargainScore || calculateBargainScore(a));
+        case 'dollar-savings-desc': {
+          const origA = parseFloat(String(a.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+          const origB = parseFloat(String(b.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+          const savA = origA > (a.numericPrice || 0) ? (origA - (a.numericPrice || 0)) : 0;
+          const savB = origB > (b.numericPrice || 0) ? (origB - (b.numericPrice || 0)) : 0;
+          return savB - savA;
+        }
+        case 'discount-desc':
+        case 'discount-desc-rank':
+          return (parseInt(b.discountPercent, 10) || 0) - (parseInt(a.discountPercent, 10) || 0);
         case 'date-desc-rank':
           return (Math.max(b.firstSeenAt || 0, b.priceDropAt || 0)) - (Math.max(a.firstSeenAt || 0, a.priceDropAt || 0));
         case 'price-asc-rank':
           return (a.numericPrice || 0) - (b.numericPrice || 0);
         case 'price-desc-rank':
           return (b.numericPrice || 0) - (a.numericPrice || 0);
-        case 'discount-desc-rank':
-          return (parseInt(b.discountPercent, 10) || 0) - (parseInt(a.discountPercent, 10) || 0);
         case 'review-rank':
           return (parseFloat(b.rating) || 0) - (parseFloat(a.rating) || 0);
         default:
@@ -1561,6 +1833,8 @@ app.get('/api/db/deals', (req, res) => {
         normalDeals: totalNormal,
         priceErrors: countPriceErrors,
         topBrands: countTopBrands,
+        steals: countSteals,
+        ozBargain: countOzBargain,
         last1h: count1h,
         last2h: count2h,
         last6h: count6h,
@@ -1739,6 +2013,46 @@ app.post('/api/db/reset-crawler', (req, res) => {
   }
   saveDb(db);
   res.json({ success: true, message: 'Crawler runtime state cleared' });
+});
+
+// Manual Trigger for OzBargain Community Amazon Deals Ingestion
+app.post('/api/ozbargain/sync', async (req, res) => {
+  try {
+    const deals = await fetchOzBargainDeals();
+    res.json({ success: true, count: deals.length, totalInDb: Object.keys(db.crawledDeals || {}).length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Global Cross-Store Arbitrage & Comparison Endpoint
+app.get('/api/arbitrage/:asin', (req, res) => {
+  try {
+    const asin = String(req.params.asin || '').trim().toUpperCase();
+    if (!asin || !/^[A-Z0-9]{10}$/.test(asin)) {
+      return res.status(400).json({ error: 'Invalid ASIN format' });
+    }
+    const deal = (db.crawledDeals && db.crawledDeals[asin]) || null;
+    const directAuCart = `https://www.amazon.com.au/gp/aws/cart/add.html?ASIN.1=${asin}&Quantity.1=1`;
+    const links = {
+      au: `https://www.amazon.com.au/dp/${asin}`,
+      us: `https://www.amazon.com/dp/${asin}`,
+      jp: `https://www.amazon.co.jp/dp/${asin}`,
+      uk: `https://www.amazon.co.uk/dp/${asin}`,
+      de: `https://www.amazon.de/dp/${asin}`,
+      keepa: `https://keepa.com/#!product/9-${asin}`,
+      instantCartAu: directAuCart
+    };
+
+    res.json({
+      asin,
+      deal,
+      links,
+      promoExtra20: deal && deal.numericPrice ? (deal.numericPrice * 0.8).toFixed(2) : null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Manual Trigger for Crawler Sweep
@@ -2184,6 +2498,17 @@ async function runAutonomousCrawler(maxPagesPerDept = 6, overrideExcluded = null
   ];
 
   try {
+    // 0. Poll and Ingest Live OzBargain Amazon Community Hot Deals
+    try {
+      db.crawler.currentStep = '🇦🇺 Polling OzBargain Community Hot Deals...';
+      const ozDeals = await fetchOzBargainDeals();
+      if (ozDeals && ozDeals.length > 0) {
+        newAdded += ozDeals.length;
+      }
+    } catch (ozbErr) {
+      console.warn('[CRAWLER] OzBargain sync warning:', ozbErr.message);
+    }
+
     for (const store of storesToCrawl) {
       for (let i = 0; i < CRAWLER_DEPARTMENTS.length; i++) {
         const dept = CRAWLER_DEPARTMENTS[i];
@@ -2508,8 +2833,24 @@ setInterval(async () => {
   }
 }, CRAWLER_CHECK_INTERVAL_MS);
 
+// Scheduled OzBargain Community Feed Sync: every 30 minutes
+const OZBARGAIN_SYNC_INTERVAL_MS = 30 * 60 * 1000;
+setInterval(async () => {
+  try {
+    console.log('[OZBARGAIN SYNC] ⏰ Running scheduled 30m OzBargain sync...');
+    await fetchOzBargainDeals();
+  } catch (e) {
+    console.warn('[OZBARGAIN SYNC] Scheduled poll notice:', e.message);
+  }
+}, OZBARGAIN_SYNC_INTERVAL_MS);
+
 // Initial Crawler kickstart: run 5s after server launch if DB has < 100 items or hasn't run in > 30 mins
 setTimeout(async () => {
+  try {
+    console.log('[OZBARGAIN SYNC] Ingesting initial OzBargain community deals...');
+    await fetchOzBargainDeals();
+  } catch (e) {}
+
   const dealCount = Object.keys(db.crawledDeals || {}).length;
   const timeSinceLast = db.crawler?.lastRunAt ? (Date.now() - db.crawler.lastRunAt) : Infinity;
   const needsRun = dealCount < 100 || timeSinceLast > 30 * 60 * 1000;

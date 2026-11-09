@@ -43,14 +43,26 @@ document.addEventListener('DOMContentLoaded', () => {
   const tabJustListed = document.getElementById('tabJustListed');
   const tabSnipedDeals = document.getElementById('tabSnipedDeals');
   const tabPriceErrors = document.getElementById('tabPriceErrors');
+  const tabSteals = document.getElementById('tabSteals');
+  const tabOzBargain = document.getElementById('tabOzBargain');
   const countAllDeals = document.getElementById('countAllDeals');
   const countTopBrands = document.getElementById('countTopBrands');
   const countJustListed = document.getElementById('countJustListed');
   const countSnipedDeals = document.getElementById('countSnipedDeals');
   const countPriceErrors = document.getElementById('countPriceErrors');
+  const countSteals = document.getElementById('countSteals');
+  const countOzBargain = document.getElementById('countOzBargain');
   const hideAccessoriesToggleBtn = document.getElementById('hideAccessoriesToggleBtn');
   const hideAccessoriesLabel = document.getElementById('hideAccessoriesLabel');
   let hideAccessories = true;
+  const extraWarehousePromoBtn = document.getElementById('extraWarehousePromoBtn');
+  const extraWarehousePromoLabel = document.getElementById('extraWarehousePromoLabel');
+  let extraWarehousePromo = false;
+
+  const globalArbitrageModal = document.getElementById('globalArbitrageModal');
+  const closeArbitrageModalBtn = document.getElementById('closeArbitrageModalBtn');
+  const closeArbitrageModalBackdrop = document.getElementById('closeArbitrageModalBackdrop');
+  const arbitrageModalContent = document.getElementById('arbitrageModalContent');
 
   // New Filters
   const minPriceInput = document.getElementById('minPriceInput');
@@ -464,13 +476,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tabJustListed) tabJustListed.classList.remove('active');
     if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
     if (tabPriceErrors) tabPriceErrors.classList.remove('active');
+    if (tabSteals) tabSteals.classList.remove('active');
+    if (tabOzBargain) tabOzBargain.classList.remove('active');
     if (timeFilterRow) timeFilterRow.style.display = 'none';
     if (typeof setActiveNavLink === 'function' && currentNavTab !== 'watchlist') {
       setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
     }
   }
 
-  // Filter Tabs (All Deals vs Top Brands vs Just Listed vs Sniped Deals vs Price Errors)
+  // Filter Tabs (All Deals vs Top Brands vs Just Listed vs Sniped Deals vs Price Errors vs Steals vs OzBargain)
   if (tabAllDeals) {
     tabAllDeals.addEventListener('click', () => {
       resetToAllDealsTab();
@@ -489,12 +503,68 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (tabPriceErrors) tabPriceErrors.classList.remove('active');
+      if (tabSteals) tabSteals.classList.remove('active');
+      if (tabOzBargain) tabOzBargain.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
       loadDatabaseDeals(true);
       if (typeof setActiveNavLink === 'function') {
         setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
       }
+    });
+  }
+
+  if (tabSteals) {
+    tabSteals.addEventListener('click', () => {
+      activeFilterTab = 'steals';
+      tabSteals.classList.add('active');
+      if (tabAllDeals) tabAllDeals.classList.remove('active');
+      if (tabTopBrands) tabTopBrands.classList.remove('active');
+      if (tabJustListed) tabJustListed.classList.remove('active');
+      if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (tabPriceErrors) tabPriceErrors.classList.remove('active');
+      if (tabOzBargain) tabOzBargain.classList.remove('active');
+      if (timeFilterRow) timeFilterRow.style.display = 'none';
+
+      loadDatabaseDeals(true);
+      if (typeof setActiveNavLink === 'function') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
+    });
+  }
+
+  if (tabOzBargain) {
+    tabOzBargain.addEventListener('click', () => {
+      activeFilterTab = 'ozbargain';
+      tabOzBargain.classList.add('active');
+      if (tabAllDeals) tabAllDeals.classList.remove('active');
+      if (tabTopBrands) tabTopBrands.classList.remove('active');
+      if (tabJustListed) tabJustListed.classList.remove('active');
+      if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (tabPriceErrors) tabPriceErrors.classList.remove('active');
+      if (tabSteals) tabSteals.classList.remove('active');
+      if (timeFilterRow) timeFilterRow.style.display = 'none';
+
+      loadDatabaseDeals(true);
+      if (typeof setActiveNavLink === 'function') {
+        setActiveNavLink(storeType === 'warehouse' ? 'warehouse' : 'explore');
+      }
+    });
+  }
+
+  if (extraWarehousePromoBtn) {
+    extraWarehousePromoBtn.addEventListener('click', () => {
+      extraWarehousePromo = !extraWarehousePromo;
+      if (extraWarehousePromo) {
+        extraWarehousePromoBtn.classList.add('active', 'bg-primary-fixed/20', 'text-primary', 'border-primary/40');
+        if (extraWarehousePromoLabel) extraWarehousePromoLabel.textContent = '🎁 +20% Promo (Active)';
+        showToast('Extra 20% Warehouse checkout promo activated');
+      } else {
+        extraWarehousePromoBtn.classList.remove('active', 'bg-primary-fixed/20', 'text-primary', 'border-primary/40');
+        if (extraWarehousePromoLabel) extraWarehousePromoLabel.textContent = '🎁 +20% Promo';
+        showToast('Extra 20% Warehouse promo deactivated');
+      }
+      renderDeals(deals, dbTotalMatches);
     });
   }
 
@@ -522,6 +592,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabTopBrands) tabTopBrands.classList.remove('active');
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
+      if (tabSteals) tabSteals.classList.remove('active');
+      if (tabOzBargain) tabOzBargain.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
 
       // Ensure both stores are queried for price errors so all 200+ glitch steals are loaded
@@ -546,6 +618,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabTopBrands) tabTopBrands.classList.remove('active');
       if (tabSnipedDeals) tabSnipedDeals.classList.remove('active');
       if (tabPriceErrors) tabPriceErrors.classList.remove('active');
+      if (tabSteals) tabSteals.classList.remove('active');
+      if (tabOzBargain) tabOzBargain.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'flex';
 
       // Smart selection: if the currently selected window has 0 deals, auto-select a window that has deals
@@ -585,6 +659,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tabTopBrands) tabTopBrands.classList.remove('active');
       if (tabJustListed) tabJustListed.classList.remove('active');
       if (tabPriceErrors) tabPriceErrors.classList.remove('active');
+      if (tabSteals) tabSteals.classList.remove('active');
+      if (tabOzBargain) tabOzBargain.classList.remove('active');
       if (timeFilterRow) timeFilterRow.style.display = 'none';
       if (typeof setActiveNavLink === 'function') {
         setActiveNavLink('watchlist');
@@ -867,6 +943,107 @@ document.addEventListener('DOMContentLoaded', () => {
   if (watchlistModal) {
     watchlistModal.addEventListener('click', (e) => {
       if (e.target === watchlistModal) closeWatchlistModal();
+    });
+  }
+
+  // ================= GLOBAL ARBITRAGE MODAL LOGIC =================
+  async function openGlobalArbitrageModal(asin) {
+    if (!asin || !globalArbitrageModal || !arbitrageModalContent) return;
+    arbitrageModalContent.innerHTML = `
+      <div class="flex items-center justify-center py-8">
+        <span class="material-symbols-outlined text-primary text-[28px] animate-spin">progress_activity</span>
+      </div>
+    `;
+    globalArbitrageModal.style.display = 'flex';
+
+    try {
+      const res = await fetch(`/api/arbitrage/${encodeURIComponent(asin)}`);
+      if (!res.ok) throw new Error('Arbitrage data not found');
+      const data = await res.json();
+      const d = data.deal;
+      const links = data.links || {};
+
+      arbitrageModalContent.innerHTML = `
+        <div class="flex gap-4 items-start pb-3 border-b border-outline-variant/20">
+          <img src="${(d && d.image) || 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg'}" alt="" class="w-16 h-16 object-contain bg-surface-container-low p-1 rounded-lg">
+          <div class="flex-1">
+            <h4 class="font-bold text-on-surface line-clamp-2">${escapeHtml(d ? d.title : `ASIN: ${asin}`)}</h4>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="font-bold text-primary font-mono">${d ? d.price : 'ASIN ' + asin}</span>
+              ${d && d.originalPrice ? `<span class="text-xs text-outline line-through font-mono">${d.originalPrice}</span>` : ''}
+              ${d && d.discountPercent ? `<span class="text-[10px] bg-primary/10 text-primary font-bold px-1.5 py-0.5 rounded">${d.discountPercent} OFF</span>` : ''}
+            </div>
+            ${data.promoExtra20 ? `
+              <div class="text-[11px] text-amber-700 dark:text-amber-400 font-bold mt-1">
+                🎁 +20% Extra Off at Checkout: $${data.promoExtra20} AUD
+              </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-1">
+          <div class="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Direct Fast Buy</div>
+          <a href="${links.instantCartAu}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-between p-2.5 rounded-lg bg-primary text-on-primary font-bold hover:bg-primary-container transition-colors shadow-xs" style="text-decoration: none;">
+            <span class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span>
+              <span>1-Click Fast Add to Cart (Amazon AU)</span>
+            </span>
+            <span class="text-[11px] opacity-80">Instant Bypass →</span>
+          </a>
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <div class="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Multi-Store Global Market Arbitrage</div>
+          <div class="grid grid-cols-2 gap-2">
+            <a href="${links.au}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between p-2 rounded-lg border border-outline-variant/30 hover:bg-surface-container-low text-on-surface font-semibold text-xs" style="text-decoration: none;">
+              <span class="flex items-center gap-1.5">🇦🇺 Amazon AU</span>
+              <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+            </a>
+            <a href="${links.us}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between p-2 rounded-lg border border-outline-variant/30 hover:bg-surface-container-low text-on-surface font-semibold text-xs" style="text-decoration: none;">
+              <span class="flex items-center gap-1.5">🇺🇸 Amazon US</span>
+              <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+            </a>
+            <a href="${links.jp}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between p-2 rounded-lg border border-outline-variant/30 hover:bg-surface-container-low text-on-surface font-semibold text-xs" style="text-decoration: none;">
+              <span class="flex items-center gap-1.5">🇯🇵 Amazon JP</span>
+              <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+            </a>
+            <a href="${links.uk}" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between p-2 rounded-lg border border-outline-variant/30 hover:bg-surface-container-low text-on-surface font-semibold text-xs" style="text-decoration: none;">
+              <span class="flex items-center gap-1.5">🇬🇧 Amazon UK</span>
+              <span class="material-symbols-outlined text-[14px]">open_in_new</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="space-y-2 pt-2">
+          <div class="font-bold text-on-surface-variant text-[11px] uppercase tracking-wider">Price History & Analytics</div>
+          <a href="${links.keepa}" target="_blank" rel="noopener noreferrer" class="w-full flex items-center justify-between p-2 rounded-lg border border-outline-variant/30 hover:bg-surface-container-low text-on-surface font-semibold text-xs" style="text-decoration: none;">
+            <span class="flex items-center gap-1.5 text-primary">
+              <span class="material-symbols-outlined text-[16px]">query_stats</span>
+              <span>Keepa Global Price Tracking Chart</span>
+            </span>
+            <span class="text-xs text-outline">Historical Lows →</span>
+          </a>
+        </div>
+      `;
+    } catch (err) {
+      arbitrageModalContent.innerHTML = `
+        <div class="text-center py-6 text-error">
+          <p class="font-bold">Could not load arbitrage details for ASIN ${escapeHtml(asin)}</p>
+          <p class="text-xs text-outline mt-1">${escapeHtml(err.message)}</p>
+        </div>
+      `;
+    }
+  }
+
+  function closeGlobalArbitrageModal() {
+    if (globalArbitrageModal) globalArbitrageModal.style.display = 'none';
+  }
+
+  if (closeArbitrageModalBtn) closeArbitrageModalBtn.addEventListener('click', closeGlobalArbitrageModal);
+  if (closeArbitrageModalBackdrop) closeArbitrageModalBackdrop.addEventListener('click', closeGlobalArbitrageModal);
+  if (globalArbitrageModal) {
+    globalArbitrageModal.addEventListener('click', (e) => {
+      if (e.target === globalArbitrageModal) closeGlobalArbitrageModal();
     });
   }
 
@@ -2000,13 +2177,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count24h) count24h.textContent = stats.last24h || 0;
       if (countPriceErrors) countPriceErrors.textContent = stats.priceErrors !== undefined ? stats.priceErrors : 0;
       if (countTopBrands) countTopBrands.textContent = stats.topBrands !== undefined ? stats.topBrands.toLocaleString() : 0;
+      if (countSteals) countSteals.textContent = stats.steals !== undefined ? stats.steals.toLocaleString() : 0;
+      if (countOzBargain) countOzBargain.textContent = stats.ozBargain !== undefined ? stats.ozBargain.toLocaleString() : 0;
       if (countJustListed) countJustListed.textContent = stats.last24h || stats.last6h || 0;
       if (countAllDeals) countAllDeals.textContent = (stats.totalInDb ? (storeType === 'warehouse' ? stats.warehouseDeals : (storeType === 'normal' ? stats.normalDeals : stats.totalInDb)).toLocaleString() : (totalMatches ? totalMatches.toLocaleString() : items.length.toLocaleString()));
     } else {
-      let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0, cPriceErrors = 0, cTopBrands = 0;
+      let c1h = 0, c2h = 0, c6h = 0, c12h = 0, c24h = 0, cPriceErrors = 0, cTopBrands = 0, cSteals = 0, cOzBargain = 0;
       for (const d of items) {
         if (d.isBrandDeal || d.brand) cTopBrands++;
+        if (d.isOzBargain) cOzBargain++;
         const disc = parseInt(d.discountPercent, 10) || 0;
+        const np = d.numericPrice || 0;
+        const orig = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+        const sav = orig > np ? (orig - np) : 0;
+        const bScore = d.bargainScore || 0;
+        if (bScore >= 60 || disc >= 50 || sav >= 50) cSteals++;
         if (disc >= 80 || d.isPriceError) cPriceErrors++;
         const ts = Math.max(d.firstSeenAt || 0, d.priceDropAt || 0) || dealHistory[d.asin] || 0;
         if (!ts) {
@@ -2027,6 +2212,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (count24h) count24h.textContent = c24h;
       if (countPriceErrors) countPriceErrors.textContent = cPriceErrors;
       if (countTopBrands) countTopBrands.textContent = cTopBrands.toLocaleString();
+      if (countSteals) countSteals.textContent = cSteals.toLocaleString();
+      if (countOzBargain) countOzBargain.textContent = cOzBargain.toLocaleString();
       if (countJustListed) countJustListed.textContent = c24h;
       if (countAllDeals) countAllDeals.textContent = items.length.toLocaleString();
     }
@@ -2061,6 +2248,17 @@ document.addEventListener('DOMContentLoaded', () => {
       displayedItems = items;
     } else if (activeFilterTab === 'top_brands') {
       displayedItems = items.filter(d => d.isBrandDeal || d.brand);
+    } else if (activeFilterTab === 'steals') {
+      displayedItems = items.filter(d => {
+        const bScore = d.bargainScore || 0;
+        const disc = parseInt(d.discountPercent, 10) || 0;
+        const np = d.numericPrice || 0;
+        const orig = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+        const sav = orig > np ? (orig - np) : 0;
+        return bScore >= 60 || disc >= 50 || sav >= 50;
+      });
+    } else if (activeFilterTab === 'ozbargain') {
+      displayedItems = items.filter(d => d.isOzBargain);
     }
 
     // Strict domain isolation: only show items matching the active domain
@@ -2081,6 +2279,12 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (activeFilterTab === 'top_brands') {
       resultsCount.textContent = `${displayedItems.length.toLocaleString()} Premier Brand Deals (Apple, Sony, Bose, etc.)`;
       filterSummaryBadge.textContent = `Premier Brand Deals • ${storeLabel}`;
+    } else if (activeFilterTab === 'steals') {
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Steals of the Day (50%+ Off / $50+ Savings / High Heat)`;
+      filterSummaryBadge.textContent = `🔥 Steals of the Day • High Bargain Heat`;
+    } else if (activeFilterTab === 'ozbargain') {
+      resultsCount.textContent = `${displayedItems.length.toLocaleString()} Community Hot Deals from OzBargain`;
+      filterSummaryBadge.textContent = `🇦🇺 OzBargain Amazon Deals • Community Vetted`;
     } else {
       const matchTotal = totalMatches || dbTotalMatches || items.length;
       let countExtraHtml = '';
@@ -2141,6 +2345,40 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
       document.getElementById('exitBrandsEmptyBtn')?.addEventListener('click', () => {
+        tabAllDeals?.click();
+      });
+      return;
+    }
+
+    if (displayedItems.length === 0 && activeFilterTab === 'steals') {
+      dealsGrid.innerHTML = `
+        <div class="empty-state card" style="grid-column: 1 / -1;">
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-amber-500">bolt</span></div>
+          <h3>No Steals of the Day Found For Current Filter</h3>
+          <p>Steals are top-tier bargains with 50%+ discounts, $50+ savings, or high Bargain Heat ratings. Try clearing search keywords or department filters.</p>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="exitStealsEmptyBtn" style="background: linear-gradient(135deg, #f59e0b, #d97706); border: none;">Show All Deals (${items.length})</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('exitStealsEmptyBtn')?.addEventListener('click', () => {
+        tabAllDeals?.click();
+      });
+      return;
+    }
+
+    if (displayedItems.length === 0 && activeFilterTab === 'ozbargain') {
+      dealsGrid.innerHTML = `
+        <div class="empty-state card" style="grid-column: 1 / -1;">
+          <div class="empty-icon"><span class="material-symbols-outlined text-[48px] text-green-600">forum</span></div>
+          <h3>No OzBargain Deals Ingested For Current Filter</h3>
+          <p>Community hot deals from OzBargain are synced every 30 minutes. Click below to view all current warehouse deals or trigger a manual sync.</p>
+          <div style="display: flex; gap: 10px; justify-content: center; margin-top: 1rem; flex-wrap: wrap;">
+            <button class="btn btn-primary" id="exitOzbEmptyBtn" style="background: linear-gradient(135deg, #16a34a, #15803d); border: none;">Show All Deals (${items.length})</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('exitOzbEmptyBtn')?.addEventListener('click', () => {
         tabAllDeals?.click();
       });
       return;
@@ -2256,6 +2494,32 @@ document.addEventListener('DOMContentLoaded', () => {
           </button>
         </div>
       `;
+    } else if (activeFilterTab === 'steals') {
+      contextBannerHtml = `
+        <div class="steals-context-banner" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.4); padding: 12px 18px; border-radius: 8px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: #fde68a;">
+            <span class="material-symbols-outlined text-[20px] text-amber-400">bolt</span>
+            <span style="font-size: 0.95rem;">Currently viewing <strong>🔥 Steals of the Day</strong> (${displayedItems.length} high-heat bargains with 50%+ off or $50+ savings).</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1.5" id="exitStealsBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;">
+            <span class="material-symbols-outlined text-[15px]">inventory_2</span>
+            <span>View All Deals (${items.length || deals.length})</span>
+          </button>
+        </div>
+      `;
+    } else if (activeFilterTab === 'ozbargain') {
+      contextBannerHtml = `
+        <div class="ozb-context-banner" style="grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: rgba(22, 163, 74, 0.12); border: 1px solid rgba(34, 197, 94, 0.4); padding: 12px 18px; border-radius: 8px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; align-items: center; gap: 8px; color: #bbf7d0;">
+            <span class="material-symbols-outlined text-[20px] text-green-400">forum</span>
+            <span style="font-size: 0.95rem;">Currently viewing <strong>🇦🇺 OzBargain Community Hot Deals</strong> (${displayedItems.length} community-vetted Amazon bargains).</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary inline-flex items-center gap-1.5" id="exitOzbBannerBtn" style="font-weight: 700; padding: 6px 14px; font-size: 0.82rem; background: linear-gradient(135deg, #16a34a, #15803d); border: none;">
+            <span class="material-symbols-outlined text-[15px]">inventory_2</span>
+            <span>View All Deals (${items.length || deals.length})</span>
+          </button>
+        </div>
+      `;
     }
 
     dealsGrid.innerHTML = contextBannerHtml + displayedItems.map(item => {
@@ -2355,6 +2619,16 @@ document.addEventListener('DOMContentLoaded', () => {
               ` : '')}
               
               ${isGlitch ? `<span class="badge-glitch-error bg-error text-on-error text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">bolt</span> ${escapeHtml(item.glitchBadge || (discNum >= 70 ? `${discNum}% GLITCH` : 'PRICE ERROR'))}</span>` : ''}
+              ${(item.bargainScore && item.bargainScore >= 60) ? `
+                <span class="badge-heat-score bg-amber-500 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1">
+                  <span class="material-symbols-outlined text-[12px]">local_fire_department</span> ${item.bargainScore} HEAT
+                </span>
+              ` : ''}
+              ${item.isOzBargain ? `
+                <a href="${escapeHtml(item.ozbLink || itemUrl)}" target="_blank" rel="noopener noreferrer" class="badge-ozb bg-green-700 hover:bg-green-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1" title="View discussion on OzBargain">
+                  <span class="material-symbols-outlined text-[12px]">forum</span> OZBARGAIN HOT
+                </a>
+              ` : ''}
               ${item.isJustListed ? '<span class="just-listed-badge bg-primary-fixed text-on-primary-fixed text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1"><span class="material-symbols-outlined text-[12px]">schedule</span> JUST LISTED</span>' : ''}
               ${item.snipedFromTarget ? `
                 <span class="sniper-match-badge clickable-sniper-badge bg-purple-900/60 hover:bg-purple-800/80 text-purple-200 border border-purple-500/40 text-[10px] font-extrabold px-2 py-0.5 rounded-md shadow-xs flex items-center gap-1 cursor-pointer transition-all duration-150" data-target="${escapeHtml(item.snipedFromTarget)}" title="Click to filter by '${escapeHtml(item.snipedFromTarget)}' sniped deals">
@@ -2402,6 +2676,12 @@ document.addEventListener('DOMContentLoaded', () => {
                   <span class="text-xs font-semibold text-outline">${activeCurrency}</span>
                 `}
               </div>
+              ${(extraWarehousePromo && priceObj.numVal && isWarehouse) ? `
+                <div class="bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-400 rounded-lg px-2.5 py-1 text-xs font-bold mb-2 flex items-center justify-between">
+                  <span>🎁 +20% at Checkout: $${(priceObj.numVal * 0.8).toFixed(2)} ${activeCurrency}</span>
+                  <span class="text-[10px] font-normal uppercase">Promo Applied</span>
+                </div>
+              ` : ''}
               <!-- Green Savings Banner -->
               <div class="bg-primary-container/10 border border-primary/20 text-primary rounded-lg px-2.5 py-1 text-xs font-bold mb-3 flex items-center justify-between">
                 <span class="price-save-tag">${savingsFormatted ? `You Save ${savingsFormatted}` : (discNum > 0 ? `${discNum}% Below Retail` : 'Clearance Price')}</span>
@@ -2412,13 +2692,19 @@ document.addEventListener('DOMContentLoaded', () => {
               </p>
             </div>
             <!-- Actions -->
-            <div class="pt-3 border-t border-outline-variant/20 flex items-center gap-2">
-              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-deal-cta flex-1 bg-primary hover:bg-primary-container text-on-primary py-2.5 px-4 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm" style="text-decoration: none;">
-                <span>View Deal on Amazon</span>
-                <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+            <div class="pt-3 border-t border-outline-variant/20 flex items-center gap-1.5 flex-wrap">
+              <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-deal-cta flex-1 bg-primary hover:bg-primary-container text-on-primary py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm" style="text-decoration: none;">
+                <span>View Deal</span>
+                <span class="material-symbols-outlined text-[15px]">open_in_new</span>
               </a>
-              <button type="button" class="btn-card-chart-icon btn-inspect-chart p-2.5 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low text-primary transition-colors cursor-pointer" data-asin="${item.asin}" title="Open Keepa Price History Chart">
-                <span class="material-symbols-outlined text-[18px]">query_stats</span>
+              <a href="https://${cleanDom}/gp/aws/cart/add.html?ASIN.1=${item.asin}&Quantity.1=1" target="_blank" rel="noopener noreferrer" class="btn-instant-cart p-2 rounded-lg bg-secondary/15 hover:bg-secondary/25 text-secondary border border-secondary/30 transition-colors cursor-pointer flex items-center justify-center" title="1-Click Fast Add to Cart (Bypass slow page load)">
+                <span class="material-symbols-outlined text-[17px]">add_shopping_cart</span>
+              </a>
+              <button type="button" class="btn-global-compare p-2 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low text-primary transition-colors cursor-pointer flex items-center justify-center" data-asin="${item.asin}" title="Global Price Arbitrage (AU / US / JP / UK / Keepa)">
+                <span class="material-symbols-outlined text-[17px]">public</span>
+              </button>
+              <button type="button" class="btn-card-chart-icon btn-inspect-chart p-2 rounded-lg border border-outline-variant/40 hover:bg-surface-container-low text-primary transition-colors cursor-pointer flex items-center justify-center" data-asin="${item.asin}" title="Open Keepa Price History Chart">
+                <span class="material-symbols-outlined text-[17px]">query_stats</span>
               </button>
               ${activeFilterTab === 'sniped' ? `
                 <button type="button" class="btn-sm remove-sniped-btn p-2 rounded-lg border border-error/30 text-error hover:bg-error-container/20 text-xs font-bold cursor-pointer inline-flex items-center justify-center" data-asin="${item.asin}" title="Dismiss deal from sniped matches">
@@ -2431,10 +2717,25 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }).join('');
 
-    // Attach exit sniper banner listener
+    // Attach exit banner listeners
     document.getElementById('exitSniperBannerBtn')?.addEventListener('click', () => {
       activeSniperFilter = 'all';
       tabAllDeals?.click();
+    });
+    document.getElementById('exitStealsBannerBtn')?.addEventListener('click', () => {
+      tabAllDeals?.click();
+    });
+    document.getElementById('exitOzbBannerBtn')?.addEventListener('click', () => {
+      tabAllDeals?.click();
+    });
+
+    // Attach global compare button listeners
+    document.querySelectorAll('.btn-global-compare').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const asin = e.currentTarget.getAttribute('data-asin');
+        if (asin) openGlobalArbitrageModal(asin);
+      });
     });
 
     // Attach open watchlist banner listener
@@ -2857,6 +3158,10 @@ document.addEventListener('DOMContentLoaded', () => {
         queryParams.set('minDiscount', '0');
       } else if (activeFilterTab === 'top_brands') {
         queryParams.set('brandsOnly', 'true');
+      } else if (activeFilterTab === 'steals') {
+        queryParams.set('stealsOnly', 'true');
+      } else if (activeFilterTab === 'ozbargain') {
+        queryParams.set('ozBargainOnly', 'true');
       }
 
       if (hideAccessories) {
@@ -2916,6 +3221,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (count24h) count24h.textContent = data.stats.last24h || 0;
             if (countPriceErrors) countPriceErrors.textContent = data.stats.priceErrors !== undefined ? data.stats.priceErrors : 0;
             if (countTopBrands) countTopBrands.textContent = (data.stats.topBrands || 0).toLocaleString();
+            if (countSteals) countSteals.textContent = (data.stats.steals || 0).toLocaleString();
+            if (countOzBargain) countOzBargain.textContent = (data.stats.ozBargain || 0).toLocaleString();
             if (countJustListed) countJustListed.textContent = data.stats.last24h || data.stats.last6h || 0;
             if (countAllDeals) countAllDeals.textContent = (storeType === 'warehouse' ? data.stats.warehouseDeals : (storeType === 'normal' ? data.stats.normalDeals : data.stats.totalInDb)) || 0;
           }

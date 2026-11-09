@@ -332,6 +332,56 @@ async function runBackendTests() {
     assert(false, 'Domain isolation test suite failed', err.message);
   }
 
+  // ============================================================
+  // SUITE 14: Deep Bargain Engine, OzBargain Live Feed, Heat Score & Global Arbitrage
+  // ============================================================
+  console.log('\n============================================================');
+  console.log('🧪 SUITE 14: Deep Bargain Engine, OzBargain Feed & Arbitrage');
+  console.log('============================================================');
+  try {
+    // 1. Ingest OzBargain community deals
+    const ozbSync = await postJson('/api/ozbargain/sync', {});
+    assert(ozbSync && ozbSync.success === true, 'POST /api/ozbargain/sync successfully ingests community deals', `Count: ${ozbSync.count}`);
+
+    // 2. Query ozBargainOnly deals
+    const ozbDeals = await getJson('/api/db/deals?ozBargainOnly=true&limit=20');
+    assert(ozbDeals && Array.isArray(ozbDeals.products) && ozbDeals.products.length > 0, 'GET /api/db/deals?ozBargainOnly=true returns ingested community deals', `Total: ${ozbDeals.total}`);
+    const allAreOzb = ozbDeals.products.every(d => d.isOzBargain === true);
+    assert(allAreOzb, 'All deals in ozBargainOnly filter have isOzBargain === true', '100% verified community flagged');
+
+    // 3. Query stealsOnly deals (50%+ off, $50+ savings, or high heat score)
+    const stealsDeals = await getJson('/api/db/deals?stealsOnly=true&limit=20');
+    assert(stealsDeals && stealsDeals.products && stealsDeals.products.length > 0, 'GET /api/db/deals?stealsOnly=true returns curated top-tier steals', `Total: ${stealsDeals.total}`);
+    const validSteals = stealsDeals.products.every(d => {
+      const disc = parseInt(d.discountPercent, 10) || 0;
+      const np = d.numericPrice || 0;
+      const orig = parseFloat(String(d.originalPrice || '').replace(/[^0-9.]/g, '')) || 0;
+      const sav = orig > np ? (orig - np) : 0;
+      return (d.bargainScore && d.bargainScore >= 60) || disc >= 50 || sav >= 50;
+    });
+    assert(validSteals, 'All items in stealsOnly filter meet 50%+ off, $50+ savings, or >=60 Heat Score criteria', 'Steals criteria strictly validated');
+
+    // 4. Test Bargain Score descending sorting
+    const scoreSorted = await getJson('/api/db/deals?sort=bargain-score-desc&limit=10');
+    assert(scoreSorted && scoreSorted.products && scoreSorted.products.length >= 2, 'GET /api/db/deals?sort=bargain-score-desc returns sorted deals');
+    let isScoreDesc = true;
+    for (let i = 0; i < scoreSorted.products.length - 1; i++) {
+      const s1 = scoreSorted.products[i].bargainScore || 0;
+      const s2 = scoreSorted.products[i+1].bargainScore || 0;
+      if (s1 < s2) { isScoreDesc = false; break; }
+    }
+    assert(isScoreDesc, 'Deals are sorted strictly by Bargain Heat Score descending', `Top score: ${scoreSorted.products[0]?.bargainScore}`);
+
+    // 5. Test Global Arbitrage Endpoint
+    const testAsin = scoreSorted.products[0]?.asin || 'B07NP2M31K';
+    const arbData = await getJson(`/api/arbitrage/${testAsin}`);
+    assert(arbData && arbData.asin === testAsin, `GET /api/arbitrage/${testAsin} returns valid product arbitrage structure`);
+    assert(arbData.links && arbData.links.au && arbData.links.us && arbData.links.jp && arbData.links.uk && arbData.links.keepa && arbData.links.instantCartAu, 'Global Arbitrage returns direct cross-store links for AU, US, JP, UK, Keepa, and 1-Click Fast Cart');
+    assert(arbData.links.instantCartAu.includes(`/gp/aws/cart/add.html?ASIN.1=${testAsin}&Quantity.1=1`), '1-Click Instant Add to Cart URL format correctly formed');
+  } catch (err) {
+    assert(false, 'Bargain engine & arbitrage test suite failed', err.message);
+  }
+
   console.log('\n============================================================');
   console.log(`📊 BACKEND TEST SUITE SUMMARY: ${passed} PASSED, ${failed} FAILED`);
   console.log('============================================================\n');
