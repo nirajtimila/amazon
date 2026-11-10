@@ -2073,71 +2073,132 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${symbol}${num.toLocaleString('en-US', { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
   }
 
+  // Handcrafted verified genuine image mappings for specific high-profile items
+  const VERIFIED_REAL_IMAGES = {
+    'B0CHR9TKR4': 'https://m.media-amazon.com/images/I/71dkl0fe7JL._AC_SX450_.jpg',
+    'B0CHRB2QCB': 'https://m.media-amazon.com/images/I/71dkl0fe7JL._AC_SX450_.jpg',
+    'B0CHRBBZ17': 'https://m.media-amazon.com/images/I/71dkl0fe7JL._AC_SX450_.jpg'
+  };
+
+  // Known corrupted fallback codes from older crawl sweeps (prevents wrong book/cable images)
+  const BAD_FALLBACK_CODES = [
+    '813qvpy7heL', '91Ong1MaumL', '61dwYXNSjSL', '81Id+1n68+L', '61WsUtQlrpL', 
+    '811-bFJOKzL', '6193xAFCvgL', '91oJ7JPoYBL', '61VqKW18HhL', '71p7gtR+ZcL', 
+    '71+DcQbslrL', '61MwrycbQ6L', '81xMZaR2DvL', '91I3-1ArOeL', '71QZ7ubySZL', 
+    '71EQF0lSRuL', '91LTr5PZtgL', '81yU7zUzXuL', '711d8pl1y-L'
+  ];
+
+  function isBadFallbackImage(imgUrl, category = '') {
+    if (!imgUrl) return true;
+    const cat = String(category || '').toLowerCase();
+    const isBookCat = cat.includes('stripbooks') || cat.includes('book');
+    for (const code of BAD_FALLBACK_CODES) {
+      if (imgUrl.includes(code)) {
+        if (code === '813qvpy7heL' && isBookCat) return false;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Modern, self-contained category SVG placeholder (zero network overhead, never displays wrong product photos)
+  function getCategorySvgPlaceholder(category = '', title = '') {
+    const cat = String(category || '').toLowerCase();
+    const t = String(title || '').toLowerCase();
+
+    let label = 'Amazon Deal';
+    let iconPath = '<path fill="#64748b" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zm-7-2c2.21 0 4-1.79 4-4h-2c0 1.1-.9 2-2 2s-2-.9-2-2H8c0 2.21 1.79 4 4 4z"/>';
+
+    if (cat.includes('stripbooks') || cat.includes('book') || t.includes('book') || t.includes('novel')) {
+      label = 'Books & Reading';
+      iconPath = '<path fill="#64748b" d="M19 2H6c-1.2 0-2 .8-2 2v16c0 1.2.8 2 2 2h13a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1zm-1 18H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h12v16zm-2-14H8v2h8V6zm0 4H8v2h8v-2z"/>';
+    } else if (cat.includes('pc') || t.includes('laptop') || t.includes('computer')) {
+      label = 'Computers & Tech';
+      iconPath = '<path fill="#64748b" d="M20 18c1.1 0 1.99-.9 1.99-2L22 5c0-1.1-.9-2-2-2H4c-1.1 0-2 .9-2 2v11c0 1.1.9 2 2 2H0c0 1.1.9 2 2 2h20c1.1 0 2-.9 2-2h-4zM4 5h16v11H4V5z"/>';
+    } else if (cat.includes('electronics') || t.includes('audio') || t.includes('headphone') || t.includes('earbuds') || t.includes('speaker') || t.includes('soundbar')) {
+      label = 'Electronics & Audio';
+      iconPath = '<path fill="#64748b" d="M12 3a9 9 0 0 0-9 9v7c0 1.66 1.34 3 3 3h3v-8H5v-2a7 7 0 0 1 14 0v2h-4v8h3c1.66 0 3-1.34 3-3v-7a9 9 0 0 0-9-9z"/>';
+    } else if (cat.includes('hpc') || t.includes('flosser') || t.includes('sonicare') || t.includes('oral') || t.includes('health') || t.includes('brush') || t.includes('shaver') || t.includes('vitamin')) {
+      label = 'Health & Personal Care';
+      iconPath = '<path fill="#64748b" d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/>';
+    } else if (cat.includes('beauty') || t.includes('skincare') || t.includes('cosmetic') || t.includes('perfume')) {
+      label = 'Beauty & Care';
+      iconPath = '<path fill="#64748b" d="M12 2L9.5 7.5 4 10l5.5 2.5L12 18l2.5-5.5L20 10l-5.5-2.5L12 2zm7 13l-1.25 2.75L15 19l2.75 1.25L19 23l1.25-2.75L23 19l-2.75-1.25L19 15z"/>';
+    } else if (cat.includes('kitchen') || t.includes('cook') || t.includes('pan') || t.includes('pot') || t.includes('blender') || t.includes('air fryer')) {
+      label = 'Home & Kitchen';
+      iconPath = '<path fill="#64748b" d="M18 4H6v2h12V4zm2 4H4v1c0 4.42 3.58 8 8 8s8-3.58 8-8V8zm-8 10c-1.1 0-2 .9-2 2h4c0-1.1-.9-2-2-2z"/>';
+    } else if (cat.includes('hi') || t.includes('drill') || t.includes('tool') || t.includes('wrench') || t.includes('screwdriver')) {
+      label = 'Tools & Improvement';
+      iconPath = '<path fill="#64748b" d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.6C.4 7 .9 10 2.9 12c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.3z"/>';
+    } else if (cat.includes('videogames') || cat.includes('gaming') || t.includes('ps5') || t.includes('playstation') || t.includes('nintendo') || t.includes('xbox')) {
+      label = 'Video Games';
+      iconPath = '<path fill="#64748b" d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-10 7H9v2H8v-2H6v-1h2v-2h1v2h2v1zm4.5 1.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm3-3a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>';
+    } else if (cat.includes('pets') || t.includes('pet') || t.includes('dog') || t.includes('cat') || t.includes('fountain')) {
+      label = 'Pet Supplies';
+      iconPath = '<path fill="#64748b" d="M12 10.5c1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3 1.34 3 3 3zm6.5 2c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5-2.5 1.12-2.5 2.5 1.12 2.5 2.5 2.5zM5.5 12.5c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5-2.5 1.12-2.5 2.5 1.12 2.5 2.5 2.5zm6.5 3c-2.33 0-7 1.17-7 3.5V21h14v-2c0-2.33-4.67-3.5-7-3.5z"/>';
+    } else if (cat.includes('toys') || t.includes('toy') || t.includes('lego') || t.includes('dinosaur')) {
+      label = 'Toys & Games';
+      iconPath = '<path fill="#64748b" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-8 14H6v-5h5v5zm0-7H6V5h5v5zm7 7h-5v-5h5v5zm0-7h-5V5h5v5z"/>';
+    } else if (cat.includes('luggage') || t.includes('suitcase') || t.includes('backpack') || t.includes('carry on')) {
+      label = 'Luggage & Travel';
+      iconPath = '<path fill="#64748b" d="M17 6V4c0-1.1-.9-2-2-2H9c-1.1 0-2 .9-2 2v2H2v13c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6h-5zM9 4h6v2H9V4zm11 15H4V8h16v11z"/>';
+    } else if (cat.includes('sport') || t.includes('fitness') || t.includes('exercise')) {
+      label = 'Sports & Outdoors';
+      iconPath = '<path fill="#64748b" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>';
+    }
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 240" width="100%" height="100%">
+      <rect width="100%" height="100%" fill="#f8fafc" rx="8"/>
+      <rect x="10" y="10" width="280" height="220" fill="none" stroke="#e2e8f0" stroke-width="2" stroke-dasharray="4,4" rx="8"/>
+      <g transform="translate(126, 60) scale(2)">${iconPath}</g>
+      <text x="150" y="150" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="13" font-weight="600" fill="#334155" text-anchor="middle">${label}</text>
+      <text x="150" y="172" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="11" font-weight="400" fill="#94a3b8" text-anchor="middle">Authentic Photo Updating</text>
+    </svg>`;
+
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  }
+
+  // Backward-compatible fallback mapping
   const PRODUCT_IMAGE_FALLBACKS = {
-    luggage: 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
-    suitcase: 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
-    'carry on': 'https://m.media-amazon.com/images/I/61WsUtQlrpL._AC_UL320_.jpg',
-    backpack: 'https://m.media-amazon.com/images/I/811-bFJOKzL._AC_UL320_.jpg',
-    screwdriver: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
-    drill: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
-    tool: 'https://m.media-amazon.com/images/I/6193xAFCvgL._AC_UY218_.jpg',
-    soundbar: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
-    audio: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
-    speaker: 'https://m.media-amazon.com/images/I/91oJ7JPoYBL._AC_UL320_.jpg',
-    earbuds: 'https://m.media-amazon.com/images/I/61VqKW18HhL._AC_UL320_.jpg',
-    headphones: 'https://m.media-amazon.com/images/I/61VqKW18HhL._AC_UL320_.jpg',
-    keyboard: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
-    mouse: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
-    ipad: 'https://m.media-amazon.com/images/I/71p7gtR+ZcL._AC_UL320_.jpg',
-    fountain: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
-    cat: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
-    dog: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
-    pet: 'https://m.media-amazon.com/images/I/71+DcQbslrL._AC_UL320_.jpg',
-    vitamins: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
-    capsules: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
-    health: 'https://m.media-amazon.com/images/I/61MwrycbQ6L._AC_UL320_.jpg',
-    teeth: 'https://m.media-amazon.com/images/I/81Id+1n68+L._AC_UY218_.jpg',
-    whitening: 'https://m.media-amazon.com/images/I/81Id+1n68+L._AC_UY218_.jpg',
-    toys: 'https://m.media-amazon.com/images/I/81xMZaR2DvL._AC_UL320_.jpg',
-    dinosaur: 'https://m.media-amazon.com/images/I/81xMZaR2DvL._AC_UL320_.jpg',
-    vacuum: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
-    car: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
-    fanttik: 'https://m.media-amazon.com/images/I/91I3-1ArOeL._AC_UY218_.jpg',
-    gaming: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
-    videogames: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
-    nintendo: 'https://m.media-amazon.com/images/I/71QZ7ubySZL._AC_UL320_.jpg',
-    beauty: 'https://m.media-amazon.com/images/I/71EQF0lSRuL._AC_UL320_.jpg',
-    sport: 'https://m.media-amazon.com/images/I/91LTr5PZtgL._AC_UL320_.jpg',
-    kitchen: 'https://m.media-amazon.com/images/I/81yU7zUzXuL._AC_UL320_.jpg',
-    cook: 'https://m.media-amazon.com/images/I/81yU7zUzXuL._AC_UL320_.jpg',
-    pc: 'https://m.media-amazon.com/images/I/711d8pl1y-L._AC_UL320_.jpg',
-    laptop: 'https://m.media-amazon.com/images/I/711d8pl1y-L._AC_UL320_.jpg',
-    electronics: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg',
-    power: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg',
-    books: 'https://m.media-amazon.com/images/I/813qvpy7heL._AC_UY218_.jpg',
-    stripbooks: 'https://m.media-amazon.com/images/I/813qvpy7heL._AC_UY218_.jpg',
-    default: 'https://m.media-amazon.com/images/I/91Ong1MaumL._AC_UL320_.jpg'
+    default: getCategorySvgPlaceholder()
   };
 
   function getProductImage(item) {
-    if (item && item.image && item.image.trim() !== '' && !item.image.includes('placeholder')) {
-      return item.image;
+    if (!item) return getCategorySvgPlaceholder();
+    const asin = item.asin || '';
+    if (VERIFIED_REAL_IMAGES[asin]) {
+      return VERIFIED_REAL_IMAGES[asin];
     }
-    const title = (item && item.title ? item.title : '').toLowerCase();
-    const cat = (item && item.category ? item.category : '').toLowerCase();
-    for (const [k, url] of Object.entries(PRODUCT_IMAGE_FALLBACKS)) {
-      if (title.includes(k) || cat.includes(k)) return url;
+    const rawImg = item.image || '';
+    if (rawImg && rawImg.trim() !== '' && !rawImg.includes('placeholder') && !rawImg.startsWith('data:image/gif') && !isBadFallbackImage(rawImg, item.category)) {
+      return rawImg;
     }
-    return PRODUCT_IMAGE_FALLBACKS.default;
+    if (asin && asin.length >= 8) {
+      return `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCRM_.jpg`;
+    }
+    return getCategorySvgPlaceholder(item.category, item.title);
   }
 
-  window.handleProductImgError = function(imgEl, cat, title) {
+  window.handleProductImgError = function(imgEl, cat, title, asin) {
     if (!imgEl) return;
-    imgEl.onerror = function() {
-      this.onerror = null;
-      this.src = PRODUCT_IMAGE_FALLBACKS.default;
-    };
-    imgEl.src = getProductImage({ title: title || '', category: cat || '' });
+    const currentSrc = imgEl.src || '';
+    // If it was already an ASIN direct image or an SVG data URI that failed, fallback immediately to SVG
+    if (currentSrc.includes('images-na.ssl-images-amazon.com') || currentSrc.startsWith('data:image/svg')) {
+      imgEl.onerror = null;
+      imgEl.src = getCategorySvgPlaceholder(cat, title);
+      return;
+    }
+    // If we have an asin that hasn't been tried yet, try the direct ASIN CDN image
+    if (asin && asin.length >= 8 && !currentSrc.includes(asin)) {
+      imgEl.onerror = function() {
+        this.onerror = null;
+        this.src = getCategorySvgPlaceholder(cat, title);
+      };
+      imgEl.src = `https://images-na.ssl-images-amazon.com/images/P/${asin}.01._SCRM_.jpg`;
+      return;
+    }
+    imgEl.onerror = null;
+    imgEl.src = getCategorySvgPlaceholder(cat, title);
   };
 
   // Render Deals
@@ -2600,7 +2661,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <!-- Thumbnail & floating badges -->
           <div class="card-img-wrap relative bg-surface-container-low p-6 flex items-center justify-center aspect-[4/3] overflow-hidden">
             <a href="${itemUrl}" target="_blank" rel="noopener noreferrer" class="w-full h-full flex items-center justify-center">
-              <img class="max-h-48 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" src="${cleanImg}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="handleProductImgError(this, '${escapeHtml(item.category || '')}', '${escapeHtml(item.title || '')}')">
+              <img class="max-h-48 object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-300" src="${cleanImg}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="handleProductImgError(this, '${escapeHtml(item.category || '')}', '${escapeHtml(item.title || '')}', '${escapeHtml(item.asin || '')}')">
             </a>
             <!-- Discount pill badge -->
             <div class="absolute top-3 left-3 flex flex-col gap-1 z-10 items-start">
@@ -2879,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       return `
         <div class="saved-item-card">
-          <img src="${getProductImage(d)}" alt="" onerror="handleProductImgError(this, '${escapeHtml(d.category || '')}', '${escapeHtml(d.title || '')}')">
+          <img src="${getProductImage(d)}" alt="" onerror="handleProductImgError(this, '${escapeHtml(d.category || '')}', '${escapeHtml(d.title || '')}', '${escapeHtml(d.asin || '')}')">
           <div class="saved-item-info">
             <a href="${dUrl}" target="_blank" rel="noopener noreferrer" class="saved-item-title" style="text-decoration:none;color:inherit;display:block;">${escapeHtml(d.title)}</a>
             <div class="saved-item-price">${priceObj.display} ${priceObj.currencyCode || activeCurrency}</div>
